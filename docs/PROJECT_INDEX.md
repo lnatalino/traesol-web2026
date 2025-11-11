@@ -1,4 +1,4 @@
-# Traesol Web 2026 — Índice de Proyecto (v0.2)
+# Traesol Web 2026 — Índice de Proyecto (v0.4)
 
 > Este índice se actualiza en cada sprint. **No incluir `.env.local`** (está en .gitignore).
 
@@ -20,14 +20,27 @@
     - `globals.css`
     - `layout.tsx`
     - `page.tsx` ← Home conectada a Supabase (carrusel, CTAs, operativos, métricas)
+    - `operativos/`
+      - `[slug]/`
+        - `page.tsx` ← Detalle operativo (dynamic metadata + force-dynamic)
+        - `loading.tsx`
+        - `not-found.tsx`
+    - `postular/`
+      - `page.tsx` ← Página de postulación (lee `?operativo=slug`)
   - `components/`
-    - `Carousel.tsx` ← **fallback de imagen + `unoptimized` (Codespaces)**
+    - `Carousel.tsx` ← fallback + `unoptimized`
     - `CTAButtons.tsx`
     - `MetricBlocks.tsx`
-    - `OperativosCarousel.tsx` ← **fallback de imagen + `unoptimized`**
+    - `OperativosCarousel.tsx` ← fallback + `unoptimized`
+    - `forms/`
+      - `PostulacionVoluntarioForm.tsx` ← formulario cliente con RPC
   - `lib/`
     - `supabase.ts` ← cliente navegador (anon)
-    - `supabaseServer.ts` ← **cliente server simple con `@supabase/supabase-js` (sin cookies) para lecturas públicas**
+    - `supabaseServer.ts` ← cliente server simple (`@supabase/supabase-js`) para lecturas públicas
+
+## Backend (Supabase)
+- RPC: `public.api_postular_voluntario(...)` (SECURITY DEFINER, upsert voluntario + inscripción opcional)
+- Permisos: `GRANT EXECUTE ... TO anon`
 
 ## Configuración local (no versionada)
 - `.env.local`
