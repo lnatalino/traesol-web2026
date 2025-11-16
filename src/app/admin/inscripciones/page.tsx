@@ -226,26 +226,25 @@ export default async function AdminInscripcionesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Inscripciones</h1>
-          <p className="text-sm text-slate-500">
-            Revisa el estado de las postulaciones a operativos y gestiona próximas acciones.
-          </p>
-        </div>
-      </div>
+      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Inscripciones</p>
+        <h1 className="text-3xl font-semibold text-slate-900">Postulaciones e invitaciones</h1>
+        <p className="text-sm text-slate-500 max-w-3xl">
+          Revisa las solicitudes pendientes, el origen de cada registro y aprueba o rechaza directamente desde este panel.
+        </p>
+      </section>
 
-      {notice && (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+      {notice ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
           {notice}
         </div>
-      )}
+      ) : null}
 
-      {(errorParam || errorMessage) && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {errorParam || errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
           {errorParam || errorMessage}
         </div>
-      )}
+      ) : null}
 
       {groupedList.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
@@ -254,25 +253,28 @@ export default async function AdminInscripcionesPage({
       ) : (
         <div className="space-y-6">
           {groupedList.map((group) => (
-            <section key={group.operativoId} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section
+              key={group.operativoId}
+              className="space-y-4 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-xl shadow-blue-900/5"
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">{group.titulo}</h2>
+                  <h2 className="text-2xl font-semibold text-slate-900">{group.titulo}</h2>
                   <p className="text-sm text-slate-500">
                     {group.fechas} · {group.lugar}
                   </p>
                 </div>
                 <Link
                   href={`/admin/operativos/${group.operativoId}`}
-                  className="text-sm font-medium text-blue-600 underline"
+                  className="text-sm font-semibold text-blue-600 transition hover:text-blue-800"
                 >
                   Ver operativo
                 </Link>
               </div>
-              <div className="mt-4 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-700">
+              <div className="inline-flex items-center rounded-full bg-amber-100/80 px-4 py-1.5 text-sm font-semibold text-amber-700">
                 {group.count} inscripciones pendientes
               </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+              <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                 <span>
                   Postulaciones: <span className="font-semibold text-slate-700">{group.originSummary.postulacion}</span>
                 </span>
@@ -289,29 +291,29 @@ export default async function AdminInscripcionesPage({
                 const redirectTo = "/admin/inscripciones";
 
                 return (
-                  <div className="mt-4 space-y-6">
-                    <section>
+                  <div className="space-y-6">
+                    <section className="space-y-3">
                       <header className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                           Postulaciones ({postulaciones.length})
                         </h3>
                       </header>
                       {postulaciones.length === 0 ? (
-                        <p className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                        <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                           No hay postulaciones para este operativo.
                         </p>
                       ) : (
-                        <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
+                        <div className="overflow-x-auto rounded-[28px] border border-slate-100 bg-white/90 shadow-inner">
                           <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                               <tr>
-                                <th className="px-4 py-3">Nombre</th>
-                                <th className="px-4 py-3">Email</th>
-                                <th className="px-4 py-3">Profesión</th>
-                                <th className="px-4 py-3">Especialidad</th>
-                                <th className="px-4 py-3">Origen</th>
-                                <th className="px-4 py-3">Registrada</th>
-                                <th className="px-4 py-3 text-right">Acciones</th>
+                                <th className="px-5 py-3">Nombre</th>
+                                <th className="px-5 py-3">Email</th>
+                                <th className="px-5 py-3">Profesión</th>
+                                <th className="px-5 py-3">Especialidad</th>
+                                <th className="px-5 py-3">Origen</th>
+                                <th className="px-5 py-3">Registrada</th>
+                                <th className="px-5 py-3 text-right">Acciones</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -323,7 +325,7 @@ export default async function AdminInscripcionesPage({
 
                                 return (
                                   <tr key={entry.id} className="border-t">
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3">
                                       <div className="font-medium text-slate-900">{nombre}</div>
                                       {entry.voluntario_id && (
                                         <div className="text-xs text-slate-500">
@@ -333,7 +335,7 @@ export default async function AdminInscripcionesPage({
                                         </div>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3">
                                       {email !== "—" ? (
                                         <a href={`mailto:${email}`} className="text-blue-600 underline">
                                           {email}
@@ -342,9 +344,9 @@ export default async function AdminInscripcionesPage({
                                         "—"
                                       )}
                                     </td>
-                                    <td className="px-4 py-3">{profesion}</td>
-                                    <td className="px-4 py-3">{especialidad}</td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3">{profesion}</td>
+                                    <td className="px-5 py-3">{especialidad}</td>
+                                    <td className="px-5 py-3">
                                       <span
                                         className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${originBadgeClass(
                                           entry.origin,
@@ -353,8 +355,8 @@ export default async function AdminInscripcionesPage({
                                         {entry.originLabel}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-3">{entry.createdLabel}</td>
-                                    <td className="px-4 py-3 text-right text-xs">
+                                    <td className="px-5 py-3">{entry.createdLabel}</td>
+                                    <td className="px-5 py-3 text-right text-xs">
                                       <div className="flex flex-wrap justify-end gap-2">
                                         <form action="/api/admin/inscripciones/update" method="post">
                                           <input type="hidden" name="id" value={entry.id} />
@@ -362,7 +364,7 @@ export default async function AdminInscripcionesPage({
                                           <input type="hidden" name="redirectTo" value={redirectTo} />
                                           <button
                                             type="submit"
-                                            className="inline-flex items-center rounded-md border border-green-600 px-3 py-1 font-medium text-green-700 transition hover:bg-green-50"
+                                            className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1.5 font-semibold text-green-700 transition hover:bg-green-100"
                                           >
                                             Aceptar
                                           </button>
@@ -373,7 +375,7 @@ export default async function AdminInscripcionesPage({
                                           <input type="hidden" name="redirectTo" value={redirectTo} />
                                           <button
                                             type="submit"
-                                            className="inline-flex items-center rounded-md border border-rose-500 px-3 py-1 font-medium text-rose-600 transition hover:bg-rose-50"
+                                            className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 font-semibold text-rose-600 transition hover:bg-rose-100"
                                           >
                                             Rechazar
                                           </button>
@@ -389,27 +391,27 @@ export default async function AdminInscripcionesPage({
                       )}
                     </section>
 
-                    <section>
+                    <section className="space-y-3">
                       <header className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                           Invitaciones enviadas ({invitaciones.length})
                         </h3>
                       </header>
                       {invitaciones.length === 0 ? (
-                        <p className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                        <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                           No hay invitaciones para este operativo.
                         </p>
                       ) : (
-                        <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100">
+                        <div className="overflow-x-auto rounded-[28px] border border-slate-100 bg-white/90 shadow-inner">
                           <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                               <tr>
-                                <th className="px-4 py-3">Nombre</th>
-                                <th className="px-4 py-3">Email</th>
-                                <th className="px-4 py-3">Profesión</th>
-                                <th className="px-4 py-3">Especialidad</th>
-                                <th className="px-4 py-3">Estado</th>
-                                <th className="px-4 py-3">Registrada</th>
+                                <th className="px-5 py-3">Nombre</th>
+                                <th className="px-5 py-3">Email</th>
+                                <th className="px-5 py-3">Profesión</th>
+                                <th className="px-5 py-3">Especialidad</th>
+                                <th className="px-5 py-3">Estado</th>
+                                <th className="px-5 py-3">Registrada</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -422,7 +424,7 @@ export default async function AdminInscripcionesPage({
 
                                 return (
                                   <tr key={entry.id} className="border-t">
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3">
                                       <div className="font-medium text-slate-900">{nombre}</div>
                                       {entry.voluntario_id && (
                                         <div className="text-xs text-slate-500">
@@ -432,7 +434,7 @@ export default async function AdminInscripcionesPage({
                                         </div>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3">
                                       {email !== "—" ? (
                                         <a href={`mailto:${email}`} className="text-blue-600 underline">
                                           {email}
@@ -441,10 +443,10 @@ export default async function AdminInscripcionesPage({
                                         "—"
                                       )}
                                     </td>
-                                    <td className="px-4 py-3">{profesion}</td>
-                                    <td className="px-4 py-3">{especialidad}</td>
-                                    <td className="px-4 py-3 text-slate-600">{estadoDescripcion}</td>
-                                    <td className="px-4 py-3">{entry.createdLabel}</td>
+                                    <td className="px-5 py-3">{profesion}</td>
+                                    <td className="px-5 py-3">{especialidad}</td>
+                                    <td className="px-5 py-3 text-slate-600">{estadoDescripcion}</td>
+                                    <td className="px-5 py-3">{entry.createdLabel}</td>
                                   </tr>
                                 );
                               })}

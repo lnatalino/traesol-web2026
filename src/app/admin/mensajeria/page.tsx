@@ -35,17 +35,19 @@ export default async function MensajeriaPage({ searchParams }: { searchParams: S
   let total = 0;
   let preview: MessagingRecipient[] = [];
   let operativos: MensajeriaOperativoOption[] = [];
+  let recipients: MessagingRecipient[] = [];
   let errorMessage = errorQueryParam;
 
   try {
-    const [operativosList, recipients] = await Promise.all([
+    const [operativosList, recipientsList] = await Promise.all([
       fetchOperativos(),
       listMessagingRecipients(filters),
     ]);
 
     operativos = operativosList;
-    total = recipients.length;
-    preview = recipients.slice(0, PREVIEW_LIMIT);
+    recipients = recipientsList;
+    total = recipientsList.length;
+    preview = recipientsList.slice(0, PREVIEW_LIMIT);
   } catch (err: any) {
     if (!errorMessage) {
       errorMessage = err?.message ? String(err.message) : "No se pudo cargar la mensajería.";
@@ -67,6 +69,7 @@ export default async function MensajeriaPage({ searchParams }: { searchParams: S
         filters={filters}
         operativos={operativos}
         total={total}
+        recipients={recipients}
         preview={preview}
         successMessage={successMessage}
         errorMessage={errorMessage}

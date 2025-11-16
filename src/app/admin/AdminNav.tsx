@@ -46,14 +46,19 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-6 text-sm">
+    <nav className="flex flex-wrap gap-2 text-sm font-medium text-slate-600">
       {tabs.map((tab) => {
         const active = tab.isActive(pathname);
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            className={active ? "font-semibold text-slate-900" : "text-slate-600 hover:text-slate-900"}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-full px-4 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+              active
+                ? "bg-blue-600 text-white shadow"
+                : "text-slate-600 hover:bg-white hover:text-slate-900"
+            }`}
           >
             {tab.label}
           </Link>

@@ -39,8 +39,11 @@ const parseDeseaReunion = (value: string | null): boolean | null => {
 
 type ProductoSeleccion = {
   id: string;
-  cantidad: number | null;
+  cantidad: number;
   nota: string | null;
+  titulo?: string | null;
+  categoria?: string | null;
+  config?: Record<string, any> | null;
 };
 
 type ProductoResumen = EmpresaProductoEmailSummary & {
@@ -48,6 +51,7 @@ type ProductoResumen = EmpresaProductoEmailSummary & {
   cantidad: number;
   nota: string | null;
   categoria: string | null;
+  config?: Record<string, any> | null;
 };
 
 function normalizeCantidad(value: unknown): number | null {
@@ -60,16 +64,39 @@ function normalizeCantidad(value: unknown): number | null {
 function parseSelecciones(input: unknown): ProductoSeleccion[] {
   if (!Array.isArray(input)) return [];
   return input
-    .map((item) => {
+    .map((item: any) => {
       const productoId = cleanString(item?.productoId ?? item?.producto_id ?? "");
       if (!productoId) return null;
       return {
         id: productoId,
-        cantidad: normalizeCantidad(item?.cantidad),
+        cantidad: normalizeCantidad(item?.cantidad) ?? 1,
         nota: cleanOptional(item?.nota),
       } satisfies ProductoSeleccion;
     })
-    .filter((item): item is ProductoSeleccion => Boolean(item));
+    .filter((item: ProductoSeleccion | null): item is ProductoSeleccion => Boolean(item));
+}
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseCarrito(input: unknown): ProductoSeleccion[] {
+  if (!input || typeof input !== "object") return [];
+  const items = Array.isArray((input as any)?.items) ? (input as any).items : [];
+  return items
+    .map((item: any) => {
+      const productoId = cleanString(item?.productoId ?? item?.producto_id ?? "");
+      if (!productoId) return null;
+      return {
+        id: productoId,
+        cantidad: normalizeCantidad(item?.cantidad) ?? 1,
+        nota: cleanOptional(item?.nota),
+        titulo: cleanOptional(item?.titulo),
+        categoria: cleanOptional(item?.categoria),
+        config: isPlainObject(item?.config) ? item.config : null,
+      } satisfies ProductoSeleccion;
+    })
+    .filter((item: ProductoSeleccion | null): item is ProductoSeleccion => Boolean(item));
 }
 
 export async function POST(request: Request) {
@@ -92,13 +119,15 @@ export async function POST(request: Request) {
     const ciudad = cleanOptional(body?.ciudad);
     const comentario = cleanOptional(body?.mensaje || body?.comentario);
     const desea_reunion = cleanOptional(body?.desea_reunion);
-    const selecciones = parseSelecciones(body?.selecciones);
+    const carritoParsed = parseCarrito(body?.carrito);
+    const selecciones = carritoParsed.length > 0 ? carritoParsed : parseSelecciones(body?.selecciones);
     const carrito_resumen = selecciones.length
       ? JSON.stringify(
           selecciones.map((item) => ({
             producto_id: item.id,
             cantidad: item.cantidad ?? 1,
             nota: item.nota ?? null,
+            config: item.config ?? null,
           })),
           null,
           2,
@@ -148,7 +177,7 @@ export async function POST(request: Request) {
 
       const activos = (productosData ?? []).filter((item) => item.activo);
       productosResumen = selecciones
-        .map((seleccion) => {
+        .map((seleccion): ProductoResumen | null => {
           const meta = activos.find((prod) => prod.id === seleccion.id);
           if (!meta) return null;
           return {
@@ -157,7 +186,8 @@ export async function POST(request: Request) {
             cantidad: seleccion.cantidad ?? 1,
             nota: seleccion.nota,
             categoria: meta.categoria,
-          } satisfies ProductoResumen;
+            config: seleccion.config ?? null,
+          };
         })
         .filter((item): item is ProductoResumen => Boolean(item));
 
@@ -167,6 +197,7 @@ export async function POST(request: Request) {
           producto_id: item.id,
           cantidad: item.cantidad ?? 1,
           nota: item.nota ?? null,
+          config: item.config ?? null,
         }));
         console.log("[EMPRESAS] Detalle a insertar", JSON.stringify(detallePayload, null, 2));
         try {
@@ -210,6 +241,7 @@ export async function POST(request: Request) {
             categoria: item.categoria,
             cantidad: item.cantidad ?? 1,
             nota: item.nota,
+            config: item.config ?? null,
           })),
         }
       : null;

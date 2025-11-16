@@ -1,5 +1,13 @@
 // Generated from Supabase GraphQL `__type(name: "inscripcion_estado")` on 2024-07-15.
 // Keep this file in sync with Supabase or regenerate via `supabase gen types typescript --local`.
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];
+
 export type Database = {
   public: {
     Tables: {
@@ -45,11 +53,13 @@ export type Database = {
           nombre: string;
           categoria: Database["public"]["Enums"]["empresa_producto_categoria"];
           descripcion_corta: string | null;
+          resumen_corto: string | null;
           descripcion_larga: string | null;
           detalles_json: unknown;
           orden: number | null;
           activo: boolean;
           imagen_principal_url: string | null;
+          portada_url: string | null;
           video_url: string | null;
           created_at: string;
           updated_at: string;
@@ -60,11 +70,13 @@ export type Database = {
           nombre: string;
           categoria: Database["public"]["Enums"]["empresa_producto_categoria"];
           descripcion_corta?: string | null;
+          resumen_corto?: string | null;
           descripcion_larga?: string | null;
           detalles_json?: unknown;
           orden?: number | null;
           activo?: boolean;
           imagen_principal_url?: string | null;
+          portada_url?: string | null;
           video_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -75,11 +87,13 @@ export type Database = {
           nombre?: string;
           categoria?: Database["public"]["Enums"]["empresa_producto_categoria"];
           descripcion_corta?: string | null;
+          resumen_corto?: string | null;
           descripcion_larga?: string | null;
           detalles_json?: unknown;
           orden?: number | null;
           activo?: boolean;
           imagen_principal_url?: string | null;
+          portada_url?: string | null;
           video_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -103,6 +117,29 @@ export type Database = {
           pack_id?: string;
           producto_id?: string;
           cantidad?: number;
+        };
+      };
+      empresa_metrics: {
+        Row: {
+          id: string;
+          operativos_con_empresas: number;
+          colaboradores_movilizados: number;
+          regiones_impactadas: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          operativos_con_empresas: number;
+          colaboradores_movilizados: number;
+          regiones_impactadas: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          operativos_con_empresas?: number;
+          colaboradores_movilizados?: number;
+          regiones_impactadas?: number;
+          updated_at?: string;
         };
       };
       empresa_solicitudes: {
@@ -160,6 +197,7 @@ export type Database = {
           producto_id: string;
           cantidad: number;
           nota: string | null;
+          config: Json | null;
         };
         Insert: {
           id?: string;
@@ -168,6 +206,7 @@ export type Database = {
           producto_id: string;
           cantidad?: number;
           nota?: string | null;
+          config?: Json | null;
         };
         Update: {
           id?: string;
@@ -176,6 +215,7 @@ export type Database = {
           producto_id?: string;
           cantidad?: number;
           nota?: string | null;
+          config?: Json | null;
         };
       };
     };

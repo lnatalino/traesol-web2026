@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, CircleAlert } from "lucide-react";
+import { AdminHero } from "@/components/admin/AdminHero";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { NovedadForm } from "@/app/admin/novedades/_form";
@@ -83,26 +84,30 @@ export default async function EditarNovedadPage({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Editar novedad</h1>
-          <p className="text-sm text-slate-500">Actualiza el contenido y la visibilidad de la novedad.</p>
-        </div>
-        <Link href="/admin/novedades" className="text-sm text-blue-600 underline">
-          Volver al listado
-        </Link>
-      </div>
+    <div className="space-y-8">
+      <AdminHero
+        eyebrow="Novedades"
+        title="Editar novedad"
+        description="Ajusta el contenido, la galería y el estado de publicación."
+        rightSlot={(
+          <Link
+            href="/admin/novedades"
+            className="inline-flex items-center rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white"
+          >
+            Volver al listado
+          </Link>
+        )}
+      />
 
       {success ? (
-        <div className="flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="flex items-start gap-2 rounded-[28px] border border-emerald-200/70 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-900 shadow-sm">
           <BadgeCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{success}</span>
         </div>
       ) : null}
 
       {(errorParam || fetchError) ? (
-        <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-start gap-2 rounded-[28px] border border-rose-200/70 bg-rose-50/80 px-5 py-4 text-sm font-medium text-rose-900 shadow-sm">
           <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{errorParam || fetchError}</span>
         </div>

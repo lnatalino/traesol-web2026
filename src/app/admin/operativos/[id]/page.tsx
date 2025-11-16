@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AdminHero } from "@/components/admin/AdminHero";
 import { getAdminSession } from "@/lib/adminSession";
 import {
   humanizeInscripcionEstado,
@@ -316,118 +317,161 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold text-slate-900">{operativo.titulo}</h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <span>{fechaRango}</span>
-            {operativo.lugar ? (
-              <>
-                <span>·</span>
-                <span>{operativo.lugar}</span>
-              </>
-            ) : null}
+      <AdminHero
+        eyebrow={(
+          <span className="inline-flex items-center gap-2">
+            Operativo
+            <span className="text-white/70">ID {operativo.id.slice(0, 8)}</span>
+          </span>
+        )}
+        title={operativo.titulo}
+        description={(
+          <div className="space-y-2 text-white/80">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span>{fechaRango}</span>
+              {operativo.lugar ? (
+                <>
+                  <span>·</span>
+                  <span>{operativo.lugar}</span>
+                </>
+              ) : null}
+            </div>
+            <p className="max-w-3xl text-sm text-white/80">
+              {operativo.descripcion || "Sin descripción disponible."}
+            </p>
           </div>
-          <p className="max-w-2xl text-sm text-slate-600">
-            {operativo.descripcion || "Sin descripción disponible."}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-3 text-right">
-          {renderEstadoPill(operativo.estado)}
-          <div className="text-xs text-slate-500">
-            Slug: <span className="font-mono text-slate-700">{operativo.slug}</span>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2 text-xs">
-            {publicUrl ? (
-              <Link href={publicUrl} className="inline-flex items-center rounded-md border px-3 py-1 font-medium text-slate-600 hover:bg-slate-50">
-                Ver en sitio público
+        )}
+        rightSlot={(
+          <div className="flex flex-col items-end gap-4 text-right">
+            {renderEstadoPill(operativo.estado)}
+            <div className="text-xs text-white/70">
+              Slug: <span className="font-mono text-white">{operativo.slug || "—"}</span>
+            </div>
+            <div className="flex flex-col gap-3 text-xs">
+              {publicUrl ? (
+                <Link
+                  href={publicUrl}
+                  className="inline-flex items-center justify-center rounded-full border border-white/30 px-4 py-2 font-semibold text-white transition hover:bg-white/10"
+                >
+                  Ver en sitio público
+                </Link>
+              ) : null}
+              <Link
+                href={`/admin/operativos/${operativoId}/editar`}
+                className="inline-flex items-center justify-center rounded-full bg-white/90 px-4 py-2 font-semibold text-slate-900 transition hover:bg-white"
+              >
+                Editar operativo
               </Link>
-            ) : null}
-            <Link
-              href={`/admin/operativos/${operativoId}/editar`}
-              className="inline-flex items-center rounded-md border border-blue-200 px-3 py-1 font-medium text-blue-700 hover:bg-blue-50"
-            >
-              Editar operativo
-            </Link>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+        footer={(
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[{
+              label: "Pendientes",
+              value: statusSummary.pending,
+              tone: "text-amber-200",
+            }, {
+              label: "Confirmados",
+              value: statusSummary.confirmed,
+              tone: "text-emerald-200",
+            }, {
+              label: "Rechazados",
+              value: statusSummary.rejected,
+              tone: "text-rose-200",
+            }].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white/15 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/70">{item.label}</p>
+                <p className={`text-2xl font-semibold ${item.tone}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      />
 
       {successMessage ? (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[28px] border border-emerald-200/70 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-900 shadow-sm">
           {successMessage}
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[28px] border border-rose-200/70 bg-rose-50/80 px-5 py-4 text-sm font-medium text-rose-900 shadow-sm">
           {errorMessage}
         </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Lugar</div>
-          <div className="mt-1 text-sm text-slate-900">{operativo.lugar || operativo.direccion || "—"}</div>
-        </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Cupos</div>
-          <div className="mt-1 text-sm text-slate-900">
-            {operativo.cupos_total ?? "—"}
-            <span className="text-xs text-slate-500"> · Confirmados: {statusSummary.confirmed}</span>
-          </div>
-        </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm space-y-1">
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Enlaces internos</div>
-          <div className="text-xs text-slate-600">
-            {operativo.whatsapp_grupo_url ? (
-              <a href={operativo.whatsapp_grupo_url} target="_blank" rel="noreferrer" className="underline">
-                Grupo de WhatsApp
-              </a>
-            ) : (
-              "Sin link interno"
-            )}
-          </div>
-          {instagramHandle.label !== "—" ? (
-            <div className="text-xs text-slate-600">
-              Instagram: {instagramHandle.href ? (
-                <a href={instagramHandle.href} className="underline" target="_blank" rel="noreferrer">
-                  {instagramHandle.label}
+        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Lugar</p>
+          <p className="mt-2 text-lg font-semibold text-slate-900">{operativo.lugar || operativo.direccion || "—"}</p>
+          <p className="text-xs text-slate-500">Dirección completa: {operativo.direccion || "Sin dirección registrada"}</p>
+        </article>
+        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cupos</p>
+          <p className="mt-2 text-lg font-semibold text-slate-900">{operativo.cupos_total ?? "—"}</p>
+          <p className="text-xs text-slate-500">Confirmados: {statusSummary.confirmed} · Pendientes: {statusSummary.pending}</p>
+        </article>
+        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Enlaces internos</p>
+          <div className="mt-2 space-y-2 text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold text-slate-400">WhatsApp</p>
+              {operativo.whatsapp_grupo_url ? (
+                <a href={operativo.whatsapp_grupo_url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                  Abrir chat interno
                 </a>
               ) : (
-                <span>{instagramHandle.label}</span>
+                <span>Sin link interno</span>
               )}
             </div>
-          ) : null}
-        </div>
-      </div>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm shadow-sm">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-4">
-            <div>
-              <h2 className="font-medium text-slate-500">Fechas del operativo</h2>
-              <p className="text-base text-slate-900">
-                Inicio: {fechaInicioCompleta}
-                <br />
-                Fin: {fechaFinCompleta}
-              </p>
-            </div>
-            <div>
-              <h2 className="font-medium text-slate-500">Dirección</h2>
-              <p className="text-base text-slate-900">{operativo.direccion || "—"}</p>
-            </div>
-            {operativo.descripcion ? (
+            {instagramHandle.label !== "—" ? (
               <div>
-                <h2 className="font-medium text-slate-500">Descripción extendida</h2>
-                <p className="whitespace-pre-line text-base text-slate-900">{operativo.descripcion}</p>
+                <p className="text-xs font-semibold text-slate-400">Instagram</p>
+                {instagramHandle.href ? (
+                  <a href={instagramHandle.href} className="text-blue-600 underline" target="_blank" rel="noreferrer">
+                    {instagramHandle.label}
+                  </a>
+                ) : (
+                  <span>{instagramHandle.label}</span>
+                )}
               </div>
             ) : null}
           </div>
-          <div className="space-y-4">
-            <div>
-              <h2 className="font-medium text-slate-500">Notas internas</h2>
-              <div className="text-base text-slate-900">
+        </article>
+      </div>
+
+      <section className="rounded-[36px] border border-slate-100 bg-white/95 p-8 text-sm shadow-xl shadow-slate-900/5">
+        <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Fechas</p>
+              <div className="mt-3 grid gap-2 text-base font-semibold text-slate-900 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-400">Inicio</p>
+                  <p>{fechaInicioCompleta}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-400">Fin</p>
+                  <p>{fechaFinCompleta}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dirección</p>
+              <p className="mt-3 text-base text-slate-900">{operativo.direccion || "—"}</p>
+            </div>
+            {operativo.descripcion ? (
+              <div className="rounded-3xl border border-slate-100 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Descripción extendida</p>
+                <p className="mt-3 whitespace-pre-line text-base text-slate-900">{operativo.descripcion}</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Notas internas</p>
+              <div className="mt-3 text-base text-slate-900">
                 {operativo.whatsapp_grupo_url ? (
                   <a
                     href={operativo.whatsapp_grupo_url}
@@ -444,83 +488,85 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                   <span className="text-slate-500">Sin enlace interno</span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Visible solo para el equipo de administración.</p>
+              <p className="text-xs text-slate-500">Solo visible para administradores.</p>
             </div>
             {instagramHandle.label !== "—" ? (
-              <div>
-                <h2 className="font-medium text-slate-500">Instagram</h2>
+              <div className="rounded-3xl border border-slate-100 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Instagram</p>
                 {instagramHandle.href ? (
-                  <a href={instagramHandle.href} className="text-blue-600 underline" target="_blank" rel="noreferrer">
+                  <a href={instagramHandle.href} className="mt-3 inline-flex items-center gap-2 text-blue-600 underline" target="_blank" rel="noreferrer">
                     {instagramHandle.label}
                   </a>
                 ) : (
-                  <p className="text-base text-slate-900">{instagramHandle.label}</p>
+                  <p className="mt-3 text-base text-slate-900">{instagramHandle.label}</p>
                 )}
+              </div>
+            ) : null}
+            {galeria.length ? (
+              <div className="rounded-3xl border border-slate-100 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Galería</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  {galeria.map((img, index) => (
+                    <figure key={img.id} className="overflow-hidden rounded-2xl border border-slate-100">
+                      <img
+                        src={img.url}
+                        alt={`Imagen ${index + 1} del operativo ${operativo.titulo}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </figure>
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>
         </div>
-        {galeria.length ? (
-          <div className="mt-6 space-y-2">
-            <h2 className="font-medium text-slate-500">Galería</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {galeria.map((img, index) => (
-                <figure key={img.id} className="overflow-hidden rounded-lg border">
-                  <img
-                    src={img.url}
-                    alt={`Imagen ${index + 1} del operativo ${operativo.titulo}`}
-                    className="h-full w-full object-cover"
-                  />
-                </figure>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </section>
 
-      <section className="space-y-6">
+      <section className="space-y-6 rounded-[36px] border border-slate-100 bg-white/95 p-8 shadow-xl shadow-slate-900/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Inscripciones</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-2xl font-semibold text-slate-900">Inscripciones</h2>
+            <p className="text-sm text-slate-500">
               Pendientes: {statusSummary.pending} · Confirmados: {statusSummary.confirmed} · Rechazados: {statusSummary.rejected}
             </p>
           </div>
           <a
             href={csvHref}
-            className="inline-flex items-center rounded-md border px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Descargar voluntarios aceptados (CSV)
           </a>
         </div>
 
         <div className="space-y-6">
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Postulaciones ({postulaciones.length})
-            </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                Postulaciones ({postulaciones.length})
+              </h3>
+            </div>
             {postulaciones.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
                 No hay postulaciones para este operativo.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border bg-card">
+              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold">Nombre</th>
-                      <th className="px-3 py-2 text-left font-semibold">Email</th>
-                      <th className="px-3 py-2 text-left font-semibold">Profesión</th>
-                      <th className="px-3 py-2 text-left font-semibold">Estado</th>
-                      <th className="px-3 py-2 text-left font-semibold">Registrada</th>
-                      <th className="px-3 py-2 text-right font-semibold">Acciones</th>
+                      <th className="px-5 py-3 text-left">Nombre</th>
+                      <th className="px-5 py-3 text-left">Email</th>
+                      <th className="px-5 py-3 text-left">Profesión</th>
+                      <th className="px-5 py-3 text-left">Estado</th>
+                      <th className="px-5 py-3 text-left">Registrada</th>
+                      <th className="px-5 py-3 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {postulaciones.map((row) => (
-                      <tr key={row.raw.id} className="border-t align-top">
-                        <td className="px-3 py-2 font-medium text-slate-900">{row.nombre}</td>
-                        <td className="px-3 py-2">
+                      <tr key={row.raw.id} className="border-t">
+                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
+                        <td className="px-5 py-4">
                           {row.email ? (
                             <a href={`mailto:${row.email}`} className="text-blue-600 underline">
                               {row.email}
@@ -529,16 +575,16 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                             "—"
                           )}
                         </td>
-                        <td className="px-3 py-2">{row.profesion}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
+                        <td className="px-5 py-4">
                           <span
                             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${row.estadoBadge}`}
                           >
                             {row.estadoLabel}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{row.createdLabel}</td>
-                        <td className="px-3 py-2 text-right text-xs">
+                        <td className="px-5 py-4 text-xs text-slate-500">{row.createdLabel}</td>
+                        <td className="px-5 py-4 text-right text-xs">
                           <div className="flex flex-wrap justify-end gap-2">
                             <form action="/api/admin/inscripciones/update" method="post">
                               <input type="hidden" name="id" value={row.raw.id} />
@@ -546,7 +592,7 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                               <input type="hidden" name="redirectTo" value={redirectToUrl} />
                               <button
                                 type="submit"
-                                className="inline-flex items-center rounded-md border border-green-600 px-3 py-1 font-medium text-green-700 hover:bg-green-50"
+                                className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 font-semibold text-emerald-700 transition hover:bg-emerald-100"
                               >
                                 Aceptar
                               </button>
@@ -557,16 +603,20 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                               <input type="hidden" name="redirectTo" value={redirectToUrl} />
                               <button
                                 type="submit"
-                                className="inline-flex items-center rounded-md border border-rose-500 px-3 py-1 font-medium text-rose-600 hover:bg-rose-50"
+                                className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-4 py-1.5 font-semibold text-rose-700 transition hover:bg-rose-100"
                               >
                                 Rechazar
                               </button>
                             </form>
                           </div>
-                          <form action="/api/admin/inscripciones/update" method="post" className="mt-3 space-y-2">
+                          <form action="/api/admin/inscripciones/update" method="post" className="mt-4 space-y-2">
                             <input type="hidden" name="id" value={row.raw.id} />
                             <input type="hidden" name="redirectTo" value={redirectToUrl} />
-                            <select name="estado" defaultValue={row.estadoActual} className="w-full rounded-md border px-2 py-1">
+                            <select
+                              name="estado"
+                              defaultValue={row.estadoActual}
+                              className="w-full rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+                            >
                               {statusOptions.map((status) => (
                                 <option key={status} value={status}>
                                   {humanizeInscripcionEstado(status)}
@@ -575,7 +625,7 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                             </select>
                             <button
                               type="submit"
-                              className="inline-flex w-full items-center justify-center rounded-md border px-3 py-1 font-medium text-slate-600 hover:bg-slate-50"
+                              className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 px-4 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
                             >
                               Guardar
                             </button>
@@ -589,31 +639,31 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
             )}
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
               Invitaciones enviadas ({invitaciones.length})
             </h3>
             {invitaciones.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
                 No hay invitaciones para este operativo.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border bg-card">
+              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold">Nombre</th>
-                      <th className="px-3 py-2 text-left font-semibold">Email</th>
-                      <th className="px-3 py-2 text-left font-semibold">Profesión</th>
-                      <th className="px-3 py-2 text-left font-semibold">Estado</th>
-                      <th className="px-3 py-2 text-left font-semibold">Registrada</th>
+                      <th className="px-5 py-3 text-left">Nombre</th>
+                      <th className="px-5 py-3 text-left">Email</th>
+                      <th className="px-5 py-3 text-left">Profesión</th>
+                      <th className="px-5 py-3 text-left">Estado</th>
+                      <th className="px-5 py-3 text-left">Registrada</th>
                     </tr>
                   </thead>
                   <tbody>
                     {invitaciones.map((row) => (
                       <tr key={row.raw.id} className="border-t">
-                        <td className="px-3 py-2 font-medium text-slate-900">{row.nombre}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
+                        <td className="px-5 py-4">
                           {row.email ? (
                             <a href={`mailto:${row.email}`} className="text-blue-600 underline">
                               {row.email}
@@ -622,11 +672,11 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                             "—"
                           )}
                         </td>
-                        <td className="px-3 py-2">{row.profesion}</td>
-                        <td className="px-3 py-2 text-sm text-slate-600">
+                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
+                        <td className="px-5 py-4 text-sm text-slate-600">
                           {describeInvitacionEstado(row.estadoActual)}
                         </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{row.createdLabel}</td>
+                        <td className="px-5 py-4 text-xs text-slate-500">{row.createdLabel}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -635,30 +685,30 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
             )}
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
               Voluntarios confirmados ({confirmados.length})
             </h3>
             {confirmados.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
                 Aún no hay voluntarios confirmados.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border bg-card">
+              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold">Nombre</th>
-                      <th className="px-3 py-2 text-left font-semibold">Email</th>
-                      <th className="px-3 py-2 text-left font-semibold">Profesión</th>
-                      <th className="px-3 py-2 text-left font-semibold">Origen</th>
+                      <th className="px-5 py-3 text-left">Nombre</th>
+                      <th className="px-5 py-3 text-left">Email</th>
+                      <th className="px-5 py-3 text-left">Profesión</th>
+                      <th className="px-5 py-3 text-left">Origen</th>
                     </tr>
                   </thead>
                   <tbody>
                     {confirmados.map((row) => (
                       <tr key={row.raw.id} className="border-t">
-                        <td className="px-3 py-2 font-medium text-slate-900">{row.nombre}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
+                        <td className="px-5 py-4">
                           {row.email ? (
                             <a href={`mailto:${row.email}`} className="text-blue-600 underline">
                               {row.email}
@@ -667,8 +717,8 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
                             "—"
                           )}
                         </td>
-                        <td className="px-3 py-2">{row.profesion}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
+                        <td className="px-5 py-4">
                           <span
                             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${originBadgeClass(row.origen)}`}
                           >

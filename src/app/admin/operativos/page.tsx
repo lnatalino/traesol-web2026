@@ -131,55 +131,60 @@ export default async function AdminOperativosPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Operativos</h1>
-          <p className="text-sm text-slate-500">Gestiona la lista de operativos publicados y en borrador.</p>
+      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Operativos</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Gestión de operativos</h1>
+            <p className="text-sm text-slate-500 max-w-2xl">
+              Revisa el estado de publicación, cupos y postulaciones en curso. Todos los cambios se reflejan de inmediato en el sitio público.
+            </p>
+          </div>
+          <Link
+            href="/admin/operativos/nuevo"
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl"
+          >
+            Nuevo operativo
+          </Link>
         </div>
-        <Link
-          href="/admin/operativos/nuevo"
-          className="inline-flex items-center rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
-        >
-          Nuevo operativo
-        </Link>
-      </div>
+      </section>
 
-      {notice && (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+      {notice ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
           {notice}
         </div>
-      )}
+      ) : null}
 
-      {(errorParam || errorMessage) && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {errorParam || errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
           {errorParam || errorMessage}
         </div>
-      )}
+      ) : null}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50">
+      <div className="overflow-x-auto rounded-[30px] border border-slate-100 bg-white/95 shadow-xl shadow-blue-900/5">
+        <table className="min-w-full divide-y divide-slate-100 text-sm">
+          <thead className="bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3 text-left">Título</th>
-              <th className="px-4 py-3 text-left">Fechas</th>
-              <th className="px-4 py-3 text-left">Lugar</th>
-              <th className="px-4 py-3 text-left">Estado</th>
-              <th className="px-4 py-3 text-left">Cupos</th>
-              <th className="px-4 py-3 text-left">Inscripciones</th>
-              <th className="px-4 py-3 text-left">Acciones</th>
+              <th className="px-5 py-4 text-left">Título</th>
+              <th className="px-5 py-4 text-left">Fechas</th>
+              <th className="px-5 py-4 text-left">Lugar</th>
+              <th className="px-5 py-4 text-left">Estado</th>
+              <th className="px-5 py-4 text-left">Cupos</th>
+              <th className="px-5 py-4 text-left">Inscripciones</th>
+              <th className="px-5 py-4 text-left">Acciones</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100 text-slate-600">
             {operativos.map((op) => {
               const countInfo = counts.get(op.id);
               const estadoClass = estadoBadgeClass(op.estado);
               return (
-                <tr key={op.id} className="border-t align-top">
-                  <td className="px-4 py-4">
+                <tr key={op.id} className="align-top transition hover:bg-slate-50/50">
+                  <td className="px-5 py-4">
                     <div className="font-semibold text-slate-900">{op.titulo}</div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">slug: {op.slug}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400">slug: {op.slug}</div>
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-5 py-4">
                     <div className="font-medium text-slate-900">{formatDate(op.fecha_inicio)}</div>
                     {op.fecha_fin ? (
                       <div className="text-xs text-slate-500">Fin: {formatDate(op.fecha_fin)}</div>
@@ -187,41 +192,41 @@ export default async function AdminOperativosPage({
                       <div className="text-xs text-slate-400">Fin: —</div>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-slate-900">{op.lugar || "—"}</td>
-                  <td className="px-4 py-3 align-top">
+                  <td className="px-5 py-4 text-slate-900">{op.lugar || "—"}</td>
+                  <td className="px-5 py-4 align-top">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${estadoClass}`}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${estadoClass}`}
                     >
                       {humanEstado(op.estado)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-slate-900">{op.cupos_total ?? "—"}</td>
-                  <td className="px-4 py-3 align-top text-sm text-slate-600">
+                  <td className="px-5 py-4 text-slate-900">{op.cupos_total ?? "—"}</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">
                     {formatStatusCounts(countInfo)}
                   </td>
-                  <td className="px-4 py-3 align-top">
+                  <td className="px-5 py-4 align-top">
                     <div className="flex flex-wrap gap-2 text-xs">
                       <Link
                         href={`/admin/operativos/${op.id}`}
-                        className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         Ver detalle
                       </Link>
                       <Link
                         href={`/admin/operativos/${op.id}/editar`}
-                        className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         Editar
                       </Link>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs">
                       <form action="/api/admin/operativos/publish" method="post" className="inline-flex flex-wrap items-center gap-2">
                         <input type="hidden" name="id" value={op.id} />
                         <input type="hidden" name="redirectTo" value="/admin/operativos" />
                         <select
                           name="estado"
                           defaultValue={op.estado}
-                          className="rounded-md border border-slate-200 px-2 py-1"
+                          className="rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
                         >
                           <option value="borrador">Borrador</option>
                           <option value="publicado">Publicado</option>
@@ -230,7 +235,7 @@ export default async function AdminOperativosPage({
                         </select>
                         <button
                           type="submit"
-                          className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 font-semibold text-blue-700 transition hover:bg-blue-100"
                         >
                           Guardar
                         </button>
@@ -240,7 +245,7 @@ export default async function AdminOperativosPage({
                         <input type="hidden" name="redirectTo" value="/admin/operativos?success=Operativo+eliminado" />
                         <button
                           type="submit"
-                          className="inline-flex items-center rounded-md border border-red-300 px-3 py-1 font-medium text-red-600 transition hover:bg-red-50"
+                          className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 font-semibold text-rose-600 transition hover:bg-rose-100"
                         >
                           Eliminar
                         </button>
@@ -252,7 +257,7 @@ export default async function AdminOperativosPage({
             })}
             {operativos.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
                   No hay operativos cargados.
                 </td>
               </tr>

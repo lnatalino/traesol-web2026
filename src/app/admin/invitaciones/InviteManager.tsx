@@ -227,53 +227,53 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
   return (
     <div className="space-y-6">
       {errorMessage ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
           {errorMessage}
         </div>
       ) : null}
 
       {feedback.success ? (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
           {feedback.success}
         </div>
       ) : null}
       {feedback.warning ? (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-700 shadow">
           {feedback.warning}
         </div>
       ) : null}
       {feedback.error ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
           {feedback.error}
         </div>
       ) : null}
 
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="space-y-4 rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
         <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Paso 1</p>
-          <h2 className="text-xl font-semibold">Selecciona los voluntarios</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Paso 1</p>
+          <h2 className="text-2xl font-semibold text-slate-900">Selecciona los voluntarios</h2>
           <p className="text-sm text-slate-500">
             Marca a las personas que quieras invitar. Puedes buscar por nombre, email, profesión o especialidad.
           </p>
         </header>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <label className="space-y-1 text-sm md:col-span-1">
-            <span className="text-xs font-medium text-slate-500">Buscar</span>
+          <label className="space-y-2 text-sm md:col-span-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
             <input
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Nombre o email"
-              className="w-full rounded-md border px-3 py-2"
+              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 shadow-inner focus:border-blue-500 focus:outline-none"
             />
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs font-medium text-slate-500">Profesión</span>
+          <label className="space-y-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Profesión</span>
             <select
               value={profesionFilter}
               onChange={(event) => setProfesionFilter(event.target.value)}
-              className="w-full rounded-md border px-3 py-2"
+              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
             >
               <option value="">Todas</option>
               {professionOptions.map((item) => (
@@ -283,12 +283,12 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-xs font-medium text-slate-500">Especialidad</span>
+          <label className="space-y-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Especialidad</span>
             <select
               value={especialidadFilter}
               onChange={(event) => setEspecialidadFilter(event.target.value)}
-              className="w-full rounded-md border px-3 py-2"
+              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
             >
               <option value="">Todas</option>
               {specialtyOptions.map((item) => (
@@ -307,7 +307,7 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
               ref={selectAllRef}
               checked={allFilteredSelected}
               onChange={toggleAllFiltered}
-              className="h-4 w-4 rounded border-slate-300"
+              className="h-4 w-4 rounded border-slate-300 accent-blue-600"
               disabled={filteredIds.length === 0}
             />
             Seleccionar todos ({filteredIds.length})
@@ -320,41 +320,41 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <div className="max-h-[420px] overflow-y-auto">
+        <div className="overflow-hidden rounded-[30px] border border-slate-100 shadow-inner shadow-blue-900/5">
+          <div className="max-h-[420px] overflow-y-auto bg-white/90">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500">
+              <thead className="bg-slate-50/80 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 text-left">Seleccionar</th>
-                  <th className="px-4 py-3 text-left">Voluntario</th>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">Profesión</th>
-                  <th className="px-4 py-3 text-left">Especialidad</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Seleccionar</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Voluntario</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Email</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Profesión</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Especialidad</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVolunteers.length ? (
                   filteredVolunteers.map((vol) => (
-                    <tr key={vol.id} className="border-t align-middle">
-                      <td className="px-4 py-3">
+                    <tr key={vol.id} className="border-t align-middle text-slate-700">
+                      <td className="px-5 py-3">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-slate-300 accent-blue-600"
                           checked={selectedIds.has(vol.id)}
                           onChange={() => toggleVolunteer(vol.id)}
                         />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3">
                         <div className="font-medium text-slate-900">{formatNombre(vol)}</div>
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{vol.email}</td>
-                      <td className="px-4 py-3 text-slate-600">{vol.profesion || "—"}</td>
-                      <td className="px-4 py-3 text-slate-600">{vol.especialidad || "—"}</td>
+                      <td className="px-5 py-3 text-slate-600">{vol.email}</td>
+                      <td className="px-5 py-3 text-slate-600">{vol.profesion || "—"}</td>
+                      <td className="px-5 py-3 text-slate-600">{vol.especialidad || "—"}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={5} className="px-5 py-10 text-center text-slate-500">
                       {noDataLoaded
                         ? "Aún no hay datos para mostrar."
                         : "No hay voluntarios con los filtros actuales."}
@@ -367,21 +367,21 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="space-y-4 rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
         <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Paso 2</p>
-          <h2 className="text-xl font-semibold">Selecciona el operativo</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Paso 2</p>
+          <h2 className="text-2xl font-semibold text-slate-900">Selecciona el operativo</h2>
           <p className="text-sm text-slate-500">
             El correo reutiliza la misma plantilla que usas desde la ficha del voluntario.
           </p>
         </header>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-medium text-slate-500">Operativo al que quieres invitar</span>
+        <label className="space-y-2 text-sm">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operativo al que quieres invitar</span>
           <select
             value={selectedOperativo}
             onChange={(event) => setSelectedOperativo(event.target.value)}
-            className="w-full rounded-md border px-3 py-2"
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
             disabled={operativos.length === 0}
           >
             <option value="">Selecciona un operativo</option>
@@ -396,7 +396,7 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
         <button
           type="button"
           onClick={handleSubmit}
-          className="w-full rounded-md bg-blue-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disableSubmit || noDataLoaded}
         >
           {isSubmitting ? "Enviando invitaciones…" : "Enviar invitaciones"}

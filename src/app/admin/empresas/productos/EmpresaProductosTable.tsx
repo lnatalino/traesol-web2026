@@ -132,6 +132,7 @@ export default function EmpresaProductosTable({ initialProductos }: EmpresaProdu
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
+              <th className="px-4 py-3 text-left">Portada</th>
               <th className="px-4 py-3 text-left">Nombre</th>
               <th className="px-4 py-3 text-left">Categoría</th>
               <th className="px-4 py-3 text-left">Orden</th>
@@ -145,7 +146,31 @@ export default function EmpresaProductosTable({ initialProductos }: EmpresaProdu
               const deleteDisabled = deletingId === producto.id || pendingToggleIds.has(producto.id);
               return (
                 <tr key={producto.id} className="hover:bg-slate-50/70">
-                  <td className="px-4 py-4 text-sm font-medium text-slate-900">{producto.nombre}</td>
+                  <td className="px-4 py-4">
+                    {(() => {
+                      const coverUrl = producto.portada_url || producto.imagen_principal_url;
+                      return coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt={`Portada de ${producto.nombre}`}
+                          className="h-12 w-12 rounded-xl object-cover shadow-sm"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-slate-200 text-[10px] uppercase tracking-wide text-slate-400">
+                          Sin foto
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-medium text-slate-900">
+                    <Link
+                      href={`/admin/empresas/productos/${producto.id}`}
+                      className="text-blue-700 hover:underline"
+                    >
+                      {producto.nombre}
+                    </Link>
+                  </td>
                   <td className="px-4 py-4 text-slate-700">
                     {EMPRESA_PRODUCTO_CATEGORIA_LABELS[producto.categoria]}
                   </td>

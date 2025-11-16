@@ -84,95 +84,92 @@ export default async function OperativoPage({
     op.imagen_cabecera_url && op.imagen_cabecera_url.trim() !== ""
       ? op.imagen_cabecera_url
       : portadaFallback || "https://placehold.co/1200x400?text=Operativo+Traesol";
+  const fechaInicio = fDate(op.fecha_inicio) ?? "Fecha por definir";
+  const fechaFin = op.fecha_fin ? fDate(op.fecha_fin) : null;
+  const rangoFechas = fechaFin ? `${fechaInicio} — ${fechaFin}` : fechaInicio;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      <BackButton fallback="/" />
+    <main className="bg-slate-50">
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-10 lg:px-6">
+        <BackButton fallback="/" />
 
-      <div className="relative h-56 md:h-72 rounded-2xl overflow-hidden border shadow">
-        <Image
-          src={imageSrc}
-          alt={op.titulo}
-          fill
-          className="object-cover"
-          unoptimized
-          priority
-        />
-      </div>
-
-      <header className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold">{op.titulo}</h1>
-        <p className="text-gray-600">
-          {fDate(op.fecha_inicio)}
-          {op.fecha_fin ? ` — ${fDate(op.fecha_fin)}` : ""} {op.lugar ? `· ${op.lugar}` : ""}
-        </p>
-        {op.direccion && <p className="text-gray-500 text-sm">{op.direccion}</p>}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs border">
-            Estado: {op.estado}
-          </span>
-          {typeof op.cupos_total === "number" && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs border">
-              Cupos: {op.cupos_total}
-            </span>
-          )}
-          {op.instagram_url && (
-            <a
-              className="inline-flex items-center px-3 py-1 rounded-full text-xs border hover:bg-gray-50"
-              href={op.instagram_url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Ver en Instagram
-            </a>
-          )}
-        </div>
-      </header>
-
-      {op.descripcion && (
-        <section className="prose max-w-none">
-          <p>{op.descripcion}</p>
-        </section>
-      )}
-
-      {galeria.length ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Galería</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {galeria.map((img, index) => (
-              <figure key={img.id} className="overflow-hidden rounded-xl border bg-white">
-                <img
-                  src={img.url}
-                  alt={`Imagen ${index + 1} del operativo ${op.titulo}`}
-                  className="h-full w-full object-cover"
-                />
-              </figure>
-            ))}
+        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow">
+          <div className="relative h-60 w-full bg-slate-200 md:h-80">
+            <Image src={imageSrc} alt={op.titulo} fill className="object-cover" unoptimized priority />
           </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">¿Quieres participar?</h2>
-        <div className="flex gap-3">
-          <a
-            href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
-            className="px-4 py-2 rounded-xl border shadow hover:shadow-md transition"
-          >
-            Postular aquí
-          </a>
-          <a
-            href="/"
-            className="px-4 py-2 rounded-xl border hover:bg-gray-50 transition"
-          >
-            Volver al inicio
-          </a>
+          <div className="space-y-5 p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Operativo Traesol</p>
+            <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">{op.titulo}</h1>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{rangoFechas}</span>
+              {op.lugar && <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{op.lugar}</span>}
+              {op.direccion && (
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{op.direccion}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <span className="inline-flex items-center rounded-2xl bg-slate-900/5 px-4 py-1.5 text-xs font-semibold text-slate-800">
+                Estado: {op.estado}
+              </span>
+              {typeof op.cupos_total === "number" && (
+                <span className="inline-flex items-center rounded-2xl bg-slate-900/5 px-4 py-1.5 text-xs font-semibold text-slate-800">
+                  Cupos: {op.cupos_total}
+                </span>
+              )}
+              {op.instagram_url && (
+                <a
+                  className="inline-flex items-center rounded-2xl bg-white px-4 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100 transition hover:bg-blue-50"
+                  href={op.instagram_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Ver en Instagram
+                </a>
+              )}
+            </div>
+            {op.descripcion && <p className="text-base text-slate-600">{op.descripcion}</p>}
+          </div>
         </div>
-        <p className="text-xs text-gray-500">
-          * La postulación requiere aprobación manual.
-        </p>
-      </section>
+
+        {galeria.length ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <h2 className="text-xl font-semibold text-slate-900">Galería</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {galeria.map((img, index) => (
+                <figure key={img.id} className="overflow-hidden rounded-2xl border bg-slate-50">
+                  <img
+                    src={img.url}
+                    alt={`Imagen ${index + 1} del operativo ${op.titulo}`}
+                    className="h-full w-full object-cover"
+                  />
+                </figure>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-6 shadow-sm sm:p-8">
+          <h2 className="text-xl font-semibold text-slate-900">¿Quieres participar?</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Postula para sumarte a este operativo o vuelve al inicio para conocer más iniciativas de Traesol.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <a
+              href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
+              className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+            >
+              Postular aquí
+            </a>
+            <a
+              href="/"
+              className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
+            >
+              Volver al inicio
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-blue-700/70">* La postulación requiere aprobación manual.</p>
+        </section>
+      </div>
     </main>
   );
 }

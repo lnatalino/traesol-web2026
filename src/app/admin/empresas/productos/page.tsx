@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/adminSession";
 import type { EmpresaProductoRow } from "@/lib/empresas";
+import { getEmpresaMetrics } from "@/lib/empresas";
 import { supabaseService } from "@/lib/supabaseService";
 import EmpresaProductosTable from "./EmpresaProductosTable";
+import { EmpresaMetricsForm } from "../EmpresaMetricsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,8 @@ export default async function AdminEmpresaProductosPage() {
   if (!session.allowed) {
     redirect("/login?next=/admin/empresas/productos");
   }
+
+  const metrics = await getEmpresaMetrics();
 
   const { data, error } = await supabaseService
     .from("empresa_productos")
@@ -37,6 +41,28 @@ export default async function AdminEmpresaProductosPage() {
         >
           Nuevo producto
         </Link>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Métricas para empresas</p>
+            <h2 className="text-2xl font-semibold text-slate-900">Impacto mostrado en el sitio público</h2>
+            <p className="text-sm text-slate-500">
+              Edita los totales que aparecen en el hero de Programas para empresas.
+            </p>
+          </div>
+          <Link
+            href="/empresas"
+            target="_blank"
+            className="inline-flex items-center text-sm font-medium text-blue-600 transition hover:text-blue-700"
+          >
+            Ver página pública ↗
+          </Link>
+        </div>
+        <div className="mt-6">
+          <EmpresaMetricsForm initialMetrics={metrics} />
+        </div>
       </div>
 
       {errorMessage ? (

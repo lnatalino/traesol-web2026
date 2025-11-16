@@ -58,38 +58,40 @@ export default async function AdminNovedadesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Novedades</h1>
-          <p className="text-sm text-slate-500">Gestiona lo que aparece en la portada y el carrusel del sitio.</p>
+      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Novedades</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Contenido destacado</h1>
+            <p className="text-sm text-slate-500 max-w-2xl">
+              Administra lo que aparece en la portada, el carrusel del home y las notas recientes del sitio público.
+            </p>
+          </div>
+          <Link
+            href="/admin/novedades/nueva"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl"
+          >
+            <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+            Nueva novedad
+          </Link>
         </div>
-        <Link
-          href="/admin/novedades/nueva"
-          className="inline-flex items-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
-        >
-          <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-          Nueva novedad
-        </Link>
-      </div>
+      </section>
 
       {notice ? (
-        <div className="flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
-          <BadgeCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
+          <BadgeCheck className="h-5 w-5" aria-hidden="true" />
           <span>{notice}</span>
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
+          <CircleAlert className="h-5 w-5" aria-hidden="true" />
           <span>{errorMessage}</span>
         </div>
       ) : null}
 
-      <NovedadesTable
-        items={novedades}
-        initialMessage={notice}
-      />
+      <NovedadesTable items={novedades} initialMessage={notice} />
     </div>
   );
 }

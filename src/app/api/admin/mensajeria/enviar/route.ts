@@ -98,6 +98,14 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const subject = parseValue(form.get("subject"));
   const body = parseValue(form.get("body"));
+  const selectedIds = Array.from(
+    new Set(
+      form
+        .getAll("selectedIds")
+        .map((value) => parseValue(value))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
 
   if (!subject || !body) {
     const url = new URL("/admin/mensajeria", req.url);
@@ -119,10 +127,28 @@ export async function POST(req: Request) {
     return NextResponse.redirect(url, 303);
   }
 
+  if (filters.mode === "custom" && selectedIds.length === 0) {
+    const url = new URL("/admin/mensajeria", req.url);
+    url.searchParams.set("error", "Debes elegir al menos un voluntario para el envío personalizado.");
+    return NextResponse.redirect(url, 303);
+  }
+
   try {
     const recipients = await listMessagingRecipients(filters);
+    const filteredRecipients = (() => {
+      if (filters.mode !== "custom") return recipients;
+      const selectedSet = new Set(selectedIds);
+      return recipients.filter((recipient) => selectedSet.has(recipient.id));
+    })();
+
+    if (filters.mode === "custom" && filteredRecipients.length === 0) {
+      const url = new URL("/admin/mensajeria", req.url);
+      url.searchParams.set("error", "Los voluntarios seleccionados ya no están disponibles. Actualiza la lista.");
+      return NextResponse.redirect(url, 303);
+    }
+
     const emails = uniqueRecipients(
-      recipients.map((recipient) => ({ email: recipient.email })) as Array<{ email: string | null }>
+      filteredRecipients.map((recipient) => ({ email: recipient.email })) as Array<{ email: string | null }>
     );
 
     if (emails.length === 0) {

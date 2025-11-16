@@ -41,145 +41,172 @@ export function NovedadForm({ action, submitLabel, defaults, children }: Novedad
   const portadaRemoveId = "novedad-portada-remove";
 
   return (
-    <form action={action} method="post" className="space-y-6" encType="multipart/form-data">
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2 text-sm">
-          <span className="font-medium text-slate-700">Título *</span>
-          <input
-            name="titulo"
-            required
-            defaultValue={defaults?.titulo ?? ""}
-            className="w-full rounded-md border px-3 py-2"
-            placeholder="Novedad destacada"
-          />
-        </label>
-        <label className="space-y-2 text-sm">
-          <span className="font-medium text-slate-700">Slug</span>
-          <input
-            name="slug"
-            defaultValue={defaults?.slug ?? ""}
-            className="w-full rounded-md border px-3 py-2"
-            placeholder="novedad-destacada"
-          />
-          <p className="text-xs text-slate-500">Si lo dejas vacío, se genera automáticamente desde el título.</p>
-        </label>
-      </div>
-
-      <label className="space-y-2 text-sm block">
-        <span className="font-medium text-slate-700">Bajada</span>
-        <textarea
-          name="bajada"
-          defaultValue={defaults?.bajada ?? ""}
-          className="w-full rounded-md border px-3 py-2"
-          rows={3}
-          placeholder="Descripción breve para destacar la novedad"
-        />
-      </label>
-
-      <label className="space-y-2 text-sm block">
-        <span className="font-medium text-slate-700">Cuerpo</span>
-        <textarea
-          name="cuerpo"
-          defaultValue={defaults?.cuerpo ?? ""}
-          className="w-full rounded-md border px-3 py-2"
-          rows={8}
-          placeholder="Contenido principal (puede ser texto o HTML simple)"
-        />
-      </label>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2 text-sm">
-          <label htmlFor={portadaInputId} className="font-medium text-slate-700">Imagen de portada</label>
-          {defaults?.imagen_portada_url ? (
-            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
-              <div className="aspect-video overflow-hidden rounded-md bg-white">
-                <img
-                  src={defaults.imagen_portada_url}
-                  alt="Portada actual"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <p className="text-xs text-slate-500 break-all">
-                <a href={defaults.imagen_portada_url} target="_blank" rel="noreferrer" className="underline">
-                  {defaults.imagen_portada_url}
-                </a>
-              </p>
-              <div className="flex items-center gap-2 text-xs text-slate-600">
-                <input id={portadaRemoveId} type="checkbox" name="imagen_portada_eliminar" value="1" />
-                <label htmlFor={portadaRemoveId}>Eliminar imagen actual</label>
-              </div>
-            </div>
-          ) : null}
-          <input
-            id={portadaInputId}
-            type="file"
-            name="imagen_portada_file"
-            accept="image/*"
-            className="block w-full rounded-md border px-3 py-2 text-sm"
-          />
-          <p className="text-xs text-slate-500">Se almacena en Supabase (máx. 10 MB). Si no cargas una portada, se usará la primera imagen de la galería.</p>
+    <form action={action} method="post" className="space-y-8" encType="multipart/form-data">
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Información principal</p>
+          <p className="text-sm text-slate-500">Título público, slug y resumen para la tarjeta destacada.</p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Título *</span>
+            <input
+              name="titulo"
+              required
+              defaultValue={defaults?.titulo ?? ""}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              placeholder="Novedad destacada"
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Slug</span>
+            <input
+              name="slug"
+              defaultValue={defaults?.slug ?? ""}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              placeholder="novedad-destacada"
+            />
+            <p className="text-xs text-slate-500">Si lo dejas vacío, se genera automáticamente desde el título.</p>
+          </label>
         </div>
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium text-slate-700">Bajada</span>
+          <textarea
+            name="bajada"
+            defaultValue={defaults?.bajada ?? ""}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            rows={3}
+            placeholder="Descripción breve para destacar la novedad"
+          />
+        </label>
+      </section>
+
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Contenido y enlaces</p>
+          <p className="text-sm text-slate-500">Incluye el cuerpo completo y un link externo opcional.</p>
+        </header>
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium text-slate-700">Cuerpo</span>
+          <textarea
+            name="cuerpo"
+            defaultValue={defaults?.cuerpo ?? ""}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            rows={8}
+            placeholder="Contenido principal (puede ser texto o HTML simple)"
+          />
+        </label>
         <label className="space-y-2 text-sm">
           <span className="font-medium text-slate-700">Link externo</span>
           <input
             type="url"
             name="link_externo"
             defaultValue={defaults?.link_externo ?? ""}
-            className="w-full rounded-md border px-3 py-2"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
             placeholder="https://www.instagram.com/..."
           />
         </label>
-      </div>
+      </section>
 
-      <ImageGalleryField
-        title="Galería de imágenes"
-        description="Estas imágenes aparecerán como galería en la página pública. La imagen de portada se mantiene por separado."
-        fieldPrefix="novedad"
-        existingImages={defaults?.imagenes ?? []}
-      />
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2 text-sm">
-          <span className="font-medium text-slate-700">Fecha de publicación</span>
-          <input
-            type="datetime-local"
-            name="fecha_publicacion"
-            defaultValue={fechaValue}
-            className="w-full rounded-md border px-3 py-2"
-          />
-          <p className="text-xs text-slate-500">Si la dejas vacía, se usará la fecha actual al guardar.</p>
-        </label>
-        <div className="flex items-start gap-6 rounded-md border px-4 py-3">
-          <label className="flex items-center gap-2 text-sm">
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Medios</p>
+          <p className="text-sm text-slate-500">Gestiona la imagen principal y la galería complementaria.</p>
+        </header>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-3 rounded-3xl border border-slate-100 bg-white p-5">
+            <label htmlFor={portadaInputId} className="text-sm font-medium text-slate-700">
+              Imagen de portada
+            </label>
+            {defaults?.imagen_portada_url ? (
+              <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+                <div className="aspect-video overflow-hidden rounded-2xl bg-white">
+                  <img
+                    src={defaults.imagen_portada_url}
+                    alt="Portada actual"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <p className="break-all text-xs text-slate-500">
+                  <a href={defaults.imagen_portada_url} target="_blank" rel="noreferrer" className="underline">
+                    {defaults.imagen_portada_url}
+                  </a>
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <input id={portadaRemoveId} type="checkbox" name="imagen_portada_eliminar" value="1" />
+                  <label htmlFor={portadaRemoveId}>Eliminar imagen actual</label>
+                </div>
+              </div>
+            ) : null}
             <input
-              type="checkbox"
-              name="publicado"
-              defaultChecked={Boolean(defaults?.publicado)}
-              className="h-4 w-4"
+              id={portadaInputId}
+              type="file"
+              name="imagen_portada_file"
+              accept="image/*"
+              className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm"
             />
-            <span className="font-medium text-slate-700">Publicado</span>
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="en_carrusel"
-              defaultChecked={Boolean(defaults?.en_carrusel)}
-              className="h-4 w-4"
+            <p className="text-xs text-slate-500">Máx. 10 MB. Si no cargas portada, se usará la primera imagen de la galería.</p>
+          </div>
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4">
+            <ImageGalleryField
+              title="Galería de imágenes"
+              description="Estas imágenes aparecerán como galería en la página pública. La imagen de portada se mantiene por separado."
+              fieldPrefix="novedad"
+              existingImages={defaults?.imagenes ?? []}
             />
-            <span className="font-medium text-slate-700">En carrusel</span>
-          </label>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Publicación</p>
+          <p className="text-sm text-slate-500">Define la fecha y si debe mostrarse en el sitio o en el carrusel.</p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Fecha de publicación</span>
+            <input
+              type="datetime-local"
+              name="fecha_publicacion"
+              defaultValue={fechaValue}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            />
+            <p className="text-xs text-slate-500">Si la dejas vacía, se usará la fecha actual al guardar.</p>
+          </label>
+          <div className="flex flex-wrap gap-4 rounded-3xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm">
+            <label className="flex items-center gap-2 font-medium text-slate-700">
+              <input
+                type="checkbox"
+                name="publicado"
+                defaultChecked={Boolean(defaults?.publicado)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <span>Publicado</span>
+            </label>
+            <label className="flex items-center gap-2 font-medium text-slate-700">
+              <input
+                type="checkbox"
+                name="en_carrusel"
+                defaultChecked={Boolean(defaults?.en_carrusel)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <span>En carrusel</span>
+            </label>
+          </div>
+        </div>
+      </section>
 
       {children}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="inline-flex items-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800"
         >
           {submitLabel}
         </button>
+        <p className="text-xs text-slate-500">Los cambios se verán reflejados en la sección pública de Novedades.</p>
       </div>
     </form>
   );

@@ -19,13 +19,6 @@ type OperativoRow = {
 export default async function HomePage() {
   const supabase = createSupabaseServer();
 
-  // 1) Banners activos para el hero
-  const { data: banners } = await supabase
-    .from("carrusel_fotos")
-    .select("id,titulo,imagen_url,link_url")
-    .eq("activo", true)
-    .order("orden", { ascending: true });
-
   const [novedadesCarrusel, novedadesLista] = await Promise.all([
     getCarruselNovedades(8),
     getUltimasNovedades(6),
@@ -91,66 +84,92 @@ export default async function HomePage() {
     asistencias_marcadas: atencionesSum,
   };
 
-  // HERO SLIDES: Mezcla banners + novedades destacadas, a prueba de null/undefined
-  const heroSlidesBase: Slide[] = [
-    ...((banners ?? []).map((b) => ({
-      id: b.id,
-      titulo: b.titulo ?? undefined,
-      imagen_url: b.imagen_url ?? "/placeholder.png",
-      href: b.link_url || null,
-    })) as Slide[]),
-
-    ...novedadesCarrusel.map((n) => ({
+  // HERO SLIDES: Solo novedades con portada disponible
+  const heroSlides: Slide[] = novedadesCarrusel
+    .map((n) => ({
       id: n.id,
       titulo: n.titulo ?? undefined,
       imagen_url: resolvePortada(n),
       href: n.link_externo || (n.slug ? `/novedades/${n.slug}` : null),
-    } satisfies Slide)),
-  ].filter((s) => !!s.imagen_url);
-
-  // Fallback: si no hay nada, muestra un slide neutro para evitar "pantalla vacía"
-  const heroSlides: Slide[] =
-    heroSlidesBase.length > 0
-      ? heroSlidesBase
-      : [
-          {
-            id: "fallback",
-            titulo: "Fundación Traesol",
-            imagen_url: "/placeholder.png",
-            href: null,
-          },
-        ];
+    } satisfies Slide))
+    .filter((s) => !!s.imagen_url);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
-      {/* Hero */}
-      <section>
-        <Carousel slides={heroSlides} />
-      </section>
+    <main className="bg-slate-50">
+      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 lg:px-6">
+        <section className="rounded-[32px] bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-10 text-white shadow-2xl sm:px-10">
+          <div className="grid items-stretch gap-10 lg:grid-cols-[1.1fr_minmax(0,0.9fr)]">
+            <div className="space-y-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Fundación Traesol</p>
+              <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">Salud colaborativa para cada territorio</h1>
+              <p className="text-base text-white/80 sm:text-lg">
+                Movilizamos equipos médicos, voluntariado y alianzas con empresas para llevar operativos, educación y atención a las comunidades que más lo necesitan.
+              </p>
+            </div>
+            <div className="flex h-full items-stretch">
+              <Carousel slides={heroSlides} variant="hero" />
+            </div>
+          </div>
+        </section>
 
-      {/* CTAs */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Únete y apoya</h2>
-        <CTAButtons />
-      </section>
+        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Acciones inmediatas</p>
+              <h2 className="text-3xl font-semibold text-slate-900">Únete y apoya</h2>
+            </div>
+            <p className="text-sm text-slate-600 max-w-xl">
+              Postula a operativos, dona o vincula a tu empresa con nuestros programas. Cada paso suma.
+            </p>
+          </div>
+          <div className="mt-8">
+            <CTAButtons />
+          </div>
+        </section>
 
-      {/* Novedades */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Novedades</h2>
-        <Novedades items={novedadesLista} />
-      </section>
+        <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Impacto</p>
+              <h2 className="text-3xl font-semibold text-slate-900">Métricas en vivo</h2>
+            </div>
+            <p className="text-sm text-slate-600 max-w-xl">Actualizamos estos datos constantemente para transparentar nuestro trabajo.</p>
+          </div>
+          <div className="mt-8">
+            <Metrics m={metricsForComponent} />
+          </div>
+        </section>
 
-      {/* Próximos operativos */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Próximos operativos</h2>
-        <OperativosCarousel items={opsClean as any} />
-      </section>
+        <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Historias recientes</p>
+              <h2 className="text-3xl font-semibold text-slate-900">Novedades</h2>
+            </div>
+            <p className="text-sm text-slate-500 max-w-xl">
+              Descubre los últimos operativos, campañas y testimonios publicados por la fundación.
+            </p>
+          </div>
+          <div className="mt-6">
+            <Novedades items={novedadesLista} />
+          </div>
+        </section>
 
-      {/* Métricas */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Métricas en vivo</h2>
-        <Metrics m={metricsForComponent} />
-      </section>
+        <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Agenda</p>
+              <h2 className="text-3xl font-semibold text-slate-900">Próximos operativos</h2>
+            </div>
+            <p className="text-sm text-slate-500 max-w-xl">
+              Organiza tu participación con anticipación y revisa los cupos disponibles.
+            </p>
+          </div>
+          <div className="mt-6">
+            <OperativosCarousel items={opsClean as any} />
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

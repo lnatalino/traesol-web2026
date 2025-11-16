@@ -126,8 +126,8 @@ const Section = memo(function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="card space-y-4">
-      <h2 className="section-title">{title}</h2>
+    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm sm:p-6">
+      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
       {children}
     </section>
   );
@@ -141,8 +141,8 @@ const Field = memo(function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="label">{label}</span>
+    <label className="block text-sm text-slate-700">
+      <span className="font-semibold text-slate-900">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -496,64 +496,62 @@ export default function PostularPage() {
   }
 
   return (
-    <main className="container">
-      <BackButton fallback="/" />
+    <main className="bg-slate-50">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 lg:px-6">
+        <BackButton fallback="/" />
 
-      <header className="mb-6">
-        <h1 className="title">Postulación de Voluntariado</h1>
-        <p className="subtitle">
-          Completa tus datos y, si llegaste desde un operativo específico, quedará
-          asociada tu postulación.
-        </p>
-      </header>
+        <section className="rounded-[32px] bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-10 text-white shadow-2xl sm:px-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Hazte voluntario</p>
+              <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">Postulación de Voluntariado</h1>
+              <p className="text-base text-white/80 sm:text-lg">
+                Completa tus datos y, si llegaste desde un operativo específico, asociaremos automáticamente tu postulación. Tus antecedentes permanecen seguros y actualizados.
+              </p>
+            </div>
+            <div className="rounded-3xl border border-white/20 bg-white/10 p-5 text-white/90 backdrop-blur">
+              <p className="text-sm font-semibold">¿Ya fuiste voluntario antes?</p>
+              <p className="text-sm text-white/80">Usa tu RUT para completar el formulario en segundos.</p>
+              <input
+                type="text"
+                className="inp mt-3 text-left"
+                placeholder="12.345.678-9"
+                value={rutLookup}
+                onChange={(event) => setRutLookup(event.target.value)}
+                onBlur={(event) => setRutLookup(formatRut(event.target.value))}
+                aria-label="RUT para autocompletar"
+              />
+              <button
+                type="button"
+                className="btn-outline ml-auto mt-3"
+                onClick={() => preFillByRut(rutLookup)}
+                disabled={!rutLookup.trim()}
+              >
+                Autocompletar por RUT
+              </button>
+            </div>
+          </div>
+        </section>
 
-      <div className="mb-6 flex w-full justify-end">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-slate-50 p-4 text-right shadow-sm">
-          <p className="text-sm font-semibold text-slate-800">¿Ya fuiste voluntario antes?</p>
-          <p className="text-sm text-slate-600">
-            Puedes usar tu RUT para pre-rellenar automáticamente tus datos.
-          </p>
-          <p className="text-sm text-slate-600">
-            Cualquier cambio que hagas se actualizará al enviar este formulario.
-          </p>
-          <input
-            type="text"
-            className="inp mt-3 text-left"
-            placeholder="12.345.678-9"
-            value={rutLookup}
-            onChange={(event) => setRutLookup(event.target.value)}
-            onBlur={(event) => setRutLookup(formatRut(event.target.value))}
-            aria-label="RUT para autocompletar"
-          />
-          <button
-            type="button"
-            className="btn-outline ml-auto mt-3"
-            onClick={() => preFillByRut(rutLookup)}
-            disabled={!rutLookup.trim()}
-          >
-            Autocompletar por RUT
-          </button>
-        </div>
-      </div>
+        {(() => {
+          const successParam = sp.get("success") || "";
+          const errorParam = sp.get("error") || "";
+          const noticeParam = sp.get("notice") || sp.get("warning") || "";
+          const successMessage = msgOk || successParam;
+          const warningMessage = msgWarn || noticeParam;
+          const errorMessage = msgErr || errorParam;
+          return (
+            <>
+              {successMessage ? <div className="alert success">{successMessage}</div> : null}
+              {warningMessage ? <div className="alert warning">{warningMessage}</div> : null}
+              {errorMessage ? <div className="alert error">{errorMessage}</div> : null}
+            </>
+          );
+        })()}
+        {msgAuto && <div className="alert info">{msgAuto}</div>}
 
-      {(() => {
-        const successParam = sp.get("success") || "";
-        const errorParam = sp.get("error") || "";
-        const noticeParam = sp.get("notice") || sp.get("warning") || "";
-        const successMessage = msgOk || successParam;
-        const warningMessage = msgWarn || noticeParam;
-        const errorMessage = msgErr || errorParam;
-        return (
-          <>
-            {successMessage ? <div className="alert success">{successMessage}</div> : null}
-            {warningMessage ? <div className="alert warning">{warningMessage}</div> : null}
-            {errorMessage ? <div className="alert error">{errorMessage}</div> : null}
-          </>
-        );
-      })()}
-      {msgAuto && <div className="alert info">{msgAuto}</div>}
-
-      <form onSubmit={submit} className="space-y-6" autoComplete="off">
+        <div className="mx-auto max-w-4xl rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-xl sm:p-10">
+          <form onSubmit={submit} className="space-y-6" autoComplete="off">
         {/* Datos personales */}
         <Section title="Datos personales">
           <div className="grid md:grid-cols-2 gap-4">
@@ -873,12 +871,14 @@ export default function PostularPage() {
           </Field>
         </Section>
 
-        <div className="pt-2">
-          <button className="btn-primary" disabled={sending}>
+        <div className="pt-4">
+          <button className="btn-primary w-full" disabled={sending}>
             {sending ? "Enviando…" : "Enviar postulación"}
           </button>
         </div>
-      </form>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }

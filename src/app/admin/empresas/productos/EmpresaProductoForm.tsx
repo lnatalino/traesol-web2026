@@ -1,367 +1,363 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
+import ImageGalleryField from "@/app/admin/components/ImageGalleryField";
 import {
   EMPRESA_PRODUCTO_CATEGORIA_LABELS,
-  type EmpresaPackItemInsert,
   type EmpresaProductoCategoria,
   type EmpresaProductoRow,
 } from "@/lib/empresas";
+import { toSlug } from "@/lib/slug";
 import { createSupabaseBrowser } from "@/lib/supabaseServer";
 
 type EmpresaProductoFormProps = {
   mode: "create" | "edit";
-  initialData?: EmpresaProductoRow;
+  initialData?: EmpresaProductoRow | null;
 };
 
-const categoriaEntries = Object.entries(EMPRESA_PRODUCTO_CATEGORIA_LABELS) as Array<[
-  EmpresaProductoCategoria,
-  string,
-]>;
+type AlertState = { type: "success" | "error"; message: string } | null;
 
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-type PackItemState = {
-  producto_id: string;
-  cantidad: number;
+type LightProduct = {
+  id: string;
   nombre: string;
-  categoria?: EmpresaProductoCategoria | null;
+  categoria: EmpresaProductoCategoria;
+};
+
+type PackItemView = LightProduct & { cantidad: number };
+
+const categoriaOptions = Object.entries(EMPRESA_PRODUCTO_CATEGORIA_LABELS);
+const DEFAULT_CATEGORY = (categoriaOptions[0]?.[0] ?? "tunnel_educativo") as EmpresaProductoCategoria;
+
+const sanitizeText = (value: string): string | null => {
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
 };
 
 export default function EmpresaProductoForm({ mode, initialData }: EmpresaProductoFormProps) {
-  if (mode === "edit" && !initialData) {
-    console.error("EmpresaProductoForm: falta initialData en modo edit");
-  }
-
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowser(), []);
-  const isEdit = mode === "edit";
 
   const [nombre, setNombre] = useState(initialData?.nombre ?? "");
   const [slug, setSlug] = useState(initialData?.slug ?? "");
   const [categoria, setCategoria] = useState<EmpresaProductoCategoria>(
-    (initialData?.categoria as EmpresaProductoCategoria) ?? categoriaEntries[0][0],
+    (initialData?.categoria as EmpresaProductoCategoria) ?? DEFAULT_CATEGORY,
   );
-  const [descripcionCorta, setDescripcionCorta] = useState(initialData?.descripcion_corta ?? "");
-  const [descripcionLarga, setDescripcionLarga] = useState(initialData?.descripcion_larga ?? "");
-  const [imagenPrincipalUrl, setImagenPrincipalUrl] = useState(initialData?.imagen_principal_url ?? "");
-  const [videoUrl, setVideoUrl] = useState(initialData?.video_url ?? "");
   const [orden, setOrden] = useState<number | undefined>(initialData?.orden ?? undefined);
   const [activo, setActivo] = useState(initialData?.activo ?? true);
-  const [productosDisponibles, setProductosDisponibles] = useState<EmpresaProductoRow[]>([]);
-  const [packItems, setPackItems] = useState<PackItemState[]>([]);
+  const [resumenCorto, setResumenCorto] = useState(initialData?.resumen_corto ?? "");
+  const [descripcionLarga, setDescripcionLarga] = useState(initialData?.descripcion_larga ?? "");
+  const [videoUrl, setVideoUrl] = useState(initialData?.video_url ?? "");
+  const [portadaUrl, setPortadaUrl] = useState<string | null>(
+    initialData?.portada_url ?? initialData?.imagen_principal_url ?? null,
+  );
+  const [portadaUploading, setPortadaUploading] = useState(false);
+  const [portadaError, setPortadaError] = useState<string | null>(null);
+  const portadaInputRef = useRef<HTMLInputElement>(null);
+
+  const [productosDisponibles, setProductosDisponibles] = useState<LightProduct[]>([]);
+  const [productosLoading, setProductosLoading] = useState(true);
+  const [productosError, setProductosError] = useState<string | null>(null);
+  const [packItems, setPackItems] = useState<PackItemView[]>([]);
+  const [packLoading, setPackLoading] = useState(false);
+  const fetchedPackItemsRef = useRef(false);
+
+  const [alert, setAlert] = useState<AlertState>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+
+  const initialProductId = initialData?.id ?? null;
+  const showingPackSection = categoria === "pack";
 
   useEffect(() => {
-    let isMounted = true;
+    let active = true;
     async function loadProductos() {
-      if (categoria !== "pack") {
-        setProductosDisponibles([]);
-        setPackItems([]);
-        return;
-      }
+      setProductosLoading(true);
+      setProductosError(null);
       const { data, error } = await supabase
         .from("empresa_productos")
-        .select("*")
-        .eq("activo", true)
-        .neq("categoria", "pack")
-        .order("orden", { ascending: true })
+        .select("id,nombre,categoria")
         .order("nombre", { ascending: true });
-
-      if (!isMounted) return;
-      if (!error && Array.isArray(data)) {
-        setProductosDisponibles(data as EmpresaProductoRow[]);
+      if (!active) return;
+      if (error) {
+        setProductosDisponibles([]);
+        setProductosError(error.message || "No pudimos cargar el catálogo disponible.");
+      } else {
+        const mapped = (data ?? [])
+          .filter((producto) => producto.id !== initialProductId)
+          .map((producto) => ({
+            id: producto.id,
+            nombre: producto.nombre,
+            categoria: (producto.categoria as EmpresaProductoCategoria) ?? DEFAULT_CATEGORY,
+          }));
+        setProductosDisponibles(mapped);
       }
+      setProductosLoading(false);
     }
-
     loadProductos();
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, [categoria, supabase]);
+  }, [supabase, initialProductId]);
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadPackItems() {
-      if (!isEdit || !initialData || initialData.categoria !== "pack") return;
-      const { data, error } = await supabase
-        .from("empresa_pack_items")
-        .select("producto_id,cantidad")
-        .eq("pack_id", initialData.id);
-      if (!isMounted || error || !Array.isArray(data)) return;
-      const productoIds = data.map((row) => row.producto_id);
-      const nombreMap = new Map<string, { nombre: string; categoria?: EmpresaProductoCategoria | null }>();
-      if (productoIds.length > 0) {
-        const { data: productosInfo } = await supabase
-          .from("empresa_productos")
-          .select("id,nombre,categoria")
-          .in("id", productoIds);
-        productosInfo?.forEach((prod) =>
-          nombreMap.set(prod.id, {
-            nombre: prod.nombre ?? "",
-            categoria: prod.categoria as EmpresaProductoCategoria,
-          }),
-        );
-      }
-      if (!isMounted) return;
-      setPackItems(
-        data.map((row) => {
-          const meta = nombreMap.get(row.producto_id) ?? { nombre: "", categoria: null };
+    if (fetchedPackItemsRef.current) return;
+    if (mode !== "edit" || !initialProductId || initialData?.categoria !== "pack") return;
+    if (productosLoading) return;
+
+    let active = true;
+    fetchedPackItemsRef.current = true;
+    setPackLoading(true);
+    supabase
+      .from("empresa_pack_items")
+      .select("producto_id,cantidad")
+      .eq("pack_id", initialProductId)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setAlert({ type: "error", message: error.message || "No pudimos cargar el contenido del pack." });
+          return;
+        }
+        const resolved = (data ?? []).map((item) => {
+          const fallback = productosDisponibles.find((producto) => producto.id === item.producto_id);
           return {
-            producto_id: row.producto_id,
-            cantidad: row.cantidad ?? 1,
-            nombre: meta.nombre,
-            categoria: meta.categoria,
-          } satisfies PackItemState;
-        }),
-      );
-    }
-    loadPackItems();
+            producto_id: item.producto_id,
+            nombre: fallback?.nombre ?? "Producto",
+            categoria: fallback?.categoria ?? DEFAULT_CATEGORY,
+            cantidad: item.cantidad ?? 1,
+          } satisfies PackItemView;
+        });
+        setPackItems(resolved);
+      })
+      .finally(() => {
+        if (active) setPackLoading(false);
+      });
+
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, [isEdit, initialData, supabase]);
+  }, [mode, initialProductId, initialData?.categoria, productosLoading, productosDisponibles, supabase]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  const packProductList = useMemo<LightProduct[]>(() => {
+    if (!showingPackSection) return [];
+    const base = productosDisponibles.filter((producto) => producto.id !== initialProductId);
+    const knownIds = new Set(base.map((item) => item.id));
+    const extras = packItems
+      .filter((item) => !knownIds.has(item.producto_id))
+      .map((item) => ({ id: item.producto_id, nombre: item.nombre, categoria: item.categoria }));
+    return [...base, ...extras];
+  }, [showingPackSection, productosDisponibles, initialProductId, packItems]);
+
+  const handleGenerateSlug = () => {
+    if (!nombre.trim()) return;
+    setSlug((current) => current.trim() || toSlug(nombre));
+  };
+
+  const handlePortadaChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPortadaUploading(true);
+    setPortadaError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/admin/empresas/productos/upload-portada", {
+        method: "POST",
+        body,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "No pudimos subir la imagen.");
+      }
+      if (portadaUrl) {
+        await fetch("/api/admin/empresas/productos/upload-portada", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: portadaUrl }),
+        }).catch(() => null);
+      }
+      setPortadaUrl(payload.url);
+    } catch (error: any) {
+      setPortadaError(error?.message || "No se pudo subir la portada.");
+    } finally {
+      setPortadaUploading(false);
+      if (portadaInputRef.current) portadaInputRef.current.value = "";
+    }
+  };
+
+  const handleRemovePortada = async () => {
+    if (!portadaUrl) return;
+    try {
+      await fetch("/api/admin/empresas/productos/upload-portada", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: portadaUrl }),
+      });
+    } catch {
+      // No bloqueamos al usuario si falla la eliminación del archivo.
+    } finally {
+      setPortadaUrl(null);
+    }
+  };
+
+  const handleAddPackProduct = (producto: LightProduct) => {
+    setPackItems((prev) => {
+      if (prev.some((item) => item.producto_id === producto.id)) return prev;
+      return [...prev, { ...producto, cantidad: 1 }];
+    });
+  };
+
+  const handleUpdatePackCantidad = (productoId: string, cantidad: number) => {
+    const safeCantidad = Number.isFinite(cantidad) && cantidad > 0 ? Math.round(cantidad) : 1;
+    setPackItems((prev) =>
+      prev.map((item) => (item.producto_id === productoId ? { ...item, cantidad: safeCantidad } : item)),
+    );
+  };
+
+  const handleRemovePackProduct = (productoId: string) => {
+    setPackItems((prev) => prev.filter((item) => item.producto_id !== productoId));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (submitting) return;
+    setAlert(null);
 
-    const trimmedNombre = nombre.trim();
-    const trimmedSlug = slug.trim();
-
-    if (!trimmedNombre || !trimmedSlug || !categoria) {
-      setErrorMessage("Completa el nombre, slug y categoría.");
+    if (!nombre.trim()) {
+      setAlert({ type: "error", message: "Ingresa un nombre para el producto." });
       return;
     }
 
-    setSubmitting(true);
-    setErrorMessage("");
+    const safeSlug = (slug.trim() || toSlug(nombre)).toLowerCase();
+    if (!safeSlug) {
+      setAlert({ type: "error", message: "No pudimos generar un slug válido." });
+      return;
+    }
 
-    const payload = {
-      nombre: trimmedNombre,
-      slug: trimmedSlug,
+    const record = {
+      nombre: nombre.trim(),
+      slug: safeSlug,
       categoria,
-      descripcion_corta: descripcionCorta.trim() || null,
-      descripcion_larga: descripcionLarga.trim() || null,
-      detalles_json: isEdit ? initialData?.detalles_json ?? {} : {},
+      resumen_corto: sanitizeText(resumenCorto),
+      descripcion_corta: sanitizeText(resumenCorto),
+      descripcion_larga: sanitizeText(descripcionLarga),
+      detalles_json: null,
       orden: typeof orden === "number" ? orden : null,
       activo,
-      imagen_principal_url: imagenPrincipalUrl.trim() || null,
-      video_url: videoUrl.trim() || null,
+      video_url: sanitizeText(videoUrl),
+      portada_url: portadaUrl,
+      imagen_principal_url: portadaUrl,
     } satisfies Partial<EmpresaProductoRow>;
 
-    let productoId: string | null = null;
-    if (isEdit && initialData) {
-      const { data: updated, error } = await supabase
-        .from("empresa_productos")
-        .update(payload)
-        .eq("id", initialData.id)
-        .select("id")
-        .single();
-
-      if (error || !updated) {
-        setSubmitting(false);
-        setErrorMessage(error?.message ?? "No se pudo guardar el producto.");
-        return;
+    setSubmitting(true);
+    try {
+      let productoId = initialProductId;
+      if (mode === "create") {
+        const { data, error } = await supabase
+          .from("empresa_productos")
+          .insert(record)
+          .select("id")
+          .single();
+        if (error || !data) {
+          throw new Error(error?.message || "No pudimos crear el producto.");
+        }
+        productoId = data.id;
+      } else if (productoId) {
+        const { error } = await supabase.from("empresa_productos").update(record).eq("id", productoId);
+        if (error) throw new Error(error.message);
+      } else {
+        throw new Error("No encontramos el identificador del producto a editar.");
       }
-      productoId = updated.id;
-    } else {
-      const { data: inserted, error } = await supabase
-        .from("empresa_productos")
-        .insert(payload)
-        .select("id")
-        .single();
 
-      if (error || !inserted) {
-        setSubmitting(false);
-        setErrorMessage(error?.message ?? "No se pudo guardar el producto.");
-        return;
-      }
-      productoId = inserted.id;
-    }
-
-    if (!productoId) {
-      setSubmitting(false);
-      setErrorMessage("No se pudo resolver el ID del producto.");
-      return;
-    }
-
-    if (categoria !== "pack") {
-      if (isEdit && initialData?.categoria === "pack") {
-        await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
-      }
-    } else {
-      if (isEdit) {
-        await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
-      }
-      if (packItems.length > 0) {
-        const itemsToInsert: EmpresaPackItemInsert[] = packItems.map((item) => ({
-          pack_id: productoId!,
-          producto_id: item.producto_id,
-          cantidad: item.cantidad || 1,
-        }));
-        const { error: itemsError } = await supabase.from("empresa_pack_items").insert(itemsToInsert);
-        if (itemsError) {
-          console.error("Error al guardar items del pack", itemsError);
+      if (productoId) {
+        if (categoria === "pack") {
+          const { error: deleteError } = await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
+          if (deleteError) throw new Error(deleteError.message);
+          if (packItems.length) {
+            const payload = packItems.map((item) => ({
+              pack_id: productoId!,
+              producto_id: item.producto_id,
+              cantidad: item.cantidad,
+            }));
+            const { error: insertError } = await supabase.from("empresa_pack_items").insert(payload);
+            if (insertError) throw new Error(insertError.message);
+          }
+        } else if (mode === "edit" && initialData?.categoria === "pack") {
+          await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
         }
       }
+
+      setAlert({ type: "success", message: mode === "create" ? "Producto creado correctamente." : "Cambios guardados." });
+      setTimeout(() => router.push("/admin/empresas/productos"), 1200);
+    } catch (error: any) {
+      setAlert({ type: "error", message: error?.message || "No pudimos guardar el producto." });
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    setSubmitting(false);
-
-    router.push("/admin/empresas/productos");
-    router.refresh();
-  }
-
-  function handleGenerateSlug() {
-    if (!nombre.trim()) return;
-    setSlug(slugify(nombre));
-  }
-
-  const packProductList: Array<Pick<EmpresaProductoRow, "id" | "nombre" | "categoria">> =
-    categoria === "pack"
-      ? [
-          ...productosDisponibles,
-          ...packItems
-            .filter((item) => !productosDisponibles.some((prod) => prod.id === item.producto_id))
-            .map((item) => ({
-              id: item.producto_id,
-              nombre: item.nombre,
-              categoria: (item.categoria as EmpresaProductoCategoria) ?? categoriaEntries[0][0],
-            })),
-        ]
-      : [];
+  const existingGalleryImages: Array<{ id: string; url: string; path: string }> = [];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {errorMessage ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {alert ? (
+        <div
+          className={`rounded-[28px] border px-5 py-4 text-sm font-medium shadow-sm ${
+            alert.type === "error"
+              ? "border-rose-200/70 bg-rose-50/80 text-rose-900"
+              : "border-emerald-200/70 bg-emerald-50/80 text-emerald-900"
+          }`}
+        >
+          {alert.message}
         </div>
       ) : null}
 
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Información básica</h2>
-          <p className="text-xs text-slate-500">Completa el nombre, slug y categoría visible en el catálogo.</p>
+      {productosError ? (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+          {productosError}
         </div>
+      ) : null}
+
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Información principal</p>
+          <p className="text-sm text-slate-500">Define cómo se mostrará este servicio en el catálogo.</p>
+        </header>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Nombre *</span>
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Nombre del producto *</span>
             <input
               type="text"
               value={nombre}
               onChange={(event) => setNombre(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              placeholder="Ej: Operativo de dermatología"
               required
             />
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Slug *</span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={slug}
-                onChange={(event) => setSlug(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                required
-              />
-              <button
-                type="button"
-                onClick={handleGenerateSlug}
-                className="whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Generar
-              </button>
-            </div>
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Categoría *</span>
+            <select
+              value={categoria}
+              onChange={(event) => setCategoria(event.target.value as EmpresaProductoCategoria)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              required
+            >
+              {categoriaOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </label>
-        </div>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Categoría *</span>
-          <select
-            value={categoria}
-            onChange={(event) => setCategoria(event.target.value as EmpresaProductoCategoria)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            required
-          >
-            {categoriaEntries.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Descripción</h2>
-          <p className="text-xs text-slate-500">Comparte información breve y detallada del servicio.</p>
-        </div>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Descripción corta</span>
-          <textarea
-            value={descripcionCorta}
-            onChange={(event) => setDescripcionCorta(event.target.value)}
-            className="min-h-[80px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Descripción larga</span>
-          <textarea
-            value={descripcionLarga}
-            onChange={(event) => setDescripcionLarga(event.target.value)}
-            className="min-h-[140px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
-        </label>
-      </section>
-
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Medios</h2>
-          <p className="text-xs text-slate-500">Enlaces opcionales para imagen principal y video de apoyo.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Imagen principal (URL)</span>
-            <input
-              type="text"
-              value={imagenPrincipalUrl}
-              onChange={(event) => setImagenPrincipalUrl(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Video (URL)</span>
-            <input
-              type="text"
-              value={videoUrl}
-              onChange={(event) => setVideoUrl(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Orden y visibilidad</h2>
-          <p className="text-xs text-slate-500">Controla la posición en el catálogo y su estado público.</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
+          <label className="space-y-2 text-sm">
             <span className="font-medium text-slate-700">Orden</span>
             <input
               type="number"
@@ -370,107 +366,220 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
                 const value = event.target.value;
                 setOrden(value === "" ? undefined : Number(value));
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              placeholder="Ej: 10"
             />
+            <span className="text-xs text-slate-500">Los productos con menor número aparecen primero.</span>
           </label>
-          <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
+          <div className="space-y-2 rounded-3xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm">
+            <label className="flex items-center gap-3 font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={activo}
+                onChange={(event) => setActivo(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Producto activo en el catálogo
+            </label>
+            <p className="text-xs text-slate-500">Si lo desactivas, dejará de ser visible en la página pública.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Contenido público</p>
+          <p className="text-sm text-slate-500">Estas descripciones aparecen en las tarjetas y en la vista de detalle.</p>
+        </header>
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium text-slate-700">Resumen corto</span>
+          <textarea
+            value={resumenCorto}
+            onChange={(event) => setResumenCorto(event.target.value)}
+            className="min-h-[80px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            placeholder="Ej: Experiencia inmersiva para educar sobre cáncer de piel en tu organización."
+          />
+          <span className="text-xs text-slate-500">Se usa en las tarjetas del catálogo público.</span>
+        </label>
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium text-slate-700">Descripción larga</span>
+          <textarea
+            value={descripcionLarga}
+            onChange={(event) => setDescripcionLarga(event.target.value)}
+            className="min-h-[140px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+            placeholder="Incluye detalles, beneficios o contexto del servicio."
+          />
+        </label>
+      </section>
+
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Configuración del botón / acción</p>
+          <p className="text-sm text-slate-500">Define la URL que abre el botón y recursos de apoyo como videos.</p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Slug *</span>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                value={slug}
+                onChange={(event) => setSlug(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+                placeholder="operativo-especialidades"
+                required
+              />
+              <button
+                type="button"
+                onClick={handleGenerateSlug}
+                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Generar
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">Se usa para construir la URL pública y el destino del botón.</p>
+          </label>
+          <label className="space-y-2 text-sm">
+            <span className="font-medium text-slate-700">Video o recurso (URL)</span>
             <input
-              type="checkbox"
-              checked={activo}
-              onChange={(event) => setActivo(event.target.checked)}
-              className="h-4 w-4 rounded border"
+              type="url"
+              value={videoUrl}
+              onChange={(event) => setVideoUrl(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+              placeholder="https://www.youtube.com/watch?v=..."
             />
-            Producto activo
+            <p className="text-xs text-slate-500">Opcional: se mostrará en la vista de detalle como recurso complementario.</p>
           </label>
         </div>
       </section>
 
-      {categoria === "pack" ? (
-        <section className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">Contenido del pack</h2>
-            <p className="text-xs text-slate-500">
-              Selecciona productos existentes para componer este pack e indica una cantidad estimada.
-            </p>
-          </div>
-          {packProductList.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Aún no hay productos simples disponibles para incluir en este pack.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Agregar productos al pack
+      <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <header className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Imágenes y portada</p>
+          <p className="text-sm text-slate-500">La portada aparece en el catálogo y puedes complementar con una galería.</p>
+        </header>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-5">
+            <p className="text-sm font-medium text-slate-700">Portada principal</p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex h-36 w-full max-w-[220px] items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+                {portadaUrl ? (
+                  <img src={portadaUrl} alt="Portada del producto" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Sin portada</span>
+                )}
               </div>
-              <div className="space-y-3">
-                {packProductList.map((producto) => {
-                  const existing = packItems.find((item) => item.producto_id === producto.id);
-                  return (
-                    <div
-                      key={producto.id}
-                      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm md:flex-row md:items-center md:justify-between"
+              <div className="space-y-3 text-sm">
+                <input
+                  ref={portadaInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePortadaChange}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => portadaInputRef.current?.click()}
+                    disabled={portadaUploading}
+                    className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
+                  >
+                    {portadaUploading ? "Subiendo…" : portadaUrl ? "Reemplazar imagen" : "Subir imagen"}
+                  </button>
+                  {portadaUrl ? (
+                    <button
+                      type="button"
+                      onClick={handleRemovePortada}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
-                      <div>
-                        <div className="font-medium text-slate-900">{producto.nombre}</div>
-                        <div className="text-xs text-slate-500">
-                          {EMPRESA_PRODUCTO_CATEGORIA_LABELS[producto.categoria]}
-                        </div>
+                      Quitar portada
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Usa imágenes JPG o PNG de hasta 10\u00a0MB. Se almacenan en el bucket público de Supabase.
+                </p>
+                {portadaError ? <p className="text-xs text-rose-600">{portadaError}</p> : null}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5">
+            <p className="text-sm font-medium text-slate-700">Galería complementaria</p>
+            <p className="text-xs text-slate-500">
+              Estas imágenes aparecen como carrusel en la página pública del producto.
+            </p>
+            <div className="mt-4">
+              <ImageGalleryField
+                title="Galería de imágenes"
+                description="Pronto conectaremos la galería con el almacenamiento real para estos productos."
+                fieldPrefix="producto"
+                existingImages={existingGalleryImages}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {showingPackSection ? (
+        <section className="space-y-6 rounded-[32px] border border-dashed border-slate-300 bg-slate-50 p-6">
+          <header className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Contenido del pack</p>
+            <p className="text-sm text-slate-500">Selecciona productos existentes para componer este pack.</p>
+          </header>
+          {productosLoading || packLoading ? (
+            <p className="text-sm text-slate-500">Cargando opciones…</p>
+          ) : packProductList.length === 0 ? (
+            <p className="text-sm text-slate-500">Aún no hay productos disponibles para agregar al pack.</p>
+          ) : (
+            <div className="space-y-4">
+              {packProductList.map((producto) => {
+                const existing = packItems.find((item) => item.producto_id === producto.id);
+                return (
+                  <div
+                    key={producto.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 text-sm md:flex-row md:items-center md:justify-between"
+                  >
+                    <div>
+                      <div className="font-semibold text-slate-900">{producto.nombre}</div>
+                      <div className="text-xs text-slate-500">
+                        {EMPRESA_PRODUCTO_CATEGORIA_LABELS[producto.categoria]}
                       </div>
-                      {existing ? (
-                        <div className="flex flex-col items-start gap-2 text-xs text-slate-600 sm:flex-row sm:items-center sm:gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500">Cantidad:</span>
-                            <input
-                              type="number"
-                              min={1}
-                              className="w-20 rounded-md border border-slate-200 px-2 py-1 text-right text-xs"
-                              value={existing.cantidad}
-                              onChange={(event) => {
-                                const cantidad = Math.max(1, Number(event.target.value) || 1);
-                                setPackItems((prev) =>
-                                  prev.map((item) =>
-                                    item.producto_id === producto.id ? { ...item, cantidad } : item,
-                                  ),
-                                );
-                              }}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="text-xs font-semibold text-red-600 underline"
-                            onClick={() =>
-                              setPackItems((prev) => prev.filter((item) => item.producto_id !== producto.id))
-                            }
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      ) : (
+                    </div>
+                    {existing ? (
+                      <div className="flex flex-col items-start gap-2 text-xs text-slate-600 sm:flex-row sm:items-center sm:gap-3">
+                        <label className="flex items-center gap-2">
+                          <span className="text-slate-500">Cantidad:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-20 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-right text-xs"
+                            value={existing.cantidad}
+                            onChange={(event) => handleUpdatePackCantidad(producto.id, Number(event.target.value) || 1)}
+                          />
+                        </label>
                         <button
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-                          onClick={() =>
-                            setPackItems((prev) => [
-                              ...prev,
-                              {
-                                producto_id: producto.id,
-                                cantidad: 1,
-                                nombre: producto.nombre,
-                                categoria: producto.categoria as EmpresaProductoCategoria,
-                              },
-                            ])
-                          }
+                          className="text-xs font-semibold text-rose-600 underline"
+                          onClick={() => handleRemovePackProduct(producto.id)}
                         >
-                          Agregar al pack
+                          Quitar
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => handleAddPackProduct(producto)}
+                      >
+                        Agregar al pack
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               {packItems.length > 0 ? (
                 <p className="text-xs text-slate-500">
-                  Este pack incluye {packItems.length} producto(s). Se guardarán al guardar el pack.
+                  Este pack incluye {packItems.length} producto(s). Se guardarán al guardar el formulario.
                 </p>
               ) : null}
             </div>
@@ -482,16 +591,16 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
         <button
           type="button"
           onClick={() => router.push("/admin/empresas/productos")}
-          className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+          className="inline-flex items-center rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:opacity-50"
         >
-          {submitting ? "Guardando..." : "Guardar producto"}
+          {submitting ? "Guardando…" : "Guardar producto"}
         </button>
       </div>
     </form>

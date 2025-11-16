@@ -24,6 +24,7 @@ export type EmpresaProductoEmailSummary = {
   cantidad?: number | null;
   nota?: string | null;
   categoria?: string | null;
+  config?: Record<string, any> | null;
 };
 export type EmpresaSolicitudCarritoItem = {
   productoId: string;
@@ -31,6 +32,7 @@ export type EmpresaSolicitudCarritoItem = {
   categoria?: string | null;
   cantidad: number;
   nota?: string | null;
+  config?: Record<string, any> | null;
 };
 export type EmpresaSolicitudCarritoResumen = {
   items: EmpresaSolicitudCarritoItem[];
@@ -134,6 +136,19 @@ function shell({
    Utils
    ======================================================================= */
 
+const CARRO_CONFIG_LABELS: Record<string, string> = {
+  numero_tuneles: "Túneles",
+  dias: "Días",
+  comentario_tunel: "Comentario túnel",
+  tipo_operativo_especialidades: "Tipo operativo",
+  meta_atenciones: "Meta atenciones",
+  comentario_operativo: "Comentario operativo",
+  numero_cirugias: "Cirugías",
+  tipo_cirugia: "Tipo de cirugía",
+  comentario_quirurgico: "Comentario quirúrgico",
+  ajustes_pack: "Ajustes del pack",
+};
+
 function kvTable(payload: Record<string, any>) {
   const rows = Object.entries(payload || {}).map(
     ([k, v]) => `
@@ -156,7 +171,9 @@ function productosSelectedList(items: EmpresaProductoEmailSummary[]) {
       const notaLabel = item.nota
         ? `<br/><small style="color:#6b7280">${escapeHtml(item.nota)}</small>`
         : "";
-      return `<li style="margin-bottom:6px"><strong>${escapeHtml(item.nombre)}</strong>${cantidadLabel}${notaLabel}</li>`;
+      const configSummary = formatConfigSummaryForEmail(item.config);
+      const configLabel = configSummary ? `<br/><small style="color:#6b7280">${configSummary}</small>` : "";
+      return `<li style="margin-bottom:6px"><strong>${escapeHtml(item.nombre)}</strong>${cantidadLabel}${notaLabel}${configLabel}</li>`;
     })
     .join("");
 
@@ -172,10 +189,32 @@ function renderCarritoItems(carrito?: EmpresaSolicitudCarritoResumen | null) {
     .map((item) => {
       const categoria = item.categoria ? ` · ${escapeHtml(item.categoria)}` : "";
       const nota = item.nota ? `<br/><small style="color:#6b7280">${escapeHtml(item.nota)}</small>` : "";
-      return `<li style="margin-bottom:8px"><strong>${escapeHtml(item.titulo)}</strong>${categoria} · ${item.cantidad}×${nota}</li>`;
+      const configSummary = formatConfigSummaryForEmail(item.config);
+      const config = configSummary ? `<br/><small style="color:#6b7280">${configSummary}</small>` : "";
+      return `<li style="margin-bottom:8px"><strong>${escapeHtml(item.titulo)}</strong>${categoria} · ${item.cantidad}×${nota}${config}</li>`;
     })
     .join("");
   return `<p style="margin:16px 0 6px;font-weight:600;color:#111827">Servicios que te interesan:</p><ul style="margin:0 0 12px 18px;padding:0;color:#1f2937">${rows}</ul>`;
+}
+
+function humanizeConfigKey(key: string): string {
+  return key
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatConfigSummaryForEmail(config: Record<string, any> | null | undefined): string | null {
+  if (!config) return null;
+  const entries = Object.entries(config)
+    .map(([key, value]) => {
+      if (value === undefined || value === null || value === "") return null;
+      const label = CARRO_CONFIG_LABELS[key] ?? humanizeConfigKey(key);
+      return `${escapeHtml(label)}: ${escapeHtml(String(value))}`;
+    })
+    .filter((item): item is string => Boolean(item));
+  return entries.length ? entries.join(" · ") : null;
 }
 
 function escapeHtml(s: string) {

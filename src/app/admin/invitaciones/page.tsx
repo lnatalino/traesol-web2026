@@ -51,20 +51,15 @@ export default async function AdminInvitacionesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Invitaciones masivas</h1>
-          <p className="text-sm text-slate-500">
-            Selecciona varios voluntarios y envíalos a un operativo en un solo paso.
-          </p>
-        </div>
-      </div>
+      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Invitaciones</p>
+        <h1 className="text-3xl font-semibold text-slate-900">Convocatorias masivas</h1>
+        <p className="text-sm text-slate-500 max-w-3xl">
+          Selecciona voluntarios por nombre, profesión o especialidad y envíalos a un operativo en un solo paso.
+        </p>
+      </section>
 
-      <InviteManager
-        volunteers={volunteers}
-        operativos={operativos}
-        errorMessage={errorMessage}
-      />
+      <InviteManager volunteers={volunteers} operativos={operativos} errorMessage={errorMessage} />
     </div>
   );
 }

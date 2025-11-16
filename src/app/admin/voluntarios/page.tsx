@@ -127,12 +127,15 @@ export default async function AdminVoluntariosPage({ searchParams }: { searchPar
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
         <div>
-          <h1 className="text-2xl font-semibold">Voluntarios</h1>
-          <p className="text-sm text-slate-500">Busca y filtra el registro de postulaciones de voluntarios.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Voluntariado</p>
+          <h1 className="text-3xl font-semibold text-slate-900">Base de voluntarios</h1>
+          <p className="text-sm text-slate-500 max-w-3xl">
+            Busca perfiles, filtra por profesión o especialidad y exporta un CSV para trabajar con otras herramientas.
+          </p>
         </div>
-      </div>
+      </section>
 
       <VoluntariosTable
         items={items}

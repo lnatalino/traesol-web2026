@@ -26,3 +26,29 @@ WHERE token_respuesta IS NOT NULL;
 ```
 
 > Nota: ejecutar los comandos sobre la base de datos `postgres` de Supabase. Ajustar los nombres de tablas/esquemas si difieren del entorno actual.
+
+## Métricas para empresas
+
+```sql
+create table if not exists public.empresa_metrics (
+  id uuid primary key default gen_random_uuid(),
+  operativos_con_empresas integer not null,
+  colaboradores_movilizados integer not null,
+  regiones_impactadas integer not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.empresa_metrics enable row level security;
+
+create policy "Empresa metrics public read" on public.empresa_metrics
+  for select
+  using (true);
+
+create policy "Empresa metrics admin write" on public.empresa_metrics
+  for insert with check (auth.role() = 'service_role');
+
+create policy "Empresa metrics admin update" on public.empresa_metrics
+  for update using (auth.role() = 'service_role');
+```
+
+> Nota: la API realizará `upsert` sobre un identificador fijo (por ejemplo `00000000-0000-0000-0000-000000000001`) para mantener un único registro activo.

@@ -1,17 +1,22 @@
 import EmpresasForm from "./EmpresasForm";
+import { EmpresasHeroMetrics } from "./EmpresasHeroMetrics";
 import type { EmpresaProductoRow } from "@/lib/empresas";
+import { getEmpresaMetrics } from "@/lib/empresas";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmpresasPage() {
   const supabase = createSupabaseServer();
-  const { data, error } = await supabase
+  const productosQuery = supabase
     .from("empresa_productos")
     .select("*")
     .eq("activo", true)
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
+
+  const [empresaMetrics, productosResponse] = await Promise.all([getEmpresaMetrics(), productosQuery]);
+  const { data, error } = productosResponse;
 
   const productos = (data ?? []) as EmpresaProductoRow[];
   const errorMessage = error?.message ? `No pudimos cargar el catálogo: ${error.message}` : null;
@@ -25,20 +30,7 @@ export default async function EmpresasPage() {
           Diseñamos operativos de salud, voluntariado corporativo y experiencias formativas que transforman a las
           comunidades y fortalecen la cultura interna de tu empresa.
         </p>
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl bg-white/10 p-4">
-            <p className="text-sm text-white/80">Operativos con empresas</p>
-            <p className="text-3xl font-bold">+40</p>
-          </div>
-          <div className="rounded-2xl bg-white/10 p-4">
-            <p className="text-sm text-white/80">Colaboradores movilizados</p>
-            <p className="text-3xl font-bold">+1.200</p>
-          </div>
-          <div className="rounded-2xl bg-white/10 p-4">
-            <p className="text-sm text-white/80">Regiones impactadas</p>
-            <p className="text-3xl font-bold">10</p>
-          </div>
-        </div>
+        <EmpresasHeroMetrics metrics={empresaMetrics} />
       </section>
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>

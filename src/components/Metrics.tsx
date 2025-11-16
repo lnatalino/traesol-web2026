@@ -13,9 +13,9 @@ export type MetricsInput = {
 // bases históricas
 const BASES = { operativos: 200, voluntarios: 400, atenciones: 8000 };
 
-function useCountUp(target: number, duration = 2500) {
+export function useCountUp(target: number, duration = 2500) {
   const [val, setVal] = useState(0);
-  const ref = useRef<HTMLDivElement | null>(null);
+  const ref = useRef<HTMLElement | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -53,6 +53,25 @@ function useCountUp(target: number, duration = 2500) {
   return { ref, val };
 }
 
+export function CountUpNumber({
+  target,
+  className,
+  prefix = "",
+  suffix = "",
+}: {
+  target: number;
+  className?: string;
+  prefix?: string;
+  suffix?: string;
+}) {
+  const { ref, val } = useCountUp(target);
+  return (
+    <span ref={ref} className={className}>
+      {`${prefix}${val.toLocaleString("es-CL")}${suffix}`}
+    </span>
+  );
+}
+
 export default function Metrics({ m }: { m: MetricsInput }) {
   const totals = useMemo(
     () => ({
@@ -62,10 +81,6 @@ export default function Metrics({ m }: { m: MetricsInput }) {
     }),
     [m]
   );
-
-  const op = useCountUp(totals.operativos);
-  const vol = useCountUp(totals.voluntarios);
-  const aten = useCountUp(totals.atenciones);
 
   // quitamos variables CSS personalizadas; usamos Tailwind neutro
   const box = "rounded-2xl border bg-white p-8 shadow-sm flex flex-col items-center justify-center text-center";
@@ -77,19 +92,19 @@ export default function Metrics({ m }: { m: MetricsInput }) {
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
       <div className={box}>
         <Building2 className={iconClass} />
-        <div ref={op.ref} className={num}>{op.val.toLocaleString("es-CL")}</div>
+        <CountUpNumber target={totals.operativos} className={num} />
         <div className={label}>Operativos</div>
       </div>
 
       <div className={box}>
         <Users className={iconClass} />
-        <div ref={vol.ref} className={num}>{vol.val.toLocaleString("es-CL")}</div>
+        <CountUpNumber target={totals.voluntarios} className={num} />
         <div className={label}>Voluntarios</div>
       </div>
 
       <div className={box}>
         <HeartPulse className={iconClass} />
-        <div ref={aten.ref} className={num}>{aten.val.toLocaleString("es-CL")}</div>
+        <CountUpNumber target={totals.atenciones} className={num} />
         <div className={label}>Atenciones de salud</div>
       </div>
     </div>

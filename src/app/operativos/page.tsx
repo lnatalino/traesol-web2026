@@ -1,3 +1,5 @@
+import OperativoCard from "@/components/OperativoCard";
+
 export const dynamic = "force-dynamic";
 
 type Operativo = {
@@ -23,37 +25,42 @@ export default async function OperativosPage() {
   const ops = await fetchOperativos();
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-2xl md:text-3xl font-bold mb-2">Próximos operativos</h1>
-      <p className="text-gray-600 mb-6">Conoce nuestras próximas fechas y postula.</p>
+    <main className="bg-slate-50">
+      <div className="mx-auto max-w-6xl px-4 py-12 lg:px-6">
+        <header className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Operativos</p>
+          <h1 className="text-4xl font-semibold text-slate-900">Próximos operativos</h1>
+          <p className="text-base text-slate-600">Conoce las fechas y territorios donde estaremos presentes.</p>
+        </header>
 
-      {ops.length === 0 ? (
-        <div className="rounded-xl border p-8 text-center text-gray-600">
-          Aún no hay operativos publicados.
-        </div>
-      ) : (
-        <div className="grid gap-5 md:grid-cols-3">
-          {ops.map(op=>(
-            <a key={op.id} href={`/operativos/${op.slug}`} className="rounded-2xl overflow-hidden border bg-white hover:shadow-md transition">
-              <div className="relative h-40 bg-gray-100">
-                {/* usamos <img> para no tocar next.config */}
-                <img
-                    src={op.imagen_cabecera_url || op.operativo_imagenes?.[0]?.url || "https://placehold.co/800x400?text=Operativo"}
-                  alt={op.titulo}
-                  className="w-full h-full object-cover"
+        {ops.length === 0 ? (
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-10 text-center text-slate-600 shadow-sm">
+            Aún no hay operativos publicados.
+          </div>
+        ) : (
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {ops.map((op) => {
+              const resumen = op.lugar
+                ? `Operativo en ${op.lugar} para acercar atención especializada.`
+                : "Operativo Traesol en preparación; te avisaremos el territorio pronto.";
+              const portada =
+                op.imagen_cabecera_url || op.operativo_imagenes?.[0]?.url || "https://placehold.co/800x400?text=Operativo";
+              return (
+                <OperativoCard
+                  key={op.id}
+                  href={`/operativos/${op.slug}`}
+                  titulo={op.titulo}
+                  fecha={op.fecha_inicio}
+                  lugar={op.lugar}
+                  imagen={portada}
+                  resumen={resumen}
+                  variant="full"
                 />
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold">{op.titulo}</h3>
-                <p className="text-sm text-gray-500">
-                  {op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString() : "Fecha por confirmar"}
-                  {op.lugar ? ` · ${op.lugar}` : ""}
-                </p>
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

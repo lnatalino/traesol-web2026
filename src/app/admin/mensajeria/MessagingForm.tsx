@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { MessagingFilters, MessagingRecipient } from "@/lib/mensajeriaRecipients";
 
@@ -15,6 +15,7 @@ type Props = {
   filters: MessagingFilters;
   operativos: MensajeriaOperativoOption[];
   total: number;
+  recipients: MessagingRecipient[];
   preview: MessagingRecipient[];
   successMessage: string;
   errorMessage: string;
@@ -31,6 +32,8 @@ function buildQueryString(form: FilterState): string {
   if (form.mode === "operativo") {
     params.set("mode", "operativo");
     if (form.operativoId) params.set("operativoId", form.operativoId);
+  } else if (form.mode === "custom") {
+    params.set("mode", "custom");
   } else {
     params.set("mode", "all");
   }
@@ -56,6 +59,7 @@ export default function MessagingForm({
   filters,
   operativos,
   total,
+  recipients,
   preview,
   successMessage,
   errorMessage,
@@ -67,10 +71,103 @@ export default function MessagingForm({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [customSearch, setCustomSearch] = useState("");
+  const [customProfession, setCustomProfession] = useState<string>("all");
+  const [customActivity, setCustomActivity] = useState<"any" | "1plus" | "3plus">("any");
+  const [customSort, setCustomSort] = useState<{ key: "name" | "operativos"; direction: "asc" | "desc" }>({
+    key: "name",
+    direction: "asc",
+  });
+  const bulkCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setFilterState(filters);
   }, [filters.mode, filters.operativoId, filters.q]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+    setCustomSearch("");
+    setCustomProfession("all");
+    setCustomActivity("any");
+    setCustomSort({ key: "name", direction: "asc" });
+  }, [recipients]);
+
+  const customModeActive = filters.mode === "custom";
+  const collator = useMemo(() => new Intl.Collator("es", { sensitivity: "base" }), []);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const professionOptions = useMemo(() => {
+    const values = new Set<string>();
+    if (!customModeActive) return [] as string[];
+    recipients.forEach((recipient) => {
+      if (recipient.profesion) {
+        values.add(recipient.profesion);
+      }
+    });
+    return Array.from(values).sort((a, b) => collator.compare(a, b));
+  }, [customModeActive, recipients, collator]);
+
+  const filteredCustomRecipients = useMemo(() => {
+    if (!customModeActive) return [] as MessagingRecipient[];
+    const searchTerm = customSearch.trim().toLowerCase();
+    const professionFilter = customProfession === "all" ? null : customProfession.toLowerCase();
+    const minOperativos = customActivity === "1plus" ? 1 : customActivity === "3plus" ? 3 : 0;
+
+    let list = recipients;
+
+    if (searchTerm) {
+      list = list.filter((vol) => {
+        const nombre = displayNombre(vol).toLowerCase();
+        const email = vol.email.toLowerCase();
+        const rut = (vol.rut || "").toLowerCase();
+        return nombre.includes(searchTerm) || email.includes(searchTerm) || rut.includes(searchTerm);
+      });
+    }
+
+    if (professionFilter) {
+      list = list.filter((vol) => (vol.profesion || "").toLowerCase() === professionFilter);
+    }
+
+    if (minOperativos > 0) {
+      list = list.filter((vol) => vol.operativosRealizados >= minOperativos);
+    }
+
+    const sorted = [...list].sort((a, b) => {
+      if (customSort.key === "operativos") {
+        const diff = a.operativosRealizados - b.operativosRealizados;
+        return customSort.direction === "asc" ? diff : -diff;
+      }
+      const compare = collator.compare(displayNombre(a), displayNombre(b));
+      if (compare !== 0) {
+        return customSort.direction === "asc" ? compare : -compare;
+      }
+      return collator.compare(a.email, b.email);
+    });
+
+    return sorted;
+  }, [
+    collator,
+    customActivity,
+    customModeActive,
+    customProfession,
+    customSearch,
+    customSort.direction,
+    customSort.key,
+    recipients,
+  ]);
+
+  const visibleSelectedCount = useMemo(
+    () => filteredCustomRecipients.filter((recipient) => selectedSet.has(recipient.id)).length,
+    [filteredCustomRecipients, selectedSet]
+  );
+  const allVisibleSelected = filteredCustomRecipients.length > 0 && visibleSelectedCount === filteredCustomRecipients.length;
+  const anyVisibleSelected = visibleSelectedCount > 0;
+
+  useEffect(() => {
+    if (!bulkCheckboxRef.current) return;
+    bulkCheckboxRef.current.indeterminate = customModeActive && anyVisibleSelected && !allVisibleSelected;
+  }, [anyVisibleSelected, allVisibleSelected, customModeActive]);
 
   const handleFilterSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,8 +190,12 @@ export default function MessagingForm({
   };
 
   const disableSend =
-    total === 0 || isSending || subject.trim().length === 0 || body.trim().length === 0 ||
-    (filters.mode === "operativo" && !filters.operativoId);
+    total === 0 ||
+    isSending ||
+    subject.trim().length === 0 ||
+    body.trim().length === 0 ||
+    (filters.mode === "operativo" && !filters.operativoId) ||
+    (filters.mode === "custom" && selectedIds.length === 0);
 
   const recipientSummary = useMemo(() => {
     if (isPending) return "Recalculando resultados...";
@@ -102,7 +203,50 @@ export default function MessagingForm({
     return `Se enviará el mensaje a ${total} voluntario${total === 1 ? "" : "s"}.`;
   }, [isPending, total]);
 
-  const remaining = Math.max(total - preview.length, 0);
+  const selectionSummary = customModeActive
+    ? selectedIds.length
+      ? `Enviarás el mensaje a ${selectedIds.length} voluntario${selectedIds.length === 1 ? "" : "s"} seleccionados manualmente.`
+      : "Selecciona al menos un voluntario para poder enviar el mensaje."
+    : recipientSummary;
+
+  const remaining = customModeActive ? 0 : Math.max(total - preview.length, 0);
+
+  const handleToggleAllVisible = (checked: boolean) => {
+    if (!customModeActive) return;
+    setSelectedIds((prev) => {
+      if (!checked) {
+        const idsToRemove = new Set(filteredCustomRecipients.map((recipient) => recipient.id));
+        return prev.filter((id) => !idsToRemove.has(id));
+      }
+      const merged = new Set(prev);
+      filteredCustomRecipients.forEach((recipient) => merged.add(recipient.id));
+      return Array.from(merged);
+    });
+  };
+
+  const handleToggleRecipient = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      if (checked) {
+        if (prev.includes(id)) return prev;
+        return [...prev, id];
+      }
+      return prev.filter((value) => value !== id);
+    });
+  };
+
+  const handleSort = (key: "name" | "operativos") => {
+    setCustomSort((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: key === "operativos" ? "desc" : "asc" };
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const sortArrow = (column: "name" | "operativos") =>
+    customSort.key === column ? (customSort.direction === "asc" ? "↑" : "↓") : "";
 
   return (
     <div className="space-y-6">
@@ -137,7 +281,7 @@ export default function MessagingForm({
         </header>
 
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <label className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
               <input
                 type="radio"
@@ -164,6 +308,19 @@ export default function MessagingForm({
                 <p className="text-xs text-slate-500">Envía solo a quienes tienen inscripciones en un operativo.</p>
               </div>
             </label>
+            <label className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+              <input
+                type="radio"
+                name="mode"
+                value="custom"
+                checked={filterState.mode === "custom"}
+                onChange={() => handleModeChange("custom")}
+              />
+              <div>
+                <div className="font-medium text-slate-900">Personalizado</div>
+                <p className="text-xs text-slate-500">Selecciona manualmente voluntarios individuales.</p>
+              </div>
+            </label>
           </div>
 
           {filterState.mode === "operativo" ? (
@@ -183,9 +340,13 @@ export default function MessagingForm({
                 ))}
               </select>
             </label>
-          ) : (
+          ) : filterState.mode === "all" ? (
             <p className="text-sm text-slate-500">
               Se enviará el mensaje a todos los voluntarios registrados con email válido.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Podrás elegir voluntarios específicos en la siguiente etapa.
             </p>
           )}
 
@@ -212,11 +373,150 @@ export default function MessagingForm({
 
       <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <header className="space-y-1">
-          <h2 className="text-lg font-semibold">2. Previsualización rápida</h2>
-          <p className="text-sm text-slate-500">{recipientSummary}</p>
+          <h2 className="text-lg font-semibold">
+            {customModeActive ? "2. Selecciona voluntarios específicos" : "2. Previsualización rápida"}
+          </h2>
+          <p className="text-sm text-slate-500">{selectionSummary}</p>
         </header>
 
-        {preview.length ? (
+        {customModeActive ? (
+          total === 0 ? (
+            <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-slate-400">
+              No hay voluntarios disponibles para seleccionar con los filtros actuales.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-500">Buscar por nombre, email o RUT</span>
+                  <input
+                    type="text"
+                    value={customSearch}
+                    onChange={(event) => setCustomSearch(event.target.value)}
+                    placeholder="Ej: Camila, @gmail.com, 12.345"
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-500">Profesión</span>
+                  <select
+                    value={customProfession}
+                    onChange={(event) => setCustomProfession(event.target.value)}
+                    className="w-full rounded-md border px-3 py-2"
+                  >
+                    <option value="all">Todos los perfiles</option>
+                    {professionOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-500">Experiencia en operativos</span>
+                  <select
+                    value={customActivity}
+                    onChange={(event) => setCustomActivity(event.target.value as "any" | "1plus" | "3plus")}
+                    className="w-full rounded-md border px-3 py-2"
+                  >
+                    <option value="any">Cualquier experiencia</option>
+                    <option value="1plus">1 operativo o más</option>
+                    <option value="3plus">3 operativos o más</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span>
+                    Coincidencias: {filteredCustomRecipients.length} de {total}
+                  </span>
+                  <span>Seleccionados: {selectedIds.length}</span>
+                  {filteredCustomRecipients.length ? (
+                    <span>En esta vista: {visibleSelectedCount}</span>
+                  ) : null}
+                </div>
+                {selectedIds.length ? (
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    Quitar selección
+                  </button>
+                ) : null}
+              </div>
+
+              {filteredCustomRecipients.length ? (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <div className="max-h-[420px] overflow-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">
+                            <input
+                              ref={bulkCheckboxRef}
+                              type="checkbox"
+                              checked={filteredCustomRecipients.length > 0 && allVisibleSelected}
+                              onChange={(event) => handleToggleAllVisible(event.target.checked)}
+                            />
+                          </th>
+                          <th className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("name")}
+                              className="flex items-center gap-1 font-semibold text-slate-600"
+                            >
+                              Nombre
+                              <span className="text-[11px] text-slate-400">{sortArrow("name")}</span>
+                            </button>
+                          </th>
+                          <th className="px-3 py-2 font-semibold text-slate-600">Profesión</th>
+                          <th className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("operativos")}
+                              className="flex items-center gap-1 font-semibold text-slate-600"
+                            >
+                              Operativos
+                              <span className="text-[11px] text-slate-400">{sortArrow("operativos")}</span>
+                            </button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredCustomRecipients.map((vol) => (
+                          <tr key={vol.id} className="align-top">
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedSet.has(vol.id)}
+                                onChange={(event) => handleToggleRecipient(vol.id, event.target.checked)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-slate-800">{displayNombre(vol)}</div>
+                              <div className="text-xs text-slate-500">{vol.email}</div>
+                              {vol.rut ? (
+                                <div className="text-xs text-slate-400">RUT: {vol.rut}</div>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">{vol.profesion || "—"}</td>
+                            <td className="px-3 py-2 text-slate-600">{vol.operativosRealizados}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-slate-400">
+                  No hay voluntarios que coincidan con estos filtros locales.
+                </div>
+              )}
+            </div>
+          )
+        ) : preview.length ? (
           <ul className="space-y-2 text-sm text-slate-600">
             {preview.map((vol) => (
               <li key={vol.id} className="rounded-md border px-3 py-2">
@@ -247,6 +547,9 @@ export default function MessagingForm({
           <input type="hidden" name="mode" value={filters.mode} />
           <input type="hidden" name="operativoId" value={filters.operativoId} />
           <input type="hidden" name="q" value={filters.q} />
+          {filters.mode === "custom"
+            ? selectedIds.map((id) => <input key={id} type="hidden" name="selectedIds" value={id} />)
+            : null}
 
           <label className="space-y-1 text-sm">
             <span className="text-xs font-medium text-slate-500">Asunto *</span>
