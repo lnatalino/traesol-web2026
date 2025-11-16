@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabase";
+import { createSupabaseBrowser } from "@/lib/supabaseServer";
 
 type Operativo = {
   id: string;
@@ -18,6 +18,7 @@ type Operativo = {
   estado: "borrador" | "publicado" | "cerrado" | "finalizado";
   imagen_cabecera_url: string | null;
   instagram_url: string | null;
+  imagenes: Array<{ id: string; url: string; path: string | null }>;
 };
 
 function fDate(iso: string | null) {
@@ -43,7 +44,7 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       const { data: pub, error: e1 } = await supabase
         .from("operativos")
         .select(
-          "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url"
+          "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,operativo_imagenes(id,url,path)"
         )
         .eq("slug", slug)
         .eq("estado", "publicado")
@@ -52,7 +53,22 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       if (e1) console.log("operativo publicado error:", e1);
 
       if (alive && pub) {
-        setOp(pub as Operativo);
+        const imagenes = Array.isArray((pub as any)?.operativo_imagenes)
+          ? (pub as any).operativo_imagenes
+              .filter((img: any) => typeof img?.url === "string" && img.url)
+              .map((img: any) => ({
+                id: String(img.id ?? img.url),
+                url: String(img.url),
+                path: img.path ?? null,
+              }))
+          : [];
+
+        const { operativo_imagenes, ...rest } = (pub as any) ?? {};
+
+        setOp({
+          ...(rest as Omit<Operativo, "imagenes">),
+          imagenes,
+        });
         setLoading(false);
         return;
       }
@@ -104,10 +120,11 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
     );
   }
 
+  const portadaFallback = op.imagenes[0]?.url;
   const imageSrc =
     op.imagen_cabecera_url && op.imagen_cabecera_url.trim() !== ""
       ? op.imagen_cabecera_url
-      : "https://placehold.co/1200x400?text=Operativo+Traesol";
+      : portadaFallback || "https://placehold.co/1200x400?text=Operativo+Traesol";
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">

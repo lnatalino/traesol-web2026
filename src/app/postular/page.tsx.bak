@@ -1,0 +1,761 @@
+// src/app/postular/page.tsx
+"use client";
+
+import { useEffect, useMemo, useReducer, useCallback, memo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import BackButton from "@/components/BackButton";
+import { createSupabaseBrowser } from "@/lib/supabase";
+
+/* ===== Helpers RUT ===== */
+function normalizeRut(raw: string) {
+  return raw.replace(/\./g, "").replace(/-/g, "").replace(/\s+/g, "").toUpperCase();
+}
+function formatRut(raw: string) {
+  const clean = raw.replace(/[^0-9Kk]/g, "").toUpperCase();
+  if (!clean) return "";
+  const dv = clean.slice(-1);
+  let num = clean.slice(0, -1);
+  let out = "";
+  while (num.length > 3) {
+    out = "." + num.slice(-3) + out;
+    num = num.slice(0, -3);
+  }
+  out = num + out;
+  return `${out}-${dv}`;
+}
+
+type Operativo = {
+  id: string;
+  titulo: string;
+  slug: string;
+  fecha_inicio: string | null;
+  lugar: string | null;
+};
+
+type FormState = {
+  // personales
+  nombres: string;
+  apellidos: string;
+  nacionalidad: string;
+  genero: "Masculino" | "Femenino" | "";
+  fecha_nacimiento: string; // YYYY-MM-DD
+  // identificación
+  extranjero: boolean;
+  rut: string;
+  id_nacional: string;
+  pasaporte: string;
+  // contacto
+  email: string;
+  telefono: string;
+  direccion: string;
+  instagram: string;
+  // profesional
+  profesion: string;
+  profesion_otro: string;
+  especialidad: string;
+  // tallas
+  talla_polera: string;
+  talla_pantalon: string;
+  // alimentación
+  alimentarias_alergias: string;
+  alimentarias_veg: boolean;
+  alimentarias_otro: string;
+  // credencial y postulación
+  nombre_credencial: string;
+  tipo_postulacion: "general" | "especifica";
+  operativo_slug: string;
+  disponibilidad_anual: string;
+  motivacion: string;
+};
+
+const initialForm: FormState = {
+  nombres: "",
+  apellidos: "",
+  nacionalidad: "",
+  genero: "",
+  fecha_nacimiento: "",
+
+  extranjero: false,
+  rut: "",
+  id_nacional: "",
+  pasaporte: "",
+
+  email: "",
+  telefono: "",
+  direccion: "",
+  instagram: "",
+
+  profesion: "Estudiante",
+  profesion_otro: "",
+  especialidad: "",
+
+  talla_polera: "",
+  talla_pantalon: "",
+
+  alimentarias_alergias: "",
+  alimentarias_veg: false,
+  alimentarias_otro: "",
+
+  nombre_credencial: "",
+  tipo_postulacion: "general",
+  operativo_slug: "",
+  disponibilidad_anual: "",
+  motivacion: "",
+};
+
+type Action =
+  | { type: "set"; key: keyof FormState; value: any }
+  | { type: "merge"; payload: Partial<FormState> }
+  | { type: "reset" };
+
+function reducer(state: FormState, action: Action): FormState {
+  switch (action.type) {
+    case "set":
+      return { ...state, [action.key]: action.value };
+    case "merge":
+      return { ...state, ...action.payload };
+    case "reset":
+      return initialForm;
+    default:
+      return state;
+  }
+}
+
+/* ---- UI helpers ---- */
+const Section = memo(function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card space-y-4">
+      <h2 className="section-title">{title}</h2>
+      {children}
+    </section>
+  );
+});
+
+const Field = memo(function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="label">{label}</span>
+      <div className="mt-1">{children}</div>
+    </label>
+  );
+});
+
+export default function PostularPage() {
+  const sp = useSearchParams();
+  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const [ops, setOps] = useState<Operativo[]>([]);
+  const [sending, setSending] = useState(false);
+  const [msgOk, setMsgOk] = useState("");
+  const [msgErr, setMsgErr] = useState("");
+  const [msgAuto, setMsgAuto] = useState("");
+
+  const [f, dispatch] = useReducer(reducer, initialForm);
+  const setField = useCallback(
+    <K extends keyof FormState>(k: K, v: FormState[K]) => {
+      dispatch({ type: "set", key: k, value: v });
+    },
+    []
+  );
+
+  // Prefill por query ?operativo=
+  useEffect(() => {
+    const slug = (sp.get("operativo") || "").trim().toLowerCase();
+    if (slug)
+      dispatch({
+        type: "merge",
+        payload: { tipo_postulacion: "especifica", operativo_slug: slug },
+      });
+  }, [sp]);
+
+  // Cargar operativos publicados para el select
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("operativos")
+        .select("id,titulo,slug,fecha_inicio,lugar")
+        .eq("estado", "publicado")
+        .order("fecha_inicio", { ascending: true });
+      setOps((data || []) as Operativo[]);
+    })();
+  }, [supabase]);
+
+  const usarNombreRapido = useCallback(() => {
+    const n = `${(f.nombres || "").split(" ")[0] ?? ""} ${
+      (f.apellidos || "").split(" ")[0] ?? ""
+    }`.trim();
+    setField("nombre_credencial", n);
+  }, [f.nombres, f.apellidos, setField]);
+
+  /* ===== Autocompletar por RUT / ID nacional ===== */
+  const autocompletar = useCallback(async () => {
+    setMsgAuto("");
+    try {
+      let payload: any = {};
+      if (!f.extranjero) {
+        const rutNorm = normalizeRut(f.rut || "");
+        if (!rutNorm) throw new Error("Ingresa tu RUT para autocompletar.");
+        payload.rut = rutNorm;
+      } else {
+        const idn = (f.id_nacional || "").trim();
+        if (!idn) throw new Error("Ingresa tu identificación nacional para autocompletar.");
+        payload.id_nacional = idn;
+      }
+
+      const res = await fetch("/api/voluntarios/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "No se pudo buscar.");
+
+      if (!j.found) {
+        setMsgAuto("No encontramos un registro previo con ese identificador.");
+        return;
+      }
+
+      const d = j.data || {};
+      // Si trae rut desde DB, formatearlo para mostrar
+      const rutFmt = d.rut ? formatRut(String(d.rut)) : f.rut;
+      dispatch({
+        type: "merge",
+        payload: {
+          ...f,
+          ...d,
+          rut: rutFmt,
+        },
+      });
+      setMsgAuto("¡Listo! Completamos tus datos desde tu registro. Si editas algo, se actualizará.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e: any) {
+      setMsgAuto(e?.message || "No se pudo autocompletar.");
+    }
+  }, [f]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsgOk("");
+    setMsgErr("");
+    setSending(true);
+
+    const normalizeRutForDB = (rut: string) =>
+      rut.replace(/\./g, "").replace(/-/g, "").trim().toUpperCase();
+
+    try {
+      // Validaciones mínimas
+      if (!f.nombres.trim() || !f.apellidos.trim())
+        throw new Error("Completa nombres y apellidos.");
+      if (!f.email.trim()) throw new Error("Indica tu email.");
+      if (!f.genero) throw new Error("Selecciona tu género.");
+      if (!f.extranjero && !f.rut.trim())
+        throw new Error("El RUT es obligatorio (o marca 'soy extranjero/a').");
+      if (f.extranjero && !f.id_nacional.trim())
+        throw new Error("Indica tu identificación nacional.");
+
+      const rutNorm = f.extranjero ? null : normalizeRutForDB(f.rut);
+      const idNac = f.extranjero ? f.id_nacional.trim() : null;
+
+      // Payload a voluntarios
+      const payload = {
+        // personales
+        nombres: f.nombres,
+        apellidos: f.apellidos,
+        nacionalidad: f.nacionalidad || null,
+        genero: f.genero || null,
+        fecha_nacimiento: f.fecha_nacimiento || null,
+
+        // identificación
+        rut: rutNorm,
+        id_nacional: idNac,
+        pasaporte: f.pasaporte || null,
+
+        // contacto
+        email: f.email,
+        telefono: f.telefono || null,
+        direccion: f.direccion || null,
+        instagram: f.instagram || null,
+
+        // profesional
+        profesion: f.profesion,
+        profesion_otro: f.profesion === "Otro" ? f.profesion_otro : null,
+        especialidad: f.especialidad || null,
+
+        // tallas
+        talla_polera: f.talla_polera || null,
+        talla_pantalon: f.talla_pantalon || null,
+
+        // alimentación
+        alimentarias_alergias: f.alimentarias_alergias || null,
+        alimentarias_veg: !!f.alimentarias_veg,
+        alimentarias_otro: f.alimentarias_otro || null,
+
+        // credencial
+        nombre_credencial: f.nombre_credencial || null,
+      } as const;
+
+      // UPSERT — el conflicto depende si es chileno o extranjero
+      const conflictTarget = f.extranjero ? "id_nacional" : "rut";
+      const { data: vol, error: eVol } = await supabase
+        .from("voluntarios")
+        .upsert(payload, { onConflict: conflictTarget })
+        .select("id")
+        .single();
+
+      if (eVol) throw eVol;
+      const voluntarioId = vol?.id;
+      if (!voluntarioId)
+        throw new Error("No se pudo identificar el voluntario creado/actualizado.");
+
+      // Inscripción
+      const tipo = f.tipo_postulacion === "especifica" ? "especifica" : "general";
+      const operativoId =
+        f.tipo_postulacion === "especifica"
+          ? ops.find((o) => o.slug === f.operativo_slug)?.id ?? null
+          : null;
+
+      if (tipo === "especifica" && !operativoId) {
+        throw new Error("Selecciona un operativo válido para la postulación específica.");
+      }
+
+      const { error: eIns } = await supabase
+        .from("inscripciones")
+        .insert({
+          voluntario_id: voluntarioId,
+          tipo,
+          operativo_id: operativoId,
+          // estado: DEFAULT 'pendiente'
+        });
+
+      if (eIns) throw eIns;
+
+      // Email de confirmación (no bloquea la UX)
+      try {
+        void fetch("/api/email/voluntario", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: f.email,
+            ...f, // ficha completa para el template
+            tipo_postulacion: tipo,
+          }),
+        });
+      } catch {
+        // no romper el flujo por el email
+      }
+
+      setMsgOk("¡Listo! Recibimos tu postulación. Te contactaremos pronto.");
+      window.location.assign("/postular/gracias");
+    } catch (err: any) {
+      const m = String(err?.message || "");
+      if (m.includes("duplicate key value") || m.includes("unique constraint")) {
+        setMsgErr(
+          "Ya existe un registro con ese identificador. Actualizamos tus datos y seguimos; intenta nuevamente."
+        );
+      } else {
+        setMsgErr(m || "No se pudo enviar la postulación.");
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <main className="container">
+      <BackButton fallback="/" />
+
+      <header className="mb-6">
+        <h1 className="title">Postulación de Voluntariado</h1>
+        <p className="subtitle">
+          Completa tus datos y, si llegaste desde un operativo específico, quedará
+          asociada tu postulación.
+        </p>
+      </header>
+
+      {msgOk && <div className="alert success">{msgOk}</div>}
+      {msgErr && <div className="alert error">{msgErr}</div>}
+      {msgAuto && <div className="alert info">{msgAuto}</div>}
+
+      <form onSubmit={submit} className="space-y-6" autoComplete="off">
+        {/* Datos personales */}
+        <Section title="Datos personales">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Nombres *">
+              <input
+                className="inp"
+                value={f.nombres}
+                onChange={(e) => setField("nombres", e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="Apellidos *">
+              <input
+                className="inp"
+                value={f.apellidos}
+                onChange={(e) => setField("apellidos", e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="Nacionalidad">
+              <input
+                className="inp"
+                value={f.nacionalidad}
+                onChange={(e) => setField("nacionalidad", e.target.value)}
+              />
+            </Field>
+            <Field label="Género *">
+              <div className="flex items-center gap-6 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="genero"
+                    checked={f.genero === "Masculino"}
+                    onChange={() => setField("genero", "Masculino")}
+                  />
+                  Masculino
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="genero"
+                    checked={f.genero === "Femenino"}
+                    onChange={() => setField("genero", "Femenino")}
+                  />
+                  Femenino
+                </label>
+              </div>
+            </Field>
+            <Field label="Fecha de nacimiento">
+              <input
+                type="date"
+                className="inp"
+                value={f.fecha_nacimiento}
+                onChange={(e) => setField("fecha_nacimiento", e.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        {/* Identificación */}
+        <Section title="Identificación">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                id="extranjero"
+                type="checkbox"
+                checked={f.extranjero}
+                onChange={(e) => setField("extranjero", e.target.checked)}
+              />
+              <label htmlFor="extranjero" className="text-sm">
+                Soy extranjero/a (sin RUT chileno)
+              </label>
+            </div>
+
+            {!f.extranjero ? (
+              <div className="grid md:grid-cols-2 gap-4">
+                <Field label="RUT *">
+                  <input
+                    className="inp"
+                    placeholder="12.345.678-9"
+                    value={f.rut}
+                    onChange={(e) => setField("rut", e.target.value)}
+                    onBlur={(e) => setField("rut", formatRut(e.target.value))}
+                    required
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={autocompletar}
+                  >
+                    Autocompletar por RUT
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                <Field label="N° identificación nacional *">
+                  <input
+                    className="inp"
+                    value={f.id_nacional}
+                    onChange={(e) => setField("id_nacional", e.target.value)}
+                    required
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={autocompletar}
+                  >
+                    Autocompletar por ID nacional
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <Field label="Pasaporte (opcional)">
+              <input
+                className="inp"
+                value={f.pasaporte}
+                onChange={(e) => setField("pasaporte", e.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        {/* Contacto */}
+        <Section title="Contacto y redes">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Email *">
+              <input
+                type="email"
+                className="inp"
+                value={f.email}
+                onChange={(e) => setField("email", e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="Teléfono">
+              <input
+                className="inp"
+                value={f.telefono}
+                onChange={(e) => setField("telefono", e.target.value)}
+              />
+            </Field>
+            <Field label="Dirección de domicilio">
+              <input
+                className="inp"
+                value={f.direccion}
+                onChange={(e) => setField("direccion", e.target.value)}
+              />
+            </Field>
+            <Field label="Instagram">
+              <input
+                className="inp"
+                placeholder="@usuario"
+                value={f.instagram}
+                onChange={(e) => setField("instagram", e.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        {/* Profesional */}
+        <Section title="Formación profesional">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Profesión">
+              <select
+                className="inp"
+                value={f.profesion}
+                onChange={(e) => setField("profesion", e.target.value)}
+              >
+                <option>Estudiante</option>
+                <option>Enfermería</option>
+                <option>Medicina</option>
+                <option>Kinesiología</option>
+                <option>Odontología</option>
+                <option>Técnico en Enfermería</option>
+                <option>Otro</option>
+              </select>
+            </Field>
+            <Field label="Profesión (especificar si elegiste ‘Otro’)">
+              <input
+                className="inp"
+                value={f.profesion_otro}
+                onChange={(e) => setField("profesion_otro", e.target.value)}
+              />
+            </Field>
+            <Field label="Especialidad (opcional)">
+              <input
+                className="inp"
+                value={f.especialidad}
+                onChange={(e) => setField("especialidad", e.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        {/* Tallas */}
+        <Section title="Tallas">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Talla de polera">
+              <select
+                className="inp"
+                value={f.talla_polera}
+                onChange={(e) => setField("talla_polera", e.target.value)}
+              >
+                <option value="">Selecciona…</option>
+                <option>XS</option>
+                <option>S</option>
+                <option>M</option>
+                <option>L</option>
+                <option>XL</option>
+                <option>XXL</option>
+              </select>
+            </Field>
+            <Field label="Talla de pantalón">
+              <select
+                className="inp"
+                value={f.talla_pantalon}
+                onChange={(e) => setField("talla_pantalon", e.target.value)}
+              >
+                <option value="">Selecciona…</option>
+                <option>XS</option>
+                <option>S</option>
+                <option>M</option>
+                <option>L</option>
+                <option>XL</option>
+                <option>XXL</option>
+              </select>
+            </Field>
+          </div>
+        </Section>
+
+        {/* Alimentación */}
+        <Section title="Alimentación">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Alergias alimentarias">
+              <input
+                className="inp"
+                placeholder="Ej: maní, mariscos…"
+                value={f.alimentarias_alergias}
+                onChange={(e) =>
+                  setField("alimentarias_alergias", e.target.value)
+                }
+              />
+            </Field>
+            <Field label="Preferencia vegetariana/vegana">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={f.alimentarias_veg}
+                  onChange={(e) => setField("alimentarias_veg", e.target.checked)}
+                />
+                <span>Sí</span>
+              </label>
+            </Field>
+            <Field label="Otras restricciones">
+              <input
+                className="inp"
+                value={f.alimentarias_otro}
+                onChange={(e) => setField("alimentarias_otro", e.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        {/* Credencial */}
+        <Section title="Credencial">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Nombre para credencial">
+              <input
+                className="inp"
+                value={f.nombre_credencial}
+                onChange={(e) => setField("nombre_credencial", e.target.value)}
+              />
+            </Field>
+            <div className="flex items-end">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={usarNombreRapido}
+              >
+                Usar nombre rápido
+              </button>
+            </div>
+          </div>
+        </Section>
+
+        {/* Postulación */}
+        <Section title="Postulación">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Field label="Tipo de postulación">
+              <div className="flex gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="postu"
+                    checked={f.tipo_postulacion === "general"}
+                    onChange={() => setField("tipo_postulacion", "general")}
+                  />
+                  General
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="postu"
+                    checked={f.tipo_postulacion === "especifica"}
+                    onChange={() => setField("tipo_postulacion", "especifica")}
+                  />
+                  Operativo específico
+                </label>
+              </div>
+            </Field>
+
+            {f.tipo_postulacion === "especifica" ? (
+              <Field label="Operativo">
+                <select
+                  className="inp"
+                  value={f.operativo_slug}
+                  onChange={(e) => setField("operativo_slug", e.target.value)}
+                >
+                  <option value="">Selecciona un operativo…</option>
+                  {ops.map((o) => (
+                    <option key={o.id} value={o.slug}>
+                      {o.titulo}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : (
+              <>
+                <Field label="Disponibilidad al año">
+                  <select
+                    className="inp"
+                    value={f.disponibilidad_anual}
+                    onChange={(e) =>
+                      setField("disponibilidad_anual", e.target.value)
+                    }
+                  >
+                    <option value="">Selecciona…</option>
+                    <option>1</option>
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4 o más</option>
+                  </select>
+                </Field>
+                <Field label="¿Por qué te gustaría ser voluntario/a?">
+                  <textarea
+                    className="inp"
+                    value={f.motivacion}
+                    onChange={(e) => setField("motivacion", e.target.value)}
+                  />
+                </Field>
+              </>
+            )}
+          </div>
+        </Section>
+
+        <div className="pt-2">
+          <button className="btn-primary" disabled={sending}>
+            {sending ? "Enviando…" : "Enviar postulación"}
+          </button>
+        </div>
+      </form>
+    </main>
+  );
+}

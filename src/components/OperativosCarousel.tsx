@@ -7,6 +7,7 @@ type Operativo = {
   fecha_inicio: string;
   lugar: string | null;
   imagen_cabecera_url: string | null;
+  imagenes?: Array<{ url: string; path?: string | null }>;
 };
 
 export default function OperativosCarousel({ items }: { items: Operativo[] }) {
@@ -15,10 +16,10 @@ export default function OperativosCarousel({ items }: { items: Operativo[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {items.map((op) => {
+        const fallback = op.imagenes?.[0]?.url;
         const imageSrc =
-          op.imagen_cabecera_url && op.imagen_cabecera_url.trim() !== ""
-            ? op.imagen_cabecera_url
-            : "https://placehold.co/800x400?text=Operativo+Traesol";
+          (op.imagen_cabecera_url && op.imagen_cabecera_url.trim() !== "" ? op.imagen_cabecera_url : fallback) ||
+          "https://placehold.co/800x400?text=Operativo+Traesol";
 
         return (
           <a

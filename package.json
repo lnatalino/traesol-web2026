@@ -8,11 +8,14 @@
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.81.1",
+    "@supabase/ssr": "0.7.0",
+    "@supabase/supabase-js": "2.81.1",
+    "jose": "^6.1.1",
+    "lucide-react": "^0.553.0",
     "next": "16.0.1",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "resend": "^6.4.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
