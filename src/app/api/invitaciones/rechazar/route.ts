@@ -30,6 +30,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validar formato UUID básico
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(token)) {
+      return NextResponse.json(
+        { ok: false, error: "Token de invitación inválido." },
+        { status: 400 }
+      );
+    }
+
     // Buscar la inscripción por token
     type InscripcionResult = {
       id: string;
@@ -47,6 +56,13 @@ export async function POST(req: Request) {
       .maybeSingle<InscripcionResult>();
 
     if (fetchError) {
+      // Error de formato UUID también puede llegar aquí
+      if (fetchError.code === "22P02") {
+        return NextResponse.json(
+          { ok: false, error: "Token de invitación inválido." },
+          { status: 400 }
+        );
+      }
       console.error("[invitaciones/rechazar] Error buscando inscripción:", fetchError);
       return NextResponse.json(
         { ok: false, error: "Error al procesar la invitación." },
