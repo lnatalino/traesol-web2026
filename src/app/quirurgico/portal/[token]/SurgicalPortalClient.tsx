@@ -236,7 +236,7 @@ export function SurgicalPortalClient({ patient, portalToken }: SurgicalPortalCli
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">Contacto</p>
             <h3 className="mt-2 text-xl font-semibold text-slate-900">¿Tienes dudas?</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Escríbenos a <a className="font-semibold text-blue-600" href="mailto:quirurgicos@fundaciontraesol.cl">quirurgicos@fundaciontraesol.cl</a> o al WhatsApp
+              Escríbenos a <a className="font-semibold text-blue-600" href="mailto:contacto@fundaciontraesol.cl">contacto@fundaciontraesol.cl</a> o al WhatsApp
               <a className="font-semibold text-blue-600" href="https://wa.me/56999999999" target="_blank" rel="noreferrer">
                 {" "}+56 9 9999 9999
               </a>

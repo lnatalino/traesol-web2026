@@ -17,24 +17,37 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
       id: string;
       nombres: string;
       apellidos: string;
+      rut: string | null;
+      fecha_nacimiento: string | null;
+      genero: string | null;
+      telefono: string | null;
+      email: string | null;
+      direccion: string | null;
+      ciudad_origen: string | null;
       diagnostico: string | null;
       cirugia_planificada: string | null;
       fecha_cirugia: string | null;
       hora_cirugia: string | null;
       fecha_llegada_ciudad: string | null;
       fecha_regreso_ciudad: string | null;
+      requiere_vuelo: boolean;
+      requiere_hospedaje: boolean;
       operativo_quirurgico_id: string | null;
     };
     type RequerimientoRow = { id: string; titulo: string; descripcion: string | null; estado: string };
-    type ContactoRow = { nombre: string; telefono: string };
+    type ContactoRow = { id: string; nombre: string; relacion: string | null; telefono: string; es_principal: boolean };
+    type ArchivoRow = { id: string; filename: string; created_at: string; requerimiento_id: string | null };
     
-    // Obtener datos del paciente
+    // Obtener datos del paciente (incluyendo datos personales)
     const { data: paciente, error: pacienteError } = await supabaseService
       .from("pacientes")
       .select(`
         id, nombres, apellidos,
+        rut, fecha_nacimiento, genero,
+        telefono, email, direccion, ciudad_origen,
         diagnostico, cirugia_planificada, fecha_cirugia, hora_cirugia,
         fecha_llegada_ciudad, fecha_regreso_ciudad,
+        requiere_vuelo, requiere_hospedaje,
         operativo_quirurgico_id
       `)
       .eq("id", pacienteId)
@@ -83,31 +96,62 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
       (r) => r.estado === "pendiente"
     ).length;
 
-    // Obtener contacto de emergencia principal
+    // Obtener todos los contactos de emergencia
     const { data: contactos } = await supabaseService
       .from("paciente_contactos")
-      .select("nombre, telefono")
+      .select("id, nombre, relacion, telefono, es_principal")
       .eq("paciente_id", pacienteId)
-      .eq("es_principal", true)
-      .limit(1) as { data: ContactoRow[] | null; error: unknown };
+      .order("es_principal", { ascending: false })
+      .order("created_at", { ascending: true }) as { data: ContactoRow[] | null; error: unknown };
 
-    const contactoEmergencia = contactos?.[0] || null;
+    const contactosEmergencia = contactos || [];
+    const contactoPrincipal = contactosEmergencia.find(c => c.es_principal) || contactosEmergencia[0] || null;
+
+    // Obtener archivos subidos por el paciente
+    const { data: archivos } = await supabaseService
+      .from("paciente_archivos")
+      .select("id, filename, created_at, requerimiento_id")
+      .eq("paciente_id", pacienteId)
+      .order("created_at", { ascending: false }) as { data: ArchivoRow[] | null; error: unknown };
 
     return {
       id: paciente.id,
       nombres: paciente.nombres,
       apellidos: paciente.apellidos,
       nombre_completo: `${paciente.nombres} ${paciente.apellidos}`.trim(),
+      
+      // Datos personales
+      rut: paciente.rut,
+      fecha_nacimiento: paciente.fecha_nacimiento,
+      genero: paciente.genero,
+      telefono: paciente.telefono,
+      email: paciente.email,
+      direccion: paciente.direccion,
+      ciudad_origen: paciente.ciudad_origen,
+      
       operativo,
+      equipo_medico: null, // TODO: Implementar cuando exista la tabla
+      
       diagnostico: paciente.diagnostico,
       cirugia_planificada: paciente.cirugia_planificada,
       fecha_cirugia: paciente.fecha_cirugia,
       hora_cirugia: paciente.hora_cirugia,
+      
+      requiere_vuelo: paciente.requiere_vuelo,
+      requiere_hospedaje: paciente.requiere_hospedaje,
       fecha_llegada_ciudad: paciente.fecha_llegada_ciudad,
       fecha_regreso_ciudad: paciente.fecha_regreso_ciudad,
+      
       requerimientos_pendientes: pendientes,
       requerimientos: requerimientosConArchivos,
-      contacto_emergencia: contactoEmergencia,
+      
+      contactos_emergencia: contactosEmergencia,
+      contacto_emergencia: contactoPrincipal ? {
+        nombre: contactoPrincipal.nombre,
+        telefono: contactoPrincipal.telefono,
+      } : null,
+      
+      archivos: archivos || [],
     };
   } catch (error) {
     console.error("[PortalContenido] fetch error:", error);

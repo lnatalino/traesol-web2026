@@ -27,6 +27,13 @@ export async function GET() {
       id: string;
       nombres: string;
       apellidos: string;
+      rut: string | null;
+      fecha_nacimiento: string | null;
+      genero: string | null;
+      telefono: string | null;
+      email: string | null;
+      direccion: string | null;
+      ciudad_origen: string | null;
       diagnostico: string | null;
       cirugia_planificada: string | null;
       fecha_cirugia: string | null;
@@ -34,15 +41,18 @@ export async function GET() {
       fecha_llegada_ciudad: string | null;
       fecha_regreso_ciudad: string | null;
       operativo_quirurgico_id: string | null;
+      requiere_vuelo: boolean | null;
+      requiere_hospedaje: boolean | null;
     };
     
     const { data: paciente, error: pacienteError } = await supabaseService
       .from("pacientes")
       .select(`
-        id, nombres, apellidos,
+        id, nombres, apellidos, rut, fecha_nacimiento, genero,
+        telefono, email, direccion, ciudad_origen,
         diagnostico, cirugia_planificada, fecha_cirugia, hora_cirugia,
         fecha_llegada_ciudad, fecha_regreso_ciudad,
-        operativo_quirurgico_id
+        operativo_quirurgico_id, requiere_vuelo, requiere_hospedaje
       `)
       .eq("id", pacienteId)
       .single() as { data: PacienteRow | null; error: unknown };
@@ -94,21 +104,36 @@ export async function GET() {
       (r) => r.estado === "pendiente"
     ).length;
 
-    // Obtener contacto de emergencia principal
+    // Obtener contactos de emergencia
+    type ContactoRow = { id: string; nombre: string; telefono: string; relacion: string | null; es_principal: boolean };
     const { data: contactos } = await supabaseService
       .from("paciente_contactos")
-      .select("nombre, telefono")
+      .select("id, nombre, telefono, relacion, es_principal")
       .eq("paciente_id", pacienteId)
-      .eq("es_principal", true)
-      .limit(1);
+      .order("es_principal", { ascending: false }) as { data: ContactoRow[] | null; error: unknown };
 
     const contactoEmergencia = contactos?.[0] || null;
+
+    // Obtener archivos del paciente (para la lista general)
+    type ArchivoRow = { id: string; nombre_archivo: string; requerimiento_id: string | null; created_at: string };
+    const { data: archivos } = await supabaseService
+      .from("paciente_archivos")
+      .select("id, nombre_archivo, requerimiento_id, created_at")
+      .eq("paciente_id", pacienteId)
+      .order("created_at", { ascending: false }) as { data: ArchivoRow[] | null; error: unknown };
 
     const response: PortalPacienteData = {
       id: paciente.id,
       nombres: paciente.nombres,
       apellidos: paciente.apellidos,
       nombre_completo: `${paciente.nombres} ${paciente.apellidos}`.trim(),
+      rut: paciente.rut,
+      fecha_nacimiento: paciente.fecha_nacimiento,
+      genero: paciente.genero,
+      telefono: paciente.telefono,
+      email: paciente.email,
+      direccion: paciente.direccion,
+      ciudad_origen: paciente.ciudad_origen,
       operativo: operativo,
       diagnostico: paciente.diagnostico,
       cirugia_planificada: paciente.cirugia_planificada,
@@ -116,9 +141,24 @@ export async function GET() {
       hora_cirugia: paciente.hora_cirugia,
       fecha_llegada_ciudad: paciente.fecha_llegada_ciudad,
       fecha_regreso_ciudad: paciente.fecha_regreso_ciudad,
+      requiere_vuelo: paciente.requiere_vuelo || false,
+      requiere_hospedaje: paciente.requiere_hospedaje || false,
       requerimientos_pendientes: pendientes,
       requerimientos: requerimientosConArchivos,
       contacto_emergencia: contactoEmergencia,
+      contactos_emergencia: (contactos || []).map(c => ({
+        id: c.id,
+        nombre: c.nombre,
+        telefono: c.telefono,
+        relacion: c.relacion,
+        es_principal: c.es_principal,
+      })),
+      archivos: (archivos || []).map(a => ({
+        id: a.id,
+        filename: a.nombre_archivo,
+        created_at: a.created_at,
+        requerimiento_id: a.requerimiento_id,
+      })),
     };
 
     return NextResponse.json(response);

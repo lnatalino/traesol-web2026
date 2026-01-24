@@ -29,7 +29,7 @@ export function PortalInvalido({ mensaje }: PortalInvalidoProps) {
             
             <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <a
-                href="mailto:quirurgicos@fundaciontraesol.cl"
+                href="mailto:contacto@fundaciontraesol.cl"
                 className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700"
               >
                 Solicitar nuevo enlace
@@ -44,7 +44,7 @@ export function PortalInvalido({ mensaje }: PortalInvalidoProps) {
           </div>
           
           <p className="mt-8 text-xs text-slate-400">
-            Email: <a href="mailto:quirurgicos@fundaciontraesol.cl" className="text-blue-600 hover:underline">quirurgicos@fundaciontraesol.cl</a>
+            Email: <a href="mailto:contacto@fundaciontraesol.cl" className="text-blue-600 hover:underline">contacto@fundaciontraesol.cl</a>
           </p>
         </div>
       </div>

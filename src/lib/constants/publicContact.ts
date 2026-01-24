@@ -9,8 +9,9 @@ export const PUBLIC_CONTACT_EMAIL = "contacto@fundaciontraesol.cl";
 
 /**
  * Email específico para operativos quirúrgicos.
+ * @deprecated Usar PUBLIC_CONTACT_EMAIL en su lugar. Todas las comunicaciones deben usar contacto@.
  */
-export const QUIRURGICO_CONTACT_EMAIL = "quirurgicos@fundaciontraesol.cl";
+export const QUIRURGICO_CONTACT_EMAIL = "contacto@fundaciontraesol.cl";
 
 /**
  * Teléfono de contacto (si aplica).

@@ -322,8 +322,8 @@ export function SurgicalConfirmationEmail(props: SurgicalConfirmationEmailProps)
         Nuestro equipo se comunicará contigo si surge alguna actualización. Si tienes dudas o necesitas modificar
         algún dato, responde este correo o escríbenos a
         {" "}
-        <a href="mailto:quirurgicos@fundaciontraesol.cl" style={{ color: "#0b4dbf", textDecoration: "none" }}>
-          quirurgicos@fundaciontraesol.cl
+        <a href="mailto:contacto@fundaciontraesol.cl" style={{ color: "#0b4dbf", textDecoration: "none" }}>
+          contacto@fundaciontraesol.cl
         </a>
         .
       </p>

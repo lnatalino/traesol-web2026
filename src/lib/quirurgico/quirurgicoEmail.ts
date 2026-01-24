@@ -73,7 +73,7 @@ export function buildSurgicalConfirmationEmail(
     </ul>
     <p>
       Nuestro equipo se comunicará contigo si surge alguna actualización. Si tienes dudas,
-      puedes responder este correo o escribirnos a <a href="mailto:quirurgicos@fundaciontraesol.cl">quirurgicos@fundaciontraesol.cl</a>
+      puedes responder este correo o escribirnos a <a href="mailto:contacto@fundaciontraesol.cl">contacto@fundaciontraesol.cl</a>
       o al teléfono que te compartimos previamente.
     </p>
     <p>Un abrazo,<br/>Equipo Traesol</p>

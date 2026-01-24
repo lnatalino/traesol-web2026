@@ -18,7 +18,7 @@ function PortalUnavailable() {
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-500">Portal no disponible</p>
         <h1 className="mt-4 text-3xl font-semibold text-slate-900">El enlace que abriste ya no está activo</h1>
         <p className="mt-3 text-base text-slate-600">
-          Escríbenos a <a className="font-semibold text-blue-600" href="mailto:quirurgicos@fundaciontraesol.cl">quirurgicos@fundaciontraesol.cl</a> para obtener nueva información.
+          Escríbenos a <a className="font-semibold text-blue-600" href="mailto:contacto@fundaciontraesol.cl">contacto@fundaciontraesol.cl</a> para obtener nueva información.
         </p>
       </div>
     </main>

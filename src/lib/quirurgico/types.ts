@@ -303,11 +303,26 @@ export interface PortalPacienteData {
   apellidos: string;
   nombre_completo: string;
   
+  // Datos personales para "Tus datos"
+  rut: string | null;
+  fecha_nacimiento: string | null;
+  genero: string | null;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  ciudad_origen: string | null;
+  
   // Info del operativo
   operativo?: {
     titulo: string;
     ciudad: string | null;
     lugar: string | null;
+  } | null;
+  
+  // Equipo médico (futuro)
+  equipo_medico?: {
+    cirujano?: string | null;
+    anestesiologo?: string | null;
   } | null;
   
   // Médico
@@ -317,6 +332,8 @@ export interface PortalPacienteData {
   hora_cirugia: string | null;
   
   // Logística visible
+  requiere_vuelo: boolean;
+  requiere_hospedaje: boolean;
   fecha_llegada_ciudad: string | null;
   fecha_regreso_ciudad: string | null;
   
@@ -330,11 +347,28 @@ export interface PortalPacienteData {
     archivos_count: number;
   }[];
   
-  // Contacto emergencia principal
+  // Contactos de emergencia (todos, no solo principal)
+  contactos_emergencia: {
+    id: string;
+    nombre: string;
+    relacion: string | null;
+    telefono: string;
+    es_principal: boolean;
+  }[];
+  
+  // Contacto emergencia principal (para compatibilidad)
   contacto_emergencia?: {
     nombre: string;
     telefono: string;
   } | null;
+  
+  // Archivos subidos
+  archivos: {
+    id: string;
+    filename: string;
+    created_at: string;
+    requerimiento_id: string | null;
+  }[];
 }
 
 // =====================================================
