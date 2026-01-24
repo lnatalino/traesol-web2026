@@ -2,6 +2,7 @@
 
 // src/app/admin/quirurgico/operativos/[id]/pacientes/[pacienteId]/_components/PortalTokenManager.tsx
 // Componente para gestionar el token de acceso al portal del paciente
+// Con 2 opciones: Enviar por email o Copiar link + texto preformateado
 
 import { useState } from "react";
 import type { PacientePortalToken } from "@/lib/quirurgico/types";
@@ -10,26 +11,61 @@ interface Props {
   pacienteId: string;
   token: PacientePortalToken | null;
   pacienteNombre: string;
+  pacienteEmail?: string | null;
   onRefresh: () => void;
 }
 
-export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefresh }: Props) {
+export function PortalTokenManager({ pacienteId, token, pacienteNombre, pacienteEmail, onRefresh }: Props) {
   const [generating, setGenerating] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [sending, setSending] = useState(false);
   const [newTokenUrl, setNewTokenUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState(pacienteEmail || "");
+  const [showEmailOption, setShowEmailOption] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleGenerateToken = async () => {
+  // Texto de email preformateado para copiar
+  const getEmailText = (url: string) => `Estimado/a ${pacienteNombre},
+
+Ha sido registrado como paciente en un operativo quirúrgico de la Fundación Traesol.
+
+Para completar su información y subir los documentos necesarios, ingrese al siguiente enlace:
+
+${url}
+
+Este enlace es personal e intransferible. Le permite:
+- Verificar y actualizar sus datos personales
+- Agregar contactos de emergencia
+- Subir exámenes y documentos médicos requeridos
+
+El enlace expira en 30 días. Si tiene problemas para acceder, contacte al equipo de coordinación.
+
+Atentamente,
+Fundación Traesol
+https://fundaciontraesol.cl`;
+
+  const handleGenerateToken = async (sendEmail: boolean = false, email?: string) => {
+    if (sendEmail && !email) {
+      setError("Por favor ingrese un email válido");
+      return;
+    }
+
     setGenerating(true);
     setNewTokenUrl(null);
+    setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch(`/api/admin/quirurgico/pacientes-v2/${pacienteId}/portal-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // Expiración en 30 días por defecto
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          sendEmail: sendEmail,
+          email: email,
         }),
       });
 
@@ -38,15 +74,30 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
       if (response.ok && result.portal_url) {
         setNewTokenUrl(result.portal_url);
         onRefresh();
+        
+        if (sendEmail && result.email_sent) {
+          setSuccess(`Email enviado correctamente a ${email}`);
+          setShowEmailOption(false);
+        }
       } else {
-        alert(result.error || "Error al generar el token");
+        setError(result.error || "Error al generar el token");
       }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error al generar el token");
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Error al generar el token");
     } finally {
       setGenerating(false);
+      setSending(false);
     }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      setError("Por favor ingrese un email válido");
+      return;
+    }
+    setSending(true);
+    await handleGenerateToken(true, emailInput);
   };
 
   const handleRevokeToken = async () => {
@@ -54,6 +105,7 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
     if (!confirm("¿Revocar el acceso al portal para este paciente? El enlace dejará de funcionar.")) return;
 
     setRevoking(true);
+    setError(null);
     try {
       const response = await fetch(`/api/admin/quirurgico/pacientes-v2/${pacienteId}/portal-token`, {
         method: "DELETE",
@@ -61,24 +113,36 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
 
       if (response.ok) {
         setNewTokenUrl(null);
+        setSuccess("Acceso revocado correctamente");
         onRefresh();
       }
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Error al revocar el token");
     } finally {
       setRevoking(false);
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopyLink = async () => {
     if (!newTokenUrl) return;
-    
     try {
       await navigator.clipboard.writeText(newTokenUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Error al copiar:", error);
+    } catch (err) {
+      console.error("Error al copiar:", err);
+    }
+  };
+
+  const handleCopyEmailText = async () => {
+    if (!newTokenUrl) return;
+    try {
+      await navigator.clipboard.writeText(getEmailText(newTokenUrl));
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+    } catch (err) {
+      console.error("Error al copiar:", err);
     }
   };
 
@@ -89,9 +153,21 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
-          Acceso al portal
+          Acceso al portal del paciente
         </h3>
       </div>
+
+      {/* Mensajes de error/éxito */}
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          {success}
+        </div>
+      )}
 
       {/* Estado actual del token */}
       {token ? (
@@ -130,13 +206,13 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
             </div>
           </div>
 
-          <div className="flex gap-2 pt-2 border-t border-slate-200">
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
             <button
-              onClick={handleGenerateToken}
+              onClick={() => handleGenerateToken(false)}
               disabled={generating}
               className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {generating ? "Generando..." : "Generar nuevo enlace"}
+              {generating ? "Generando..." : "Regenerar enlace"}
             </button>
             {!isRevoked && (
               <button
@@ -150,53 +226,134 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, onRefres
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-          <p className="text-sm text-slate-600 mb-3">
+        /* Sin token - mostrar 2 opciones */
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+          <p className="text-sm text-slate-600">
             El paciente no tiene acceso al portal. Genera un enlace seguro para que pueda ver su información y subir documentos.
           </p>
-          <button
-            onClick={handleGenerateToken}
-            disabled={generating}
-            className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {generating ? "Generando..." : "Generar enlace de acceso"}
-          </button>
+          
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* OPCIÓN 1: Enviar por email */}
+            <button
+              onClick={() => setShowEmailOption(true)}
+              className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-left hover:bg-blue-100 transition"
+            >
+              <div className="flex items-center gap-2 text-blue-700 font-semibold mb-1">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Enviar por email
+              </div>
+              <p className="text-xs text-slate-600">
+                Genera el token y envía automáticamente al email del paciente
+              </p>
+            </button>
+
+            {/* OPCIÓN 2: Generar y copiar */}
+            <button
+              onClick={() => handleGenerateToken(false)}
+              disabled={generating}
+              className="rounded-xl border-2 border-slate-200 bg-white p-4 text-left hover:bg-slate-50 transition disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2 text-slate-700 font-semibold mb-1">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                {generating ? "Generando..." : "Generar y copiar"}
+              </div>
+              <p className="text-xs text-slate-600">
+                Genera el link y un texto para copiar/pegar manualmente
+              </p>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Mostrar nuevo enlace generado */}
-      {newTokenUrl && (
-        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-green-700">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-semibold">¡Enlace generado!</span>
+      {/* Modal/sección para enviar por email */}
+      {showEmailOption && !newTokenUrl && (
+        <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold text-blue-900">Enviar acceso por email</h4>
+            <button
+              onClick={() => setShowEmailOption(false)}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           
-          <div className="bg-white rounded-lg p-3 border border-green-200">
-            <p className="text-xs text-slate-500 mb-1">Enlace de acceso al portal:</p>
-            <code className="text-sm text-slate-900 break-all select-all">{newTokenUrl}</code>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Email del paciente *
+            </label>
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="paciente@ejemplo.com"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
           </div>
 
           <div className="flex gap-2">
             <button
-              onClick={handleCopy}
-              className="rounded-full bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+              onClick={handleSendEmail}
+              disabled={sending || !emailInput}
+              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {copied ? "¡Copiado!" : "Copiar enlace"}
+              {sending ? "Enviando..." : "Generar y enviar email"}
             </button>
-            <a
-              href={`mailto:?subject=Acceso%20al%20portal%20de%20paciente%20-%20Traesol&body=Hola%20${encodeURIComponent(pacienteNombre)},%0A%0AAqu%C3%AD%20est%C3%A1%20tu%20enlace%20de%20acceso%20al%20portal%20de%20paciente:%0A%0A${encodeURIComponent(newTokenUrl)}%0A%0AEste%20enlace%20es%20personal%20y%20expira%20en%2030%20d%C3%ADas.`}
-              className="rounded-full border border-green-200 px-4 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100"
+            <button
+              onClick={() => setShowEmailOption(false)}
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
             >
-              Enviar por email
-            </a>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mostrar enlace generado + opciones para copiar */}
+      {newTokenUrl && (
+        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4 space-y-4">
+          <div className="flex items-center gap-2 text-green-700">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-semibold">¡Enlace generado exitosamente!</span>
+          </div>
+          
+          {/* Link para copiar */}
+          <div className="bg-white rounded-lg p-3 border border-green-200">
+            <p className="text-xs text-slate-500 mb-1 font-medium">Enlace de acceso:</p>
+            <code className="text-sm text-slate-900 break-all select-all block">{newTokenUrl}</code>
+            <button
+              onClick={handleCopyLink}
+              className="mt-2 rounded-full bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+            >
+              {copied ? "✓ Copiado" : "Copiar enlace"}
+            </button>
+          </div>
+
+          {/* Texto de email preformateado */}
+          <div className="bg-white rounded-lg p-3 border border-green-200">
+            <p className="text-xs text-slate-500 mb-1 font-medium">Texto de email (para copiar y pegar):</p>
+            <pre className="text-xs text-slate-700 whitespace-pre-wrap break-words max-h-40 overflow-y-auto bg-slate-50 p-2 rounded border">
+              {getEmailText(newTokenUrl)}
+            </pre>
+            <button
+              onClick={handleCopyEmailText}
+              className="mt-2 rounded-full border border-green-600 px-4 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100"
+            >
+              {copiedEmail ? "✓ Texto copiado" : "Copiar texto de email"}
+            </button>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <p className="text-xs text-amber-800">
-              <strong>⚠️ Importante:</strong> Este enlace solo se muestra una vez. Copia y guárdalo ahora. 
+              <strong>⚠️ Importante:</strong> Este enlace solo se muestra una vez. Cópielo y guárdelo ahora. 
               El token se almacena de forma segura (hash) y no puede recuperarse después.
             </p>
           </div>

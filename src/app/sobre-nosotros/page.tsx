@@ -12,12 +12,19 @@ export const metadata = { title: "Sobre Nosotros · Traesol" };
 export default function SobreNosotrosPage() {
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* Hero */}
+      {/* Hero con logo institucional */}
       <PublicHero
         eyebrow="Fundación Traesol"
         title="Sobre Traesol"
         subtitle="Disminuimos las barreras de acceso a atención médica de excelencia en territorios vulnerables y excluidos del país."
       >
+        {/* Logo institucional destacado */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/branding/logo-traesol.png"
+          alt="Logo Fundación Traesol"
+          className="mx-auto w-[160px] sm:w-[200px] md:w-[240px] h-auto mb-6 drop-shadow-lg"
+        />
         <div className="mt-4 grid gap-4 sm:grid-cols-2 max-w-3xl mx-auto">
           <div className="rounded-2xl border border-white/20 bg-white/10 p-5 text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-400">Lo que hacemos</p>

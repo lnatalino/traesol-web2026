@@ -35,13 +35,13 @@ export default function Navbar() {
           <img
             src={logoUrl}
             alt="Traesol"
-            width={120}
-            height={120}
+            width={140}
+            height={140}
             className="hidden sm:inline-block object-contain"
             style={{
-              maxHeight: "125px",
+              maxHeight: "145px",
               width: "auto",
-              marginRight: "12px",
+              marginRight: "14px",
               verticalAlign: "middle",
             }}
           />
