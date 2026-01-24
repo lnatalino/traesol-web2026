@@ -2,12 +2,22 @@
 // Endpoint para gestionar contactos de emergencia del paciente
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPortalSession } from "@/lib/quirurgico/portalSession";
+import { verifyPortalSessionOrToken } from "@/lib/quirurgico/portalSession";
 import { supabaseService } from "@/lib/supabaseService";
+
+// Helper para verificar si el paciente puede editar
+async function canPatientEdit(pacienteId: string): Promise<boolean> {
+  const { data } = await supabaseService
+    .from("pacientes")
+    .select("patient_can_edit")
+    .eq("id", pacienteId)
+    .single<{ patient_can_edit: boolean | null }>();
+  return data?.patient_can_edit === true;
+}
 
 export async function GET() {
   try {
-    const pacienteId = await verifyPortalSession();
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
@@ -39,10 +49,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const pacienteId = await verifyPortalSession();
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
+    }
+
+    // Verificar si el paciente puede editar
+    const canEdit = await canPatientEdit(pacienteId);
+    if (!canEdit) {
+      return NextResponse.json(
+        { error: "No tienes permiso para modificar tus datos. Contacta al equipo de Traesol." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -97,10 +116,19 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const pacienteId = await verifyPortalSession();
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
+    }
+
+    // Verificar si el paciente puede editar
+    const canEdit = await canPatientEdit(pacienteId);
+    if (!canEdit) {
+      return NextResponse.json(
+        { error: "No tienes permiso para modificar tus datos. Contacta al equipo de Traesol." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -153,10 +181,19 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const pacienteId = await verifyPortalSession();
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
+    }
+
+    // Verificar si el paciente puede editar
+    const canEdit = await canPatientEdit(pacienteId);
+    if (!canEdit) {
+      return NextResponse.json(
+        { error: "No tienes permiso para modificar tus datos. Contacta al equipo de Traesol." },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

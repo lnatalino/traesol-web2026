@@ -2,7 +2,7 @@
 // Endpoint para subir archivos desde el portal del paciente
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPortalSession } from "@/lib/quirurgico/portalSession";
+import { verifyPortalSessionOrToken } from "@/lib/quirurgico/portalSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { randomUUID } from "crypto";
 
@@ -18,8 +18,8 @@ const BUCKET_NAME = "pacientes-archivos";
 
 export async function POST(request: NextRequest) {
   try {
-    // Verificar sesión del portal
-    const pacienteId = await verifyPortalSession();
+    // Verificar sesión del portal (cookie o token en header)
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json(

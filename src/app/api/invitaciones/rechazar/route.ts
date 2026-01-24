@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
+import { sendInvitacionRechazadaEmail } from "@/lib/invitaciones/emails";
 
 /**
  * POST /api/invitaciones/rechazar
@@ -15,6 +16,7 @@ import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
  * Acciones:
  * - Actualiza estado a "rechazado"
  * - Registra fecha de respuesta
+ * - Envía email de agradecimiento al voluntario
  * 
  * Retorna: { ok: true } o { ok: false, error }
  */
@@ -114,6 +116,49 @@ export async function POST(req: Request) {
     }
 
     console.log(`[invitaciones/rechazar] Invitación rechazada: inscripcion_id=${inscripcion.id}, voluntario_id=${inscripcion.voluntario_id}, operativo_id=${inscripcion.operativo_id}`);
+
+    // Obtener datos del operativo y voluntario para enviar email
+    type OperativoResult = { id: string; titulo: string | null };
+    type VoluntarioResult = { id: string; nombre: string; apellido: string; email: string | null };
+    
+    const { data: operativo } = inscripcion.operativo_id 
+      ? await supabaseService
+          .from("operativos")
+          .select("id, titulo")
+          .eq("id", inscripcion.operativo_id)
+          .maybeSingle<OperativoResult>()
+      : { data: null };
+
+    const { data: voluntario } = inscripcion.voluntario_id 
+      ? await supabaseService
+          .from("voluntarios")
+          .select("id, nombre, apellido, email")
+          .eq("id", inscripcion.voluntario_id)
+          .maybeSingle<VoluntarioResult>()
+      : { data: null };
+
+    // Enviar email de agradecimiento
+    if (voluntario?.email) {
+      try {
+        const emailResult = await sendInvitacionRechazadaEmail(
+          {
+            nombre: voluntario.nombre,
+            apellido: voluntario.apellido,
+            email: voluntario.email,
+          },
+          {
+            titulo: operativo?.titulo || "Operativo Traesol",
+          }
+        );
+        if (emailResult.success) {
+          console.log(`[invitaciones/rechazar] Email agradecimiento enviado a ${voluntario.email}`);
+        } else {
+          console.warn(`[invitaciones/rechazar] No se pudo enviar email: ${emailResult.error}`);
+        }
+      } catch (emailError) {
+        console.error("[invitaciones/rechazar] Error enviando email:", emailError);
+      }
+    }
 
     return NextResponse.json({
       ok: true,

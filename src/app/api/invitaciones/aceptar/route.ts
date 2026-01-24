@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
+import { sendInvitacionAceptadaEmail } from "@/lib/invitaciones/emails";
 
 /**
  * POST /api/invitaciones/aceptar
@@ -16,6 +17,7 @@ import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
  * Acciones:
  * - Actualiza estado a "confirmado"
  * - Registra fecha de respuesta
+ * - Envía email de confirmación al voluntario
  * 
  * Retorna: { ok: true, operativo_id, operativo_slug } o { ok: false, error }
  */
@@ -100,6 +102,10 @@ export async function POST(req: Request) {
       id: string;
       slug: string | null;
       titulo: string | null;
+      ubicacion: string | null;
+      fecha_inicio: string | null;
+      fecha_fin: string | null;
+      whatsapp_link: string | null;
     };
 
     // Verificar si ya fue respondida
@@ -140,12 +146,52 @@ export async function POST(req: Request) {
       );
     }
 
-    // Obtener datos del operativo para la redirección
+    // Obtener datos del operativo para la redirección y email
     const { data: operativo } = await supabaseService
       .from("operativos")
-      .select("id, slug, titulo")
+      .select("id, slug, titulo, ubicacion, fecha_inicio, fecha_fin, whatsapp_link")
       .eq("id", operativoId)
       .maybeSingle<OperativoResult>();
+
+    // Obtener datos del voluntario para enviar email
+    type VoluntarioResult = { id: string; nombre: string; apellido: string; email: string | null };
+    const { data: voluntario } = inscripcion.voluntario_id 
+      ? await supabaseService
+          .from("voluntarios")
+          .select("id, nombre, apellido, email")
+          .eq("id", inscripcion.voluntario_id)
+          .maybeSingle<VoluntarioResult>()
+      : { data: null };
+
+    // Enviar email de confirmación al voluntario
+    if (voluntario?.email) {
+      try {
+        const emailResult = await sendInvitacionAceptadaEmail(
+          {
+            nombre: voluntario.nombre,
+            apellido: voluntario.apellido,
+            email: voluntario.email,
+          },
+          {
+            titulo: operativo?.titulo || "Operativo Traesol",
+            ubicacion: operativo?.ubicacion,
+            fecha_inicio: operativo?.fecha_inicio,
+            fecha_fin: operativo?.fecha_fin,
+            whatsapp_link: operativo?.whatsapp_link,
+          }
+        );
+        if (emailResult.success) {
+          console.log(`[invitaciones/aceptar] Email confirmación enviado a ${voluntario.email}`);
+        } else {
+          console.warn(`[invitaciones/aceptar] No se pudo enviar email: ${emailResult.error}`);
+        }
+      } catch (emailError) {
+        console.error("[invitaciones/aceptar] Error enviando email:", emailError);
+        // No fallar la operación si el email falla
+      }
+    } else {
+      console.warn(`[invitaciones/aceptar] Voluntario sin email, no se envía confirmación`);
+    }
 
     console.log(`[invitaciones/aceptar] Invitación aceptada: inscripcion_id=${inscripcion.id}, voluntario_id=${inscripcion.voluntario_id}, operativo_id=${operativoId}`);
 

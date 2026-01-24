@@ -41,11 +41,11 @@ export default async function PortalPacientePage({ searchParams }: PageProps) {
       await createPortalSession(result.pacienteId);
     } catch (sessionError) {
       console.error("[portal] createPortalSession error:", sessionError);
-      // Continuar sin sesión, el contenido igual debe mostrarse
+      // Continuar sin sesión, el cliente usará el token como fallback
     }
 
-    // Mostrar contenido del portal
-    return <PortalContenido pacienteId={result.pacienteId} />;
+    // Mostrar contenido del portal, pasando el token para fallback
+    return <PortalContenido pacienteId={result.pacienteId} portalToken={token} />;
   } catch (error) {
     // Capturar cualquier error no manejado para evitar pantalla blanca
     console.error("[portal] unhandled error:", error);

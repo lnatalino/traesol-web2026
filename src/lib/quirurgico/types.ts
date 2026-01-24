@@ -369,6 +369,9 @@ export interface PortalPacienteData {
     created_at: string;
     requerimiento_id: string | null;
   }[];
+  
+  // Permisos del paciente
+  patient_can_edit: boolean;
 }
 
 // =====================================================

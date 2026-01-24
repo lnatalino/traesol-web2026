@@ -2,14 +2,14 @@
 // Endpoint para obtener datos del paciente autenticado via portal
 
 import { NextResponse } from "next/server";
-import { verifyPortalSession, refreshPortalSessionIfNeeded } from "@/lib/quirurgico/portalSession";
+import { verifyPortalSessionOrToken, refreshPortalSessionIfNeeded } from "@/lib/quirurgico/portalSession";
 import { supabaseService } from "@/lib/supabaseService";
 import type { PortalPacienteData } from "@/lib/quirurgico/types";
 
 export async function GET() {
   try {
-    // Verificar sesión del portal
-    const pacienteId = await verifyPortalSession();
+    // Verificar sesión del portal (cookie o token)
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json(
@@ -43,6 +43,7 @@ export async function GET() {
       operativo_quirurgico_id: string | null;
       requiere_vuelo: boolean | null;
       requiere_hospedaje: boolean | null;
+      patient_can_edit: boolean | null;
     };
     
     const { data: paciente, error: pacienteError } = await supabaseService
@@ -52,7 +53,8 @@ export async function GET() {
         telefono, email, direccion, ciudad_origen,
         diagnostico, cirugia_planificada, fecha_cirugia, hora_cirugia,
         fecha_llegada_ciudad, fecha_regreso_ciudad,
-        operativo_quirurgico_id, requiere_vuelo, requiere_hospedaje
+        operativo_quirurgico_id, requiere_vuelo, requiere_hospedaje,
+        patient_can_edit
       `)
       .eq("id", pacienteId)
       .single() as { data: PacienteRow | null; error: unknown };
@@ -159,6 +161,7 @@ export async function GET() {
         created_at: a.created_at,
         requerimiento_id: a.requerimiento_id,
       })),
+      patient_can_edit: paciente.patient_can_edit || false,
     };
 
     return NextResponse.json(response);

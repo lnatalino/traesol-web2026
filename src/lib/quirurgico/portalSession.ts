@@ -1,9 +1,10 @@
 // src/lib/quirurgico/portalSession.ts
-// Manejo de sesión del portal del paciente usando cookies httpOnly
+// Manejo de sesión del portal del paciente usando cookies httpOnly + token fallback
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import type { PortalSessionData } from "./types";
+import { verifyPortalToken } from "./portalTokens";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.PORTAL_SESSION_SECRET || process.env.NEXTAUTH_SECRET || "portal-session-secret-change-in-prod"
@@ -64,6 +65,37 @@ export async function verifyPortalSession(): Promise<string | null> {
     // Token inválido o expirado
     return null;
   }
+}
+
+/**
+ * Verifica la sesión del portal usando múltiples métodos:
+ * 1. Cookie httpOnly (preferido)
+ * 2. Header X-Portal-Token (fallback para cuando cookies no funcionan)
+ * Retorna el paciente_id si es válida, null si no
+ */
+export async function verifyPortalSessionOrToken(): Promise<string | null> {
+  // Intento 1: Cookie httpOnly (más seguro)
+  const fromCookie = await verifyPortalSession();
+  if (fromCookie) {
+    return fromCookie;
+  }
+
+  // Intento 2: Header X-Portal-Token (fallback)
+  try {
+    const headerStore = await headers();
+    const portalToken = headerStore.get("x-portal-token");
+    
+    if (portalToken) {
+      const result = await verifyPortalToken(portalToken);
+      if (result.valid && result.pacienteId) {
+        return result.pacienteId;
+      }
+    }
+  } catch (error) {
+    console.error("[portalSession] Error verificando token de header:", error);
+  }
+
+  return null;
 }
 
 /**

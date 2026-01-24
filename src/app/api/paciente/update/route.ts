@@ -2,27 +2,52 @@
 // Endpoint para que el paciente actualice sus datos desde el portal
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPortalSession } from "@/lib/quirurgico/portalSession";
+import { verifyPortalSessionOrToken } from "@/lib/quirurgico/portalSession";
 import { supabaseService } from "@/lib/supabaseService";
 
 // Campos que el paciente puede actualizar
 const ALLOWED_FIELDS = [
+  "nombres",
+  "apellidos",
+  "rut",
+  "fecha_nacimiento",
+  "genero",
   "telefono",
   "email",
+  "ciudad_origen",
   "direccion",
 ] as const;
 
 type AllowedField = typeof ALLOWED_FIELDS[number];
 
+// Helper para verificar si el paciente puede editar
+async function canPatientEdit(pacienteId: string): Promise<boolean> {
+  const { data } = await supabaseService
+    .from("pacientes")
+    .select("patient_can_edit")
+    .eq("id", pacienteId)
+    .single<{ patient_can_edit: boolean | null }>();
+  return data?.patient_can_edit === true;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Verificar sesión del portal
-    const pacienteId = await verifyPortalSession();
+    // Verificar sesión del portal (cookie o token)
+    const pacienteId = await verifyPortalSessionOrToken();
 
     if (!pacienteId) {
       return NextResponse.json(
         { error: "Sesión no válida" },
         { status: 401 }
+      );
+    }
+
+    // Verificar si el paciente puede editar
+    const canEdit = await canPatientEdit(pacienteId);
+    if (!canEdit) {
+      return NextResponse.json(
+        { error: "No tienes permiso para modificar tus datos. Contacta al equipo de Traesol." },
+        { status: 403 }
       );
     }
 

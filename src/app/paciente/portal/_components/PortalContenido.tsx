@@ -8,6 +8,7 @@ import type { PortalPacienteData } from "@/lib/quirurgico/types";
 
 interface PortalContenidoProps {
   pacienteId: string;
+  portalToken?: string;
 }
 
 async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData | null> {
@@ -33,6 +34,7 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
       requiere_vuelo: boolean;
       requiere_hospedaje: boolean;
       operativo_quirurgico_id: string | null;
+      patient_can_edit: boolean | null;
     };
     type RequerimientoRow = { id: string; titulo: string; descripcion: string | null; estado: string };
     type ContactoRow = { id: string; nombre: string; relacion: string | null; telefono: string; es_principal: boolean };
@@ -48,7 +50,7 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
         diagnostico, cirugia_planificada, fecha_cirugia, hora_cirugia,
         fecha_llegada_ciudad, fecha_regreso_ciudad,
         requiere_vuelo, requiere_hospedaje,
-        operativo_quirurgico_id
+        operativo_quirurgico_id, patient_can_edit
       `)
       .eq("id", pacienteId)
       .single() as { data: PacienteRow | null; error: unknown };
@@ -152,6 +154,7 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
       } : null,
       
       archivos: archivos || [],
+      patient_can_edit: paciente.patient_can_edit || false,
     };
   } catch (error) {
     console.error("[PortalContenido] fetch error:", error);
@@ -159,7 +162,7 @@ async function fetchPortalData(pacienteId: string): Promise<PortalPacienteData |
   }
 }
 
-export async function PortalContenido({ pacienteId }: PortalContenidoProps) {
+export async function PortalContenido({ pacienteId, portalToken }: PortalContenidoProps) {
   const data = await fetchPortalData(pacienteId);
 
   if (!data) {
@@ -176,7 +179,7 @@ export async function PortalContenido({ pacienteId }: PortalContenidoProps) {
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-white">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <Suspense fallback={<PortalSkeleton />}>
-          <PortalCliente initialData={data} />
+          <PortalCliente initialData={data} portalToken={portalToken} />
         </Suspense>
       </div>
     </main>
