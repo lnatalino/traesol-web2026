@@ -386,6 +386,7 @@ export interface PortalVerifyResponse {
 
 export interface PortalSessionData {
   paciente_id: string;
+  caso_id?: string; // Nuevo modelo: caso quirúrgico específico
   expires_at: number;
 }
 

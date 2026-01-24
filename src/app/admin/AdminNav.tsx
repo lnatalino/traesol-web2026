@@ -59,6 +59,11 @@ const tabs: Tab[] = [
     isActive: (path: string) => path.startsWith("/admin/quirurgico"),
   },
   {
+    label: "Encuestas",
+    href: "/admin/encuestas",
+    isActive: (path: string) => path.startsWith("/admin/encuestas"),
+  },
+  {
     label: "Usuarios",
     href: "/admin/usuarios",
     isActive: (path: string) => path.startsWith("/admin/usuarios"),

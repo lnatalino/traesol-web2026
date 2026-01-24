@@ -1,5 +1,6 @@
 // src/lib/quirurgico/portalSession.ts
 // Manejo de sesión del portal del paciente usando cookies httpOnly + token fallback
+// Soporta tanto paciente_id (legacy) como caso_id (nuevo modelo)
 
 import { cookies, headers } from "next/headers";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
@@ -15,16 +16,24 @@ const SESSION_DURATION_HOURS = 4; // Sesión corta para seguridad
 
 interface PortalJWTPayload extends JWTPayload {
   paciente_id: string;
+  caso_id?: string; // Nuevo campo para el modelo casos_quirurgicos
 }
 
 /**
  * Crea una sesión de portal y setea la cookie httpOnly
+ * @param pacienteId - ID del paciente (perfil global)
+ * @param casoId - ID del caso quirúrgico (opcional, para nuevo modelo)
  */
-export async function createPortalSession(pacienteId: string): Promise<void> {
+export async function createPortalSession(pacienteId: string, casoId?: string): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + SESSION_DURATION_HOURS);
 
-  const token = await new SignJWT({ paciente_id: pacienteId })
+  const payload: { paciente_id: string; caso_id?: string } = { paciente_id: pacienteId };
+  if (casoId) {
+    payload.caso_id = casoId;
+  }
+
+  const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(expiresAt)
