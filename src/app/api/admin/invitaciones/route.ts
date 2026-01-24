@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { sendInvitacionOperativoEmail } from "@/lib/email";
@@ -82,6 +83,14 @@ type PendingInvite = {
   voluntarioId: string;
   voluntario: VoluntarioRow;
   email: string;
+  token: string;
+};
+
+type ResendInvite = {
+  voluntarioId: string;
+  voluntario: VoluntarioRow;
+  email: string;
+  inscripcionId: string;
 };
 
 function sanitizeIds(input: unknown): string[] {
@@ -98,10 +107,11 @@ function buildOperativoLink(slug: string | null): string {
   return `${trimmed}/operativos/${slug}`;
 }
 
-function buildSiteLink(slug: string | null, action: "accept" | "reject"): string {
-  const base = buildOperativoLink(slug);
-  const suffix = action === "accept" ? "acepto" : "rechazo";
-  return `${base}?respuesta=${suffix}`;
+function buildInvitacionLink(token: string, action: "accept" | "reject"): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl";
+  const trimmed = base.replace(/\/$/, "");
+  const suffix = action === "accept" ? "aceptar" : "rechazar";
+  return `${trimmed}/invitaciones/${suffix}?token=${token}`;
 }
 
 export async function POST(req: Request) {
@@ -179,15 +189,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const acceptUrl = buildSiteLink(operativo.slug, "accept");
-    const rejectUrl = buildSiteLink(operativo.slug, "reject");
     const operativoLink = buildOperativoLink(operativo.slug);
 
     const summary: InviteSummary = { ...BASE_SUMMARY };
     const results: InviteResult[] = [];
     const rowsToInsert: InscripcionInsert[] = [];
     const pendingInvites: PendingInvite[] = [];
-    const resendInvites: Array<PendingInvite & { inscripcionId: string }> = [];
+    const resendInvites: ResendInvite[] = [];
 
     for (const id of uniqueVoluntarioIds) {
       const voluntario = voluntarioMap.get(id);
@@ -264,26 +272,33 @@ export async function POST(req: Request) {
       }
 
       // OJO: `tipo` usa literalmente el campo `InscripcionInsert["tipo"]`, que mapea 1:1 a la columna `tipo` en la tabla.
+      const invitacionToken = randomUUID();
       const insertRow: InscripcionInsert = {
         operativo_id: operativoId,
         voluntario_id: id,
         estado: ESTADO_PENDIENTE,
         tipo: TIPO_ESPECIFICA,
         origen: ORIGEN_INVITACION,
+        token_respuesta: invitacionToken,
       };
 
       rowsToInsert.push(insertRow);
-      pendingInvites.push({ voluntarioId: id, voluntario, email });
+      pendingInvites.push({ voluntarioId: id, voluntario, email, token: invitacionToken });
     }
 
     for (const pending of resendInvites) {
       try {
+        // Generar nuevo token para el reenvío
+        const resendToken = randomUUID();
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: updateError } = await (supabaseService as any)
           .from("inscripciones")
           .update({
             estado: ESTADO_PENDIENTE,
             origen: ORIGEN_INVITACION,
+            token_respuesta: resendToken,
+            respondido_en: null, // Limpiar respuesta anterior si existía
           })
           .eq("id", pending.inscripcionId)
           .select("id")
@@ -295,6 +310,10 @@ export async function POST(req: Request) {
 
         const nombres =
           [pending.voluntario.nombres, pending.voluntario.apellidos].filter(Boolean).join(" ").trim() || pending.email;
+
+        // Generar URLs con el nuevo token
+        const acceptUrl = buildInvitacionLink(resendToken, "accept");
+        const rejectUrl = buildInvitacionLink(resendToken, "reject");
 
         await sendInvitacionOperativoEmail({
           voluntario: { nombres, email: pending.email },
@@ -386,6 +405,10 @@ export async function POST(req: Request) {
         try {
           const nombres =
             [pending.voluntario.nombres, pending.voluntario.apellidos].filter(Boolean).join(" ").trim() || pending.email;
+
+          // Generar URLs con el token específico de esta invitación
+          const acceptUrl = buildInvitacionLink(pending.token, "accept");
+          const rejectUrl = buildInvitacionLink(pending.token, "reject");
 
           await sendInvitacionOperativoEmail({
             voluntario: { nombres, email: pending.email },
