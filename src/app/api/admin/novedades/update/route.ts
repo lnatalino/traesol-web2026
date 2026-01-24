@@ -20,6 +20,7 @@ type NovedadUpdate = {
   fecha_publicacion: string | null;
   publicado: boolean;
   en_carrusel: boolean;
+  en_novedades: boolean;
   updated_at: string;
 };
 
@@ -185,6 +186,7 @@ export async function POST(req: Request) {
       fecha_publicacion,
       publicado: parseBoolean(form.get("publicado")),
       en_carrusel: parseBoolean(form.get("en_carrusel")),
+      en_novedades: form.get("en_novedades") !== null ? parseBoolean(form.get("en_novedades")) : true,
       updated_at: new Date().toISOString(),
     };
 
@@ -194,7 +196,15 @@ export async function POST(req: Request) {
       .update(payload)
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      // Detectar error de slug duplicado
+      if (error.code === "23505" || (error.message && error.message.includes("duplicate"))) {
+        const url = new URL(`/admin/novedades/${id}/editar`, req.url);
+        url.searchParams.set("error", `El slug "${slug}" ya está en uso por otra novedad. Por favor usa otro slug.`);
+        return NextResponse.redirect(url, 303);
+      }
+      throw error;
+    }
 
     const { data: existingRows, error: fetchError } = await supabaseService
       .from("novedad_imagenes")

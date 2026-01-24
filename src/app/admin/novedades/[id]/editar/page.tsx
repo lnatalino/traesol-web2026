@@ -19,6 +19,7 @@ type NovedadRow = {
   fecha_publicacion: string | null;
   publicado: boolean | null;
   en_carrusel: boolean | null;
+  en_novedades: boolean | null;
   novedad_imagenes?: Array<{ id: string; url: string; path: string }>;
 };
 
@@ -47,7 +48,7 @@ export default async function EditarNovedadPage({
     const { data, error } = await supabaseService
       .from("novedades")
       .select(
-        "id,titulo,slug,bajada,cuerpo,imagen_portada_url,link_externo,fecha_publicacion,publicado,en_carrusel,novedad_imagenes(id,url,path)"
+        "id,titulo,slug,bajada,cuerpo,imagen_portada_url,link_externo,fecha_publicacion,publicado,en_carrusel,en_novedades,novedad_imagenes(id,url,path)"
       )
       .eq("id", id)
       .maybeSingle();

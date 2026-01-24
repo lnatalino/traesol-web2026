@@ -90,6 +90,7 @@ export async function getUltimasNovedades(limit = 6): Promise<PublicNovedadListI
       .from("novedades")
       .select("id,slug,titulo,bajada,imagen_portada_url,link_externo,fecha_publicacion,novedad_imagenes(id,url,path)")
       .eq("publicado", true)
+      .eq("en_novedades", true)
       .order("fecha_publicacion", { ascending: false });
 
     if (typeof limit === "number") {
@@ -121,6 +122,7 @@ export async function getPublicNovedades(limit?: number): Promise<PublicNovedadL
       .from("novedades")
       .select("id,slug,titulo,bajada,imagen_portada_url,link_externo,fecha_publicacion,novedad_imagenes(id,url,path)")
       .eq("publicado", true)
+      .eq("en_novedades", true)
       .order("fecha_publicacion", { ascending: false });
 
     if (typeof limit === "number") {

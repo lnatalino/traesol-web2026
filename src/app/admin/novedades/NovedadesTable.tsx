@@ -23,6 +23,7 @@ type NovedadRow = {
   fecha_publicacion: string | null;
   publicado: boolean | null;
   en_carrusel: boolean | null;
+  en_novedades: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -32,7 +33,7 @@ type Props = {
   initialMessage?: string;
 };
 
-type ToggleField = "publicado" | "en_carrusel";
+type ToggleField = "publicado" | "en_carrusel" | "en_novedades";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -98,10 +99,17 @@ export default function NovedadesTable({ items, initialMessage = "" }: Props) {
   }
 
   const handleToggle = async (row: NovedadRow, field: ToggleField) => {
-    const nextValue = !(field === "publicado" ? row.publicado : row.en_carrusel);
+    const currentValue = field === "publicado" 
+      ? row.publicado 
+      : field === "en_carrusel" 
+        ? row.en_carrusel 
+        : row.en_novedades;
+    const nextValue = !currentValue;
     const endpoint = field === "publicado"
       ? "/api/admin/novedades/toggle-publish"
-      : "/api/admin/novedades/toggle-carrusel";
+      : field === "en_carrusel"
+        ? "/api/admin/novedades/toggle-carrusel"
+        : "/api/admin/novedades/toggle-novedades";
 
     const key = `${field}:${row.id}`;
     setActionKey(key);
@@ -173,9 +181,10 @@ export default function NovedadesTable({ items, initialMessage = "" }: Props) {
           <thead className="bg-slate-50/80 text-slate-600">
             <tr>
               <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Título</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Fecha de publicación</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Fecha</th>
               <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Publicado</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">En carrusel</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Carrusel</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Novedades</th>
               <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide">Acciones</th>
             </tr>
           </thead>
@@ -232,6 +241,24 @@ export default function NovedadesTable({ items, initialMessage = "" }: Props) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge active={Boolean(row.en_novedades)} />
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(row, "en_novedades")}
+                          disabled={isPending || isBusy(row.id, "en_novedades")}
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isBusy(row.id, "en_novedades") ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          {Boolean(row.en_novedades) ? "Quitar" : "Agregar"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-2">
                         <Link
                           href={`/admin/novedades/${row.id}/editar`}
@@ -281,7 +308,7 @@ export default function NovedadesTable({ items, initialMessage = "" }: Props) {
               })
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">
+                <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
                   Aún no hay novedades cargadas.
                 </td>
               </tr>

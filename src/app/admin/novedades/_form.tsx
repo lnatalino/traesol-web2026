@@ -11,6 +11,7 @@ type NovedadDefaults = {
   fecha_publicacion?: string | null;
   publicado?: boolean | null;
   en_carrusel?: boolean | null;
+  en_novedades?: boolean | null;
   imagenes?: Array<{ id: string; url: string; path: string }>;
 };
 
@@ -161,7 +162,7 @@ export function NovedadForm({ action, submitLabel, defaults, children }: Novedad
       <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
         <header className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Publicación</p>
-          <p className="text-sm text-slate-500">Define la fecha y si debe mostrarse en el sitio o en el carrusel.</p>
+          <p className="text-sm text-slate-500">Define la fecha y dónde debe mostrarse esta novedad.</p>
         </header>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2 text-sm">
@@ -192,6 +193,15 @@ export function NovedadForm({ action, submitLabel, defaults, children }: Novedad
                 className="h-4 w-4 rounded border-slate-300"
               />
               <span>En carrusel</span>
+            </label>
+            <label className="flex items-center gap-2 font-medium text-slate-700">
+              <input
+                type="checkbox"
+                name="en_novedades"
+                defaultChecked={defaults?.en_novedades !== false}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <span>En novedades</span>
             </label>
           </div>
         </div>

@@ -19,6 +19,7 @@ type NovedadInsert = {
   fecha_publicacion: string;
   publicado: boolean;
   en_carrusel: boolean;
+  en_novedades: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -122,6 +123,7 @@ export async function POST(req: Request) {
     fecha_publicacion,
     publicado: parseBoolean(form.get("publicado")),
     en_carrusel: parseBoolean(form.get("en_carrusel")),
+    en_novedades: form.get("en_novedades") !== null ? parseBoolean(form.get("en_novedades")) : true,
     created_at: nowIso,
     updated_at: nowIso,
   };
@@ -144,7 +146,18 @@ export async function POST(req: Request) {
       .select("id")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Detectar error de slug duplicado (código 23505 = unique_violation)
+      if (error.code === "23505" || (error.message && error.message.includes("duplicate"))) {
+        const url = new URL("/admin/novedades/nueva", req.url);
+        url.searchParams.set("error", `El slug "${slug}" ya existe. Por favor usa otro slug o deja el campo vacío para generar uno automático.`);
+        if (portadaUpload) {
+          await supabaseService.storage.from(STORAGE_BUCKET).remove([portadaUpload.path]);
+        }
+        return NextResponse.redirect(url, 303);
+      }
+      throw error;
+    }
 
     const uploaded = await uploadGalleryImages(galleryFiles);
     if (uploaded.length && data?.id) {

@@ -8,6 +8,7 @@ type NovedadRow = {
   fecha_publicacion: string | null;
   publicado: boolean | null;
   en_carrusel: boolean | null;
+  en_novedades: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, FileText, ImageIcon, Megaphone } from "lucide-react";
+import { BadgeCheck, FileText, ImageIcon, Megaphone, Newspaper } from "lucide-react";
 import { AdminPageHeader, StatTile, StatTileGrid } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
@@ -43,7 +44,7 @@ export default async function AdminNovedadesPage({
     const { data, error } = await supabaseService
       .from("novedades")
       .select(
-        "id,titulo,slug,bajada,imagen_portada_url,link_externo,fecha_publicacion,publicado,en_carrusel,created_at,updated_at"
+        "id,titulo,slug,bajada,imagen_portada_url,link_externo,fecha_publicacion,publicado,en_carrusel,en_novedades,created_at,updated_at"
       )
       .order("fecha_publicacion", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
@@ -61,6 +62,7 @@ export default async function AdminNovedadesPage({
   const totalNovedades = novedades.length;
   const publicadas = novedades.filter((n) => n.publicado === true).length;
   const enCarrusel = novedades.filter((n) => n.en_carrusel === true).length;
+  const enNovedades = novedades.filter((n) => n.en_novedades === true).length;
 
   return (
     <div className="space-y-6">
@@ -102,6 +104,13 @@ export default async function AdminNovedadesPage({
           value={enCarrusel}
           highlight
           highlightVariant="blue"
+        />
+        <StatTile 
+          icon={<Newspaper className="h-4 w-4" />}
+          label="En novedades"
+          value={enNovedades}
+          highlight
+          highlightVariant="violet"
         />
       </StatTileGrid>
 
