@@ -12,7 +12,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 

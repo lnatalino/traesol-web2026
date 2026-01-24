@@ -8,7 +8,7 @@ import * as surveysService from "@/lib/surveys/surveysService";
 export async function GET(request: NextRequest) {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 

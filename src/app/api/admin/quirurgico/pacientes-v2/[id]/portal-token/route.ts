@@ -88,8 +88,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           })
         );
 
+        // Usar FROM verificado (env var o fallback)
+        const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Traesol <hola@mail.traesol.cl>";
+        
         await resend.emails.send({
-          from: "Fundación Traesol <no-reply@fundaciontraesol.cl>",
+          from: emailFrom,
           to: email,
           subject: "Acceso al Portal del Paciente - Fundación Traesol",
           html: emailHtml,

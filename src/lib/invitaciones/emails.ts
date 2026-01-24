@@ -150,8 +150,9 @@ export async function sendInvitacionAceptadaEmail(
 `;
 
   try {
+    const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Traesol <hola@mail.traesol.cl>";
     const { data, error } = await resend.emails.send({
-      from: "Fundación Traesol <no-reply@fundaciontraesol.cl>",
+      from: emailFrom,
       to: voluntario.email,
       subject: `¡Confirmado! ${operativo.titulo} - Fundación Traesol`,
       html,
@@ -238,8 +239,9 @@ export async function sendInvitacionRechazadaEmail(
 `;
 
   try {
+    const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Traesol <hola@mail.traesol.cl>";
     const { data, error } = await resend.emails.send({
-      from: "Fundación Traesol <no-reply@fundaciontraesol.cl>",
+      from: emailFrom,
       to: voluntario.email,
       subject: `Gracias por tu respuesta - Fundación Traesol`,
       html,

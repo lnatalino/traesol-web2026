@@ -9,7 +9,7 @@ import type { SurveyTemplateInsert } from "@/lib/surveys/types";
 export async function GET() {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAdminSession();
-    if (!session) {
+    if (!session.allowed) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
