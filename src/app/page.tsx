@@ -95,6 +95,15 @@ export default async function HomePage() {
           <p className={heroClasses.eyebrow}>
             Fundación Traesol
           </p>
+          
+          {/* Logo institucional centrado */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/branding/logo-traesol.png"
+            alt="Logo Fundación Traesol"
+            className="mx-auto w-[140px] sm:w-[180px] md:w-[200px] lg:w-[220px] h-auto my-6"
+          />
+          
           <h1 className={heroClasses.title}>
             Salud colaborativa para cada territorio
           </h1>

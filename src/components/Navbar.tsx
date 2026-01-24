@@ -23,9 +23,8 @@ export default function Navbar() {
     [pathname]
   );
 
-  // URL pública del logo desde Supabase o Cloudflare (defínela en .env.local)
-  const logoUrl =
-    process.env.NEXT_PUBLIC_LOGO_URL?.trim() || "/logo-traesol.svg";
+  // Logo local desde /public/branding
+  const logoUrl = "/branding/logo-traesol.png";
 
   return (
     <div className="nav-shell">
@@ -36,22 +35,14 @@ export default function Navbar() {
           <img
             src={logoUrl}
             alt="Traesol"
-            width={96}
-            height={96}
+            width={120}
+            height={120}
             className="hidden sm:inline-block object-contain"
             style={{
-              maxHeight: "100px",
+              maxHeight: "125px",
               width: "auto",
               marginRight: "12px",
               verticalAlign: "middle",
-            }}
-            onError={(e) => {
-              const el = e.currentTarget as HTMLImageElement;
-              if (el.src.endsWith("/logo-traesol.svg")) {
-                el.style.display = "none";
-              } else {
-                el.src = "/logo-traesol.svg";
-              }
             }}
           />
           <span className="brand-dot sm:hidden" />
