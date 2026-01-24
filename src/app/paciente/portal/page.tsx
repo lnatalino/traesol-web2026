@@ -1,7 +1,6 @@
 // src/app/paciente/portal/page.tsx
 // Página pública del portal del paciente con verificación de token
 
-import { redirect } from "next/navigation";
 import { verifyPortalToken } from "@/lib/quirurgico";
 import { createPortalSession } from "@/lib/quirurgico/portalSession";
 import { PortalInvalido } from "./_components/PortalInvalido";
@@ -16,23 +15,40 @@ interface PageProps {
 }
 
 export default async function PortalPacientePage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const token = typeof params.token === "string" ? params.token : null;
+  try {
+    const params = await searchParams;
+    const token = typeof params.token === "string" ? params.token : null;
 
-  if (!token) {
-    return <PortalInvalido mensaje="No se proporcionó un enlace de acceso válido." />;
+    if (!token) {
+      return <PortalInvalido mensaje="No se proporcionó un enlace de acceso válido." />;
+    }
+
+    // Verificar el token en el servidor
+    let result;
+    try {
+      result = await verifyPortalToken(token);
+    } catch (verifyError) {
+      console.error("[portal] verifyPortalToken error:", verifyError);
+      return <PortalInvalido mensaje="Error al verificar el enlace. Por favor, intente más tarde." />;
+    }
+
+    if (!result.valid || !result.pacienteId) {
+      return <PortalInvalido mensaje={result.error || "Enlace inválido o expirado"} />;
+    }
+
+    // Crear sesión segura (cookie httpOnly)
+    try {
+      await createPortalSession(result.pacienteId);
+    } catch (sessionError) {
+      console.error("[portal] createPortalSession error:", sessionError);
+      // Continuar sin sesión, el contenido igual debe mostrarse
+    }
+
+    // Mostrar contenido del portal
+    return <PortalContenido pacienteId={result.pacienteId} />;
+  } catch (error) {
+    // Capturar cualquier error no manejado para evitar pantalla blanca
+    console.error("[portal] unhandled error:", error);
+    return <PortalInvalido mensaje="Ocurrió un error inesperado. Por favor, contacte al equipo de Traesol." />;
   }
-
-  // Verificar el token en el servidor
-  const result = await verifyPortalToken(token);
-
-  if (!result.valid || !result.pacienteId) {
-    return <PortalInvalido mensaje={result.error || "Enlace inválido o expirado"} />;
-  }
-
-  // Crear sesión segura (cookie httpOnly)
-  await createPortalSession(result.pacienteId);
-
-  // Mostrar contenido del portal
-  return <PortalContenido pacienteId={result.pacienteId} />;
 }

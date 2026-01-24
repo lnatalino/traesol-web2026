@@ -54,8 +54,44 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, paciente
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [emailInput, setEmailInput] = useState(pacienteEmail || "");
   const [showEmailOption, setShowEmailOption] = useState(false);
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Función para enviar email (regenera token y envía)
+  const handleSendEmailOnly = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      setError("Por favor ingrese un email válido");
+      return;
+    }
+    setSending(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/admin/quirurgico/pacientes-v2/${pacienteId}/portal-token/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setSuccess(`Email enviado correctamente a ${emailInput}`);
+        setShowSendEmailModal(false);
+        setNewTokenUrl(result.portal_url);
+        onRefresh();
+      } else {
+        setError(result.error || "Error al enviar el email");
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      setError("Error al enviar el email");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const handleGenerateToken = async (sendEmail: boolean = false, email?: string) => {
     if (sendEmail && !email) {
@@ -219,9 +255,21 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, paciente
 
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
             <button
+              onClick={() => setShowSendEmailModal(true)}
+              disabled={sending}
+              className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Enviar email
+              </span>
+            </button>
+            <button
               onClick={() => handleGenerateToken(false)}
               disabled={generating}
-              className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-full border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             >
               {generating ? "Generando..." : "Regenerar enlace"}
             </button>
@@ -235,6 +283,52 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, paciente
               </button>
             )}
           </div>
+
+          {/* Modal para enviar email con token existente */}
+          {showSendEmailModal && (
+            <div className="mt-3 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-blue-900">Enviar enlace por email</h4>
+                <button
+                  onClick={() => setShowSendEmailModal(false)}
+                  className="text-slate-500 hover:text-slate-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Email del paciente *
+                </label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="paciente@ejemplo.com"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSendEmailOnly}
+                  disabled={sending || !emailInput}
+                  className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {sending ? "Enviando..." : "Enviar email"}
+                </button>
+                <button
+                  onClick={() => setShowSendEmailModal(false)}
+                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Sin token - mostrar 2 opciones */
