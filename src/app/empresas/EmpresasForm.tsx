@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   EMPRESA_PRODUCTO_CATEGORIA_LABELS,
   getCategoriaLabel,
+  type EmpresaPackItemView,
   type EmpresaProductoCategoria,
   type EmpresaProductoRow,
+  type EmpresaProductoWithPackItems,
 } from "@/lib/empresas";
 
 const REQUIRED_MESSAGE = "Completa los campos obligatorios";
@@ -278,16 +280,20 @@ function extractVimeoId(url: string): string | null {
   }
 }
 
+type CatalogProduct = EmpresaProductoWithPackItems;
+
 type ProductCardProps = {
-  producto: EmpresaProductoRow;
-  onViewDetails: (producto: EmpresaProductoRow) => void;
-  onAdd: (producto: EmpresaProductoRow) => void;
+  producto: CatalogProduct;
+  onViewDetails: (producto: CatalogProduct) => void;
+  onAdd: (producto: CatalogProduct) => void;
 };
 
 function ProductCard({ producto, onViewDetails, onAdd }: ProductCardProps) {
   const coverUrl = getCoverUrl(producto);
   const categoria = producto.categoria as EmpresaProductoCategoria;
   const badgeClass = getBadgeClass(categoria);
+  const isPack = categoria === "pack";
+  const addCtaLabel = isPack ? "Agregar Pack" : "Agregar";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
@@ -311,6 +317,9 @@ function ProductCard({ producto, onViewDetails, onAdd }: ProductCardProps) {
           {EMPRESA_PRODUCTO_CATEGORIA_LABELS[categoria]}
         </span>
         <h3 className="text-xl font-semibold text-slate-900">{producto.nombre}</h3>
+        {isPack ? (
+          <p className="text-sm text-slate-500">Incluye varios servicios. Revisa el detalle.</p>
+        ) : null}
         <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
           <button
             type="button"
@@ -324,7 +333,7 @@ function ProductCard({ producto, onViewDetails, onAdd }: ProductCardProps) {
             onClick={() => onAdd(producto)}
             className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
-            Agregar
+            {addCtaLabel}
           </button>
         </div>
       </div>
@@ -392,13 +401,15 @@ function CartPanel({ items, onEdit, onRemove }: CartPanelProps) {
 }
 
 type ProductDetailSheetProps = {
-  product: EmpresaProductoRow | null;
+  product: CatalogProduct | null;
   initialConfig?: CartConfig | null;
   onClose: () => void;
   onSave: (config: CartConfig | null) => void;
+  readOnly?: boolean;
+  onViewPackItemDetail?: (product: CatalogProduct) => void;
 };
 
-function ProductDetailSheet({ product, initialConfig, onClose, onSave }: ProductDetailSheetProps) {
+function ProductDetailSheet({ product, initialConfig, onClose, onSave, readOnly = false, onViewPackItemDetail }: ProductDetailSheetProps) {
   const open = Boolean(product);
   const categoria = (product?.categoria as EmpresaProductoCategoria) ?? "tunnel_educativo";
   const fields = CONFIG_FIELDS[categoria] ?? [];
@@ -427,6 +438,8 @@ function ProductDetailSheet({ product, initialConfig, onClose, onSave }: Product
   const resumen = getResumen(product);
   const coverUrl = getCoverUrl(product);
   const videoMeta = detectVideoMeta(product.video_url);
+  const packItems: EmpresaPackItemView[] = categoria === "pack" ? product.packItems ?? [] : [];
+  const showPackContent = categoria === "pack" && packItems.length > 0;
 
   const handleSave = () => {
     const normalized = normalizeConfigPayload(categoria, configState);
@@ -492,89 +505,156 @@ function ProductDetailSheet({ product, initialConfig, onClose, onSave }: Product
               <p className="text-sm leading-relaxed text-slate-600 whitespace-pre-line">{product.descripcion_larga}</p>
             ) : null}
           </div>
-          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">Personaliza este servicio (opcional)</h3>
-              <p className="text-xs text-slate-500">{OPTIONAL_INFO_TEXT}</p>
+          {showPackContent ? (
+            <div className="space-y-4 rounded-3xl border border-emerald-100 bg-white/90 p-5 shadow-sm">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-600">Este pack incluye:</p>
+                <p className="text-sm text-slate-500">Conoce los servicios que forman parte de este pack integral.</p>
+              </div>
+              <ul className="space-y-3">
+                {packItems.map((item) => {
+                  const detalle = item.productoDetalle;
+                  const coverUrl = detalle ? getCoverUrl(detalle) : null;
+                  const showDetailButton = Boolean(detalle && onViewPackItemDetail);
+                  return (
+                    <li
+                      key={item.id}
+                      className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm shadow-sm"
+                    >
+                      <div className="h-20 w-24 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
+                        {coverUrl ? (
+                          <img src={coverUrl} alt={item.nombre} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            Sin imagen
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between gap-2">
+                        <div className="space-y-1">
+                          <p className="text-base font-semibold text-slate-900">
+                            <span className="text-slate-500">{item.cantidad}×</span> {item.nombre}
+                          </p>
+                          {item.categoria ? (
+                            <span className="inline-flex w-fit items-center rounded-full bg-slate-900/5 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                              {EMPRESA_PRODUCTO_CATEGORIA_LABELS[item.categoria as EmpresaProductoCategoria]}
+                            </span>
+                          ) : null}
+                          {item.resumen ? <p className="text-sm text-slate-600">{item.resumen}</p> : null}
+                        </div>
+                        {showDetailButton ? (
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-blue-700 hover:underline"
+                            onClick={() => detalle && onViewPackItemDetail?.(detalle)}
+                          >
+                            Ver detalle
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            {fields.length ? (
-              <div className="space-y-4">
-                {fields.map((field) => {
-                  if (field.type === "textarea") {
+          ) : null}
+          {!readOnly ? (
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Personaliza este servicio (opcional)</h3>
+                <p className="text-xs text-slate-500">{OPTIONAL_INFO_TEXT}</p>
+              </div>
+              {fields.length ? (
+                <div className="space-y-4">
+                  {fields.map((field) => {
+                    if (field.type === "textarea") {
+                      return (
+                        <label key={field.name} className="space-y-1 text-sm">
+                          <span className="font-medium text-slate-700">{field.label}</span>
+                          <textarea
+                            value={configState[field.name] ?? ""}
+                            onChange={(event) =>
+                              setConfigState((prev) => ({ ...prev, [field.name]: event.target.value }))
+                            }
+                            className="min-h-[90px] w-full rounded-xl border border-slate-200 px-3 py-2"
+                            placeholder={field.placeholder}
+                          />
+                          {field.helper ? <span className="text-xs text-slate-500">{field.helper}</span> : null}
+                        </label>
+                      );
+                    }
+                    if (field.type === "select") {
+                      return (
+                        <label key={field.name} className="space-y-1 text-sm">
+                          <span className="font-medium text-slate-700">{field.label}</span>
+                          <select
+                            value={configState[field.name] ?? ""}
+                            onChange={(event) =>
+                              setConfigState((prev) => ({ ...prev, [field.name]: event.target.value }))
+                            }
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                          >
+                            <option value="">Selecciona una opción</option>
+                            {field.options?.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    }
                     return (
                       <label key={field.name} className="space-y-1 text-sm">
                         <span className="font-medium text-slate-700">{field.label}</span>
-                        <textarea
-                          value={configState[field.name] ?? ""}
-                          onChange={(event) =>
-                            setConfigState((prev) => ({ ...prev, [field.name]: event.target.value }))
-                          }
-                          className="min-h-[90px] w-full rounded-xl border border-slate-200 px-3 py-2"
-                          placeholder={field.placeholder}
-                        />
-                        {field.helper ? <span className="text-xs text-slate-500">{field.helper}</span> : null}
-                      </label>
-                    );
-                  }
-                  if (field.type === "select") {
-                    return (
-                      <label key={field.name} className="space-y-1 text-sm">
-                        <span className="font-medium text-slate-700">{field.label}</span>
-                        <select
+                        <input
+                          type={field.type === "number" ? "number" : "text"}
                           value={configState[field.name] ?? ""}
                           onChange={(event) =>
                             setConfigState((prev) => ({ ...prev, [field.name]: event.target.value }))
                           }
                           className="w-full rounded-xl border border-slate-200 px-3 py-2"
-                        >
-                          <option value="">Selecciona una opción</option>
-                          {field.options?.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder={field.placeholder}
+                        />
                       </label>
                     );
-                  }
-                  return (
-                    <label key={field.name} className="space-y-1 text-sm">
-                      <span className="font-medium text-slate-700">{field.label}</span>
-                      <input
-                        type={field.type === "number" ? "number" : "text"}
-                        value={configState[field.name] ?? ""}
-                        onChange={(event) =>
-                          setConfigState((prev) => ({ ...prev, [field.name]: event.target.value }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2"
-                        placeholder={field.placeholder}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">
-                No hay campos específicos para personalizar este servicio. Puedes continuar con la selección.
-              </p>
-            )}
-          </div>
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  No hay campos específicos para personalizar este servicio. Puedes continuar con la selección.
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            Agregar al resumen de servicios
-          </button>
+          {readOnly ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                Agregar al resumen de servicios
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -582,7 +662,7 @@ function ProductDetailSheet({ product, initialConfig, onClose, onSave }: Product
 }
 
 type EmpresasFormProps = {
-  productos: EmpresaProductoRow[];
+  productos: CatalogProduct[];
 };
 
 export default function EmpresasForm({ productos }: EmpresasFormProps) {
@@ -599,13 +679,18 @@ export default function EmpresasForm({ productos }: EmpresasFormProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [detailProduct, setDetailProduct] = useState<EmpresaProductoRow | null>(null);
+  const [detailProduct, setDetailProduct] = useState<CatalogProduct | null>(null);
   const [detailInitialConfig, setDetailInitialConfig] = useState<CartConfig | null>(null);
+  const [readOnlyProduct, setReadOnlyProduct] = useState<CatalogProduct | null>(null);
 
-  const openDetail = (producto: EmpresaProductoRow) => {
+  const openDetail = (producto: CatalogProduct) => {
     const existing = cartItems.find((item) => item.productoId === producto.id);
     setDetailInitialConfig(existing?.config ?? null);
     setDetailProduct(producto);
+  };
+
+  const openPackItemDetail = (producto: CatalogProduct) => {
+    setReadOnlyProduct(producto);
   };
 
   const handleDetailSave = (config: CartConfig | null) => {
@@ -857,6 +942,13 @@ export default function EmpresasForm({ productos }: EmpresasFormProps) {
         initialConfig={detailInitialConfig}
         onClose={() => setDetailProduct(null)}
         onSave={handleDetailSave}
+        onViewPackItemDetail={openPackItemDetail}
+      />
+      <ProductDetailSheet
+        product={readOnlyProduct}
+        onClose={() => setReadOnlyProduct(null)}
+        onSave={() => undefined}
+        readOnly
       />
     </section>
   );

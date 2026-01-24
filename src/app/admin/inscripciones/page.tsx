@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminPageHeader, StatTile, StatTileGrid, EmptyState } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
 import {
   humanizeInscripcionEstado,
@@ -8,7 +9,10 @@ import {
   PENDING_INSCRIPCION_ESTADOS,
   type InscripcionOrigen,
 } from "@/lib/inscripciones";
+import { getErrorMessage } from "@/lib/errors";
 import { supabaseService } from "@/lib/supabaseService";
+import { isOperativoAbierto } from "@/lib/operativosShared";
+import { ClipboardCheck, Clock, Send, UserPlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +56,7 @@ type OperativoRow = {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   lugar: string | null;
+  estado: string | null;
 };
 
 function formatDate(value: string | null): string {
@@ -150,7 +155,7 @@ export default async function AdminInscripcionesPage({
     if (operativoIds.length) {
       const { data: operativos, error: opError } = await supabaseService
         .from("operativos")
-        .select("id,titulo,slug,fecha_inicio,fecha_fin,lugar")
+        .select("id,titulo,slug,fecha_inicio,fecha_fin,lugar,estado")
         .in("id", operativoIds);
 
       if (opError) throw opError;
@@ -158,8 +163,10 @@ export default async function AdminInscripcionesPage({
       const list = (operativos ?? []) as OperativoRow[];
       operativoMap = new Map(list.map((op) => [op.id, op]));
     }
-  } catch (err: any) {
-    errorMessage = err?.message ? String(err.message) : "No se pudieron cargar las inscripciones.";
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Inscripciones] Error cargando listado", debug, error);
+    errorMessage = "No se pudieron cargar las inscripciones.";
   }
 
   const filteredRows = inscripciones.filter((row) => Boolean(row.operativo_id));
@@ -179,12 +186,15 @@ export default async function AdminInscripcionesPage({
     }
   >();
 
+  const referenceDate = new Date();
   for (const row of filteredRows) {
     const operativoId = row.operativo_id as string;
+    const operativo = operativoMap.get(operativoId);
+    if (!isOperativoAbierto(operativo, referenceDate)) continue;
     const voluntario = row.voluntario_id ? voluntarioMap.get(row.voluntario_id) : undefined;
     const origin = inferInscripcionOrigen(row.tipo, row.origen);
     const bucket = grouped.get(operativoId) ?? {
-      operativo: operativoMap.get(operativoId),
+      operativo,
       entries: [],
     };
     bucket.entries.push({
@@ -224,32 +234,63 @@ export default async function AdminInscripcionesPage({
 
   groupedList.sort((a, b) => a.fechaInicioValue - b.fechaInicioValue);
 
+  // Estadísticas
+  const totalPendientes = groupedList.reduce((acc, g) => acc + g.count, 0);
+  const totalPostulaciones = groupedList.reduce((acc, g) => acc + g.originSummary.postulacion, 0);
+  const totalInvitaciones = groupedList.reduce((acc, g) => acc + g.originSummary.invitacion, 0);
+  const operativosConPendientes = groupedList.length;
+
   return (
     <div className="space-y-6">
-      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Inscripciones</p>
-        <h1 className="text-3xl font-semibold text-slate-900">Postulaciones e invitaciones</h1>
-        <p className="text-sm text-slate-500 max-w-3xl">
-          Revisa las solicitudes pendientes, el origen de cada registro y aprueba o rechaza directamente desde este panel.
-        </p>
-      </section>
+      <AdminPageHeader
+        backHref="/admin"
+        eyebrow="Inscripciones"
+        title="Inscripciones pendientes"
+        description="Postulaciones e invitaciones pendientes de aprobación para operativos abiertos."
+        successMessage={notice}
+        errorMessage={errorParam || errorMessage}
+      />
 
-      {notice ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
-          {notice}
-        </div>
-      ) : null}
-
-      {errorParam || errorMessage ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
-          {errorParam || errorMessage}
-        </div>
-      ) : null}
+      {/* Stats */}
+      <StatTileGrid>
+        <StatTile 
+          icon={<Clock className="h-4 w-4" />}
+          label="Total pendientes"
+          value={totalPendientes}
+          highlight={totalPendientes > 0}
+          highlightVariant="amber"
+        />
+        <StatTile 
+          icon={<UserPlus className="h-4 w-4" />}
+          label="Postulaciones"
+          value={totalPostulaciones}
+          highlight
+          highlightVariant="emerald"
+        />
+        <StatTile 
+          icon={<Send className="h-4 w-4" />}
+          label="Invitaciones"
+          value={totalInvitaciones}
+          highlight
+          highlightVariant="blue"
+        />
+        <StatTile 
+          icon={<ClipboardCheck className="h-4 w-4" />}
+          label="Operativos con pendientes"
+          value={operativosConPendientes}
+        />
+      </StatTileGrid>
 
       {groupedList.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
-          No hay inscripciones pendientes en este momento.
-        </div>
+        <EmptyState
+          icon={<ClipboardCheck className="h-7 w-7" />}
+          title="¡Todo al día!"
+          message={
+            errorMessage
+              ? "Ocurrió un error al cargar las inscripciones."
+              : "No hay inscripciones pendientes. Todas las postulaciones han sido procesadas."
+          }
+        />
       ) : (
         <div className="space-y-6">
           {groupedList.map((group) => (

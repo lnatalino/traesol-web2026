@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { sendInvitacionOperativoEmail } from "@/lib/email";
+import { getErrorMessage } from "@/lib/errors";
 import {
+  humanizeInscripcionEstado,
   inferInscripcionOrigen,
   INSCRIPCION_ESTADO,
   INSCRIPCION_ORIGEN,
@@ -15,7 +17,16 @@ const ESTADO_PENDIENTE: InscripcionEstado = INSCRIPCION_ESTADO.PENDIENTE;
 const ORIGEN_INVITACION = INSCRIPCION_ORIGEN.INVITACION;
 const ORIGEN_POSTULACION = INSCRIPCION_ORIGEN.POSTULACION;
 const TIPO_ESPECIFICA = INSCRIPCION_TIPO_SCOPE.ESPECIFICA;
-const YA_INSCRITA_SET = new Set<InscripcionEstado>([INSCRIPCION_ESTADO.APROBADO, INSCRIPCION_ESTADO.CONFIRMADO]);
+const YA_INSCRITA_SET = new Set<InscripcionEstado>([
+  INSCRIPCION_ESTADO.APROBADO,
+  INSCRIPCION_ESTADO.CONFIRMADO,
+  INSCRIPCION_ESTADO.ASISTIO,
+  INSCRIPCION_ESTADO.NO_ASISTIO,
+]);
+const POSTULACION_PENDING_SET = new Set<InscripcionEstado>([
+  INSCRIPCION_ESTADO.PENDIENTE,
+  INSCRIPCION_ESTADO.POSTULADO,
+]);
 
 const BASE_SUMMARY = {
   INVITACION_ENVIADA: 0,
@@ -204,11 +215,12 @@ export async function POST(req: Request) {
         continue;
       }
 
-      if (
-        inscripcion &&
-        estadoActual === ESTADO_PENDIENTE &&
-        (origenActual === ORIGEN_POSTULACION || inscripcion.origen === null)
-      ) {
+      const isPostulacionOrigen = origenActual === ORIGEN_POSTULACION || inscripcion?.origen === null;
+      const isPostulacionPendiente = Boolean(
+        inscripcion && isPostulacionOrigen && estadoActual && POSTULACION_PENDING_SET.has(estadoActual)
+      );
+
+      if (isPostulacionPendiente) {
         summary.YA_POSTULO += 1;
         results.push({
           id,
@@ -221,6 +233,33 @@ export async function POST(req: Request) {
 
       if (inscripcion && origenActual === ORIGEN_INVITACION) {
         resendInvites.push({ voluntarioId: id, voluntario, email, inscripcionId: inscripcion.id });
+        continue;
+      }
+
+      if (inscripcion && isPostulacionOrigen) {
+        summary.YA_POSTULO += 1;
+        const estadoLabel = humanizeInscripcionEstado(estadoActual);
+        const detail =
+          estadoActual === INSCRIPCION_ESTADO.RECHAZADO
+            ? "Esta postulación ya fue rechazada."
+            : `La postulación existente está marcada como ${estadoLabel}.`;
+        results.push({
+          id,
+          ok: false,
+          status: "YA_POSTULO",
+          message: `${detail} Elimina o actualiza la inscripción antes de reenviar una invitación.`,
+        });
+        continue;
+      }
+
+      if (inscripcion) {
+        summary.YA_POSTULO += 1;
+        results.push({
+          id,
+          ok: false,
+          status: "YA_POSTULO",
+          message: "Ya existe un registro para este operativo. Revisa la inscripción antes de continuar.",
+        });
         continue;
       }
 
@@ -239,7 +278,8 @@ export async function POST(req: Request) {
 
     for (const pending of resendInvites) {
       try {
-        const { error: updateError } = await supabaseService
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: updateError } = await (supabaseService as any)
           .from("inscripciones")
           .update({
             estado: ESTADO_PENDIENTE,
@@ -276,21 +316,21 @@ export async function POST(req: Request) {
           status: "INVITACION_REENVIADA",
           message: "Invitación reenviada correctamente.",
         });
-      } catch (error: any) {
-        console.error("[INVITACIONES] Error reenviando invitación", pending.voluntarioId, error);
+      } catch (error: unknown) {
+        const debug = getErrorMessage(error);
+        console.error("[INVITACIONES] Error reenviando invitación", pending.voluntarioId, debug, error);
         summary.ERROR += 1;
         results.push({
           id: pending.voluntarioId,
           ok: false,
           status: "ERROR",
-          message: error?.message ? String(error.message) : "No se pudo reenviar la invitación.",
+          message: "No se pudo reenviar la invitación.",
         });
       }
     }
 
     if (rowsToInsert.length > 0) {
       for (const row of rowsToInsert) {
-        console.log("[INVITACIONES] Row lista para insert:", row);
         if (!row.tipo) {
           console.error("[INVITACIONES] ATENCIÓN: row.tipo viene vacío", row);
         }
@@ -299,7 +339,8 @@ export async function POST(req: Request) {
         }
       }
 
-      const { data: insertData, error: insertError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: insertData, error: insertError } = await (supabaseService as any)
         .from("inscripciones")
         .insert(rowsToInsert)
         .select("voluntario_id");
@@ -333,7 +374,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const insertedVoluntarios = new Set((insertData ?? []).map((row) => row.voluntario_id).filter(Boolean));
+      const insertedVoluntarios = new Set(
+        ((insertData ?? []) as Array<{ voluntario_id: string }>).map((row) => row.voluntario_id).filter(Boolean)
+      );
 
       for (const pending of pendingInvites) {
         if (!insertedVoluntarios.has(pending.voluntarioId)) {
@@ -364,14 +407,15 @@ export async function POST(req: Request) {
             status: "INVITACION_ENVIADA",
             message: "Invitación enviada correctamente.",
           });
-        } catch (error: any) {
-          console.error("Error enviando correo de invitación", pending.voluntarioId, error);
+        } catch (error: unknown) {
+          const debug = getErrorMessage(error);
+          console.error("Error enviando correo de invitación", pending.voluntarioId, debug, error);
           summary.ERROR += 1;
           results.push({
             id: pending.voluntarioId,
             ok: false,
             status: "ERROR",
-            message: error?.message ? String(error.message) : "No se pudo enviar el correo de invitación.",
+            message: "No se pudo enviar el correo de invitación.",
           });
         }
       }
@@ -382,10 +426,11 @@ export async function POST(req: Request) {
       summary,
       results,
     });
-  } catch (error: any) {
-    console.error("POST /api/admin/invitaciones", error);
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("POST /api/admin/invitaciones", debug, error);
     return NextResponse.json(
-      { ok: false, error: error?.message ? String(error.message) : "No se pudieron enviar las invitaciones." },
+      { ok: false, error: "No se pudieron enviar las invitaciones." },
       { status: 500 }
     );
   }

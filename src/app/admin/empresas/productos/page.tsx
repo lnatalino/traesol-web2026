@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminPageHeader, StatTile, StatTileGrid, AdminSectionCard } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
-import type { EmpresaProductoRow } from "@/lib/empresas";
-import { getEmpresaMetrics } from "@/lib/empresas";
+import type { EmpresaProductoRow, EmpresaProductoRowBase } from "@/lib/empresas";
+import { getEmpresaMetrics, mapEmpresaProductoRows } from "@/lib/empresas";
 import { supabaseService } from "@/lib/supabaseService";
+import { BarChart3, Package, PackageCheck, Eye } from "lucide-react";
 import EmpresaProductosTable from "./EmpresaProductosTable";
 import { EmpresaMetricsForm } from "../EmpresaMetricsForm";
 
@@ -22,54 +24,65 @@ export default async function AdminEmpresaProductosPage() {
     .select("*")
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
-  const productos = (data ?? []) as EmpresaProductoRow[];
+  const productosBase = (data ?? []) as EmpresaProductoRowBase[];
+  const productos = mapEmpresaProductoRows(productosBase);
   const errorMessage = error?.message ? String(error.message) : "";
+
+  // Stats
+  const totalProductos = productos.length;
+  const productosActivos = productos.filter((p) => p.activo === true).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Empresas</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Productos para empresas</h1>
-          <p className="text-sm text-slate-500">
-            Catálogo de servicios que se mostrarán en la sección Empresas del sitio público.
-          </p>
-        </div>
-        <Link
-          href="/admin/empresas/productos/nuevo"
-          className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-        >
-          Nuevo producto
-        </Link>
-      </div>
+      <AdminPageHeader
+        backHref="/admin"
+        eyebrow="Empresas"
+        title="Alianzas con empresas"
+        description="Catálogo de productos, packs y métricas para aliados corporativos."
+        errorMessage={errorMessage}
+        actions={
+          <Link
+            href="/admin/empresas/productos/nuevo"
+            className="inline-flex items-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Nuevo producto
+          </Link>
+        }
+      />
 
-      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Métricas para empresas</p>
-            <h2 className="text-2xl font-semibold text-slate-900">Impacto mostrado en el sitio público</h2>
-            <p className="text-sm text-slate-500">
-              Edita los totales que aparecen en el hero de Programas para empresas.
-            </p>
-          </div>
+      {/* Stats */}
+      <StatTileGrid>
+        <StatTile 
+          icon={<Package className="h-4 w-4" />}
+          label="Total productos"
+          value={totalProductos}
+        />
+        <StatTile 
+          icon={<PackageCheck className="h-4 w-4" />}
+          label="Productos activos"
+          value={productosActivos}
+          highlight
+          highlightVariant="emerald"
+        />
+      </StatTileGrid>
+
+      <AdminSectionCard 
+        title="Métricas de impacto"
+        hint="Edita los totales que aparecen en el hero de Empresas"
+        icon={<BarChart3 className="h-5 w-5" />}
+        actions={
           <Link
             href="/empresas"
             target="_blank"
-            className="inline-flex items-center text-sm font-medium text-blue-600 transition hover:text-blue-700"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition hover:text-blue-700"
           >
-            Ver página pública ↗
+            <Eye className="h-4 w-4" />
+            Ver página pública
           </Link>
-        </div>
-        <div className="mt-6">
-          <EmpresaMetricsForm initialMetrics={metrics} />
-        </div>
-      </div>
-
-      {errorMessage ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
+        }
+      >
+        <EmpresaMetricsForm initialMetrics={metrics} />
+      </AdminSectionCard>
 
       <EmpresaProductosTable initialProductos={productos} />
     </div>

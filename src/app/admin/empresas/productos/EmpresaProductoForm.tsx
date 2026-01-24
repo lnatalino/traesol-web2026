@@ -14,6 +14,9 @@ import {
   EMPRESA_PRODUCTO_CATEGORIA_LABELS,
   type EmpresaProductoCategoria,
   type EmpresaProductoRow,
+  type EmpresaProductoDetalles,
+  DEFAULT_EMPRESA_PRODUCTO_DETALLES,
+  type EmpresaProductoPackItemDetalle,
 } from "@/lib/empresas";
 import { toSlug } from "@/lib/slug";
 import { createSupabaseBrowser } from "@/lib/supabaseServer";
@@ -31,7 +34,12 @@ type LightProduct = {
   categoria: EmpresaProductoCategoria;
 };
 
-type PackItemView = LightProduct & { cantidad: number };
+type PackItemView = {
+  productoId: string;
+  nombre: string;
+  categoria: EmpresaProductoCategoria;
+  cantidad: number;
+};
 
 const categoriaOptions = Object.entries(EMPRESA_PRODUCTO_CATEGORIA_LABELS);
 const DEFAULT_CATEGORY = (categoriaOptions[0]?.[0] ?? "tunnel_educativo") as EmpresaProductoCategoria;
@@ -114,11 +122,12 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
     let active = true;
     fetchedPackItemsRef.current = true;
     setPackLoading(true);
-    supabase
-      .from("empresa_pack_items")
-      .select("producto_id,cantidad")
-      .eq("pack_id", initialProductId)
-      .then(({ data, error }) => {
+    async function loadPackItems() {
+      try {
+        const { data, error } = await supabase
+          .from("empresa_pack_items")
+          .select("producto_id,cantidad")
+          .eq("pack_id", initialProductId);
         if (!active) return;
         if (error) {
           setAlert({ type: "error", message: error.message || "No pudimos cargar el contenido del pack." });
@@ -127,17 +136,19 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
         const resolved = (data ?? []).map((item) => {
           const fallback = productosDisponibles.find((producto) => producto.id === item.producto_id);
           return {
-            producto_id: item.producto_id,
+            productoId: item.producto_id,
             nombre: fallback?.nombre ?? "Producto",
             categoria: fallback?.categoria ?? DEFAULT_CATEGORY,
             cantidad: item.cantidad ?? 1,
           } satisfies PackItemView;
         });
         setPackItems(resolved);
-      })
-      .finally(() => {
+      } finally {
         if (active) setPackLoading(false);
-      });
+      }
+    }
+
+    loadPackItems();
 
     return () => {
       active = false;
@@ -149,8 +160,8 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
     const base = productosDisponibles.filter((producto) => producto.id !== initialProductId);
     const knownIds = new Set(base.map((item) => item.id));
     const extras = packItems
-      .filter((item) => !knownIds.has(item.producto_id))
-      .map((item) => ({ id: item.producto_id, nombre: item.nombre, categoria: item.categoria }));
+      .filter((item) => !knownIds.has(item.productoId))
+      .map((item) => ({ id: item.productoId, nombre: item.nombre, categoria: item.categoria }));
     return [...base, ...extras];
   }, [showingPackSection, productosDisponibles, initialProductId, packItems]);
 
@@ -208,20 +219,28 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
 
   const handleAddPackProduct = (producto: LightProduct) => {
     setPackItems((prev) => {
-      if (prev.some((item) => item.producto_id === producto.id)) return prev;
-      return [...prev, { ...producto, cantidad: 1 }];
+      if (prev.some((item) => item.productoId === producto.id)) return prev;
+      return [
+        ...prev,
+        {
+          productoId: producto.id,
+          nombre: producto.nombre,
+          categoria: producto.categoria,
+          cantidad: 1,
+        },
+      ];
     });
   };
 
   const handleUpdatePackCantidad = (productoId: string, cantidad: number) => {
     const safeCantidad = Number.isFinite(cantidad) && cantidad > 0 ? Math.round(cantidad) : 1;
     setPackItems((prev) =>
-      prev.map((item) => (item.producto_id === productoId ? { ...item, cantidad: safeCantidad } : item)),
+        prev.map((item) => (item.productoId === productoId ? { ...item, cantidad: safeCantidad } : item)),
     );
   };
 
   const handleRemovePackProduct = (productoId: string) => {
-    setPackItems((prev) => prev.filter((item) => item.producto_id !== productoId));
+    setPackItems((prev) => prev.filter((item) => item.productoId !== productoId));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -233,11 +252,43 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
       return;
     }
 
+    if (mode === "edit" && !initialProductId) {
+      setAlert({ type: "error", message: "No encontramos el identificador del producto a editar." });
+      return;
+    }
+
     const safeSlug = (slug.trim() || toSlug(nombre)).toLowerCase();
     if (!safeSlug) {
       setAlert({ type: "error", message: "No pudimos generar un slug válido." });
       return;
     }
+
+    const baseDetalles = initialData?.detalles_json ?? DEFAULT_EMPRESA_PRODUCTO_DETALLES;
+    const normalizedPackItems: PackItemView[] =
+      categoria === "pack"
+        ? packItems
+            .map((item) => {
+              if (!item.productoId) return null;
+              const safeCantidad = Number.isFinite(item.cantidad) && item.cantidad > 0 ? Math.round(item.cantidad) : 1;
+              return { ...item, cantidad: Math.max(1, safeCantidad) };
+            })
+            .filter((item): item is PackItemView => Boolean(item))
+        : [];
+
+    const detallesPayload: EmpresaProductoDetalles = {
+      ...(baseDetalles ?? DEFAULT_EMPRESA_PRODUCTO_DETALLES),
+      pack:
+        categoria === "pack"
+          ? {
+              items: normalizedPackItems.map((item) => ({
+                id: item.productoId,
+                nombre: item.nombre,
+                cantidad: item.cantidad,
+              })) satisfies EmpresaProductoPackItemDetalle[],
+            }
+          : null,
+    };
+    const safeDetalles = detallesPayload ?? DEFAULT_EMPRESA_PRODUCTO_DETALLES;
 
     const record = {
       nombre: nombre.trim(),
@@ -246,7 +297,7 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
       resumen_corto: sanitizeText(resumenCorto),
       descripcion_corta: sanitizeText(resumenCorto),
       descripcion_larga: sanitizeText(descripcionLarga),
-      detalles_json: null,
+      detalles_json: safeDetalles,
       orden: typeof orden === "number" ? orden : null,
       activo,
       video_url: sanitizeText(videoUrl),
@@ -256,40 +307,23 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
 
     setSubmitting(true);
     try {
-      let productoId = initialProductId;
-      if (mode === "create") {
-        const { data, error } = await supabase
-          .from("empresa_productos")
-          .insert(record)
-          .select("id")
-          .single();
-        if (error || !data) {
-          throw new Error(error?.message || "No pudimos crear el producto.");
-        }
-        productoId = data.id;
-      } else if (productoId) {
-        const { error } = await supabase.from("empresa_productos").update(record).eq("id", productoId);
-        if (error) throw new Error(error.message);
-      } else {
-        throw new Error("No encontramos el identificador del producto a editar.");
-      }
+      const endpoint = "/api/admin/empresas/productos";
+      const method = mode === "create" ? "POST" : "PUT";
+      const payload = {
+        id: mode === "edit" ? initialProductId : undefined,
+        data: record,
+        packItems: normalizedPackItems.map((item) => ({ producto_id: item.productoId, cantidad: item.cantidad })),
+      };
 
-      if (productoId) {
-        if (categoria === "pack") {
-          const { error: deleteError } = await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
-          if (deleteError) throw new Error(deleteError.message);
-          if (packItems.length) {
-            const payload = packItems.map((item) => ({
-              pack_id: productoId!,
-              producto_id: item.producto_id,
-              cantidad: item.cantidad,
-            }));
-            const { error: insertError } = await supabase.from("empresa_pack_items").insert(payload);
-            if (insertError) throw new Error(insertError.message);
-          }
-        } else if (mode === "edit" && initialData?.categoria === "pack") {
-          await supabase.from("empresa_pack_items").delete().eq("pack_id", productoId);
-        }
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "No pudimos guardar el producto.");
       }
 
       setAlert({ type: "success", message: mode === "create" ? "Producto creado correctamente." : "Cambios guardados." });
@@ -533,7 +567,7 @@ export default function EmpresaProductoForm({ mode, initialData }: EmpresaProduc
           ) : (
             <div className="space-y-4">
               {packProductList.map((producto) => {
-                const existing = packItems.find((item) => item.producto_id === producto.id);
+                const existing = packItems.find((item) => item.productoId === producto.id);
                 return (
                   <div
                     key={producto.id}

@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, CircleAlert } from "lucide-react";
+import { BadgeCheck, FileText, ImageIcon, Megaphone } from "lucide-react";
+import { AdminPageHeader, StatTile, StatTileGrid } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import NovedadesTable from "./NovedadesTable";
@@ -56,17 +57,21 @@ export default async function AdminNovedadesPage({
   const notice = success || "";
   const errorMessage = errorParam || fetchError;
 
+  // Stats
+  const totalNovedades = novedades.length;
+  const publicadas = novedades.filter((n) => n.publicado === true).length;
+  const enCarrusel = novedades.filter((n) => n.en_carrusel === true).length;
+
   return (
     <div className="space-y-6">
-      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Novedades</p>
-            <h1 className="text-3xl font-semibold text-slate-900">Contenido destacado</h1>
-            <p className="text-sm text-slate-500 max-w-2xl">
-              Administra lo que aparece en la portada, el carrusel del home y las notas recientes del sitio público.
-            </p>
-          </div>
+      <AdminPageHeader
+        backHref="/admin"
+        eyebrow="Novedades"
+        title="Novedades y carrusel"
+        description="Administra las noticias visibles en la web. Define cuáles aparecen en el carrusel de inicio."
+        successMessage={notice}
+        errorMessage={errorMessage}
+        actions={
           <Link
             href="/admin/novedades/nueva"
             className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl"
@@ -74,22 +79,31 @@ export default async function AdminNovedadesPage({
             <BadgeCheck className="h-4 w-4" aria-hidden="true" />
             Nueva novedad
           </Link>
-        </div>
-      </section>
+        }
+      />
 
-      {notice ? (
-        <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
-          <BadgeCheck className="h-5 w-5" aria-hidden="true" />
-          <span>{notice}</span>
-        </div>
-      ) : null}
-
-      {errorMessage ? (
-        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
-          <CircleAlert className="h-5 w-5" aria-hidden="true" />
-          <span>{errorMessage}</span>
-        </div>
-      ) : null}
+      {/* Stats */}
+      <StatTileGrid>
+        <StatTile 
+          icon={<FileText className="h-4 w-4" />}
+          label="Total novedades"
+          value={totalNovedades}
+        />
+        <StatTile 
+          icon={<Megaphone className="h-4 w-4" />}
+          label="Publicadas"
+          value={publicadas}
+          highlight
+          highlightVariant="emerald"
+        />
+        <StatTile 
+          icon={<ImageIcon className="h-4 w-4" />}
+          label="En carrusel"
+          value={enCarrusel}
+          highlight
+          highlightVariant="blue"
+        />
+      </StatTileGrid>
 
       <NovedadesTable items={novedades} initialMessage={notice} />
     </div>

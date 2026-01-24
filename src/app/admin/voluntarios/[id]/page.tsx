@@ -13,8 +13,12 @@ import {
   normalizeInscripcionEstado,
 } from "@/lib/inscripciones";
 import { supabaseService } from "@/lib/supabaseService";
+import { isOperativoAbierto } from "@/lib/operativosShared";
+import { necesitaRenovarUniforme } from "@/lib/inventario_rules";
 import type { VoluntarioAdminRow } from "@/lib/voluntariosAdmin";
 import { VOLUNTARIO_COLUMNS } from "@/lib/voluntariosAdmin";
+import { InventorySummarySection } from "./InventorySummarySection";
+import { VolunteerGearSection } from "./VolunteerGearSection";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +44,7 @@ type OperativoOption = {
   id: string;
   titulo: string | null;
   fecha_inicio: string | null;
+  fecha_fin: string | null;
   estado: string | null;
 };
 
@@ -168,14 +173,22 @@ export default async function VoluntarioDetailPage({
       .order("created_at", { ascending: false }),
     supabaseService
       .from("operativos")
-      .select("id,titulo,fecha_inicio,estado")
-      .in("estado", ["publicado", "cerrado", "finalizado"])
+      .select("id,titulo,fecha_inicio,estado,fecha_fin")
       .order("fecha_inicio", { ascending: true }),
   ]);
 
   if (voluntarioError) {
+    console.error("[Admin/Voluntarios] Error cargando voluntario", id, voluntarioError);
     const url = `/admin/voluntarios?error=${encodeURIComponent(String(voluntarioError.message))}`;
     redirect(url);
+  }
+
+  if (inscError) {
+    console.error("[Admin/Voluntarios] Error cargando inscripciones", id, inscError);
+  }
+
+  if (operativosError) {
+    console.error("[Admin/Voluntarios] Error cargando operativos abiertos", id, operativosError);
   }
 
   const voluntario = (voluntarioData ?? null) as VoluntarioAdminRow | null;
@@ -183,7 +196,7 @@ export default async function VoluntarioDetailPage({
     notFound();
   }
 
-  const inscripciones = ((inscData ?? []) as unknown) as InscripcionRow[];
+  const inscripciones = (inscData ?? []) as InscripcionRow[];
   const operativosRelacionadosIds = Array.from(
     new Set(inscripciones.map((row) => row.operativo_id).filter((value): value is string => Boolean(value)))
   );
@@ -195,6 +208,7 @@ export default async function VoluntarioDetailPage({
       .select("id,titulo,slug,fecha_inicio")
       .in("id", operativosRelacionadosIds);
     if (error) {
+      console.error("[Admin/Voluntarios] Error cargando operativos relacionados", id, error);
       operativosRelacionadosError = String(error.message);
     } else {
       operativosRelacionados = (data ?? []) as OperativoInfo[];
@@ -206,7 +220,10 @@ export default async function VoluntarioDetailPage({
   const inscripcionesError = [inscError ? String(inscError.message) : "", operativosRelacionadosError]
     .filter(Boolean)
     .join(". ");
-  const operativos = (operativosData ?? []) as OperativoOption[];
+  const referenceDate = new Date();
+  const operativos = ((operativosData ?? []) as OperativoOption[]).filter((op) =>
+    isOperativoAbierto(op, referenceDate)
+  );
   const operativosErrorMessage = operativosError ? String(operativosError.message) : "";
   const success = typeof sp?.success === "string" ? sp.success : "";
   const notice = typeof sp?.notice === "string" ? sp.notice : "";
@@ -241,6 +258,32 @@ export default async function VoluntarioDetailPage({
       origin === "postulacion" && (isPendingEstado(estadoNormalizado) || isRejectedEstado(estadoNormalizado))
   );
   const invitacionesRecibidas = inscripcionesDetalladas.filter(({ origin }) => origin === "invitacion");
+  const operativosAsistidos = voluntario.operativos_asistidos ?? 0;
+  const uniformesEntregados = voluntario.uniformes_entregados ?? 0;
+  const ultimoUniformeEntregado = voluntario.ultima_entrega_uniforme_en;
+  const ultimoUniformeLabel = ultimoUniformeEntregado ? formatDateTime(ultimoUniformeEntregado) : "Sin registros";
+  const estadoUniforme = necesitaRenovarUniforme({
+    operativosAsistidos,
+    uniformesEntregados,
+  });
+  const uniformeStatusCopy = {
+    "sin-uniforme": {
+      label: "Aún no ha recibido uniforme",
+      description: "Entregar uniforme al próximo operativo confirmado.",
+      className: "bg-slate-100 text-slate-600 ring-slate-200",
+    },
+    vigente: {
+      label: "Uniforme vigente",
+      description: "Puede seguir usando el uniforme actual.",
+      className: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+    },
+    "debe-renovar": {
+      label: "Debe recibir uniforme en el próximo operativo",
+      description: "Entrega prioritaria para mantener dotación completa.",
+      className: "bg-amber-100 text-amber-700 ring-amber-200",
+    },
+  } as const;
+  const uniformeStatus = uniformeStatusCopy[estadoUniforme];
 
   return (
     <div className="space-y-8">
@@ -528,7 +571,9 @@ export default async function VoluntarioDetailPage({
             <p className="mt-2 text-xs text-rose-600">{operativosErrorMessage}</p>
           ) : null}
           {!operativosErrorMessage && operativos.length === 0 ? (
-            <p className="mt-2 text-xs text-slate-500">No hay operativos publicados para invitar.</p>
+            <p className="mt-2 text-xs text-slate-500">
+              No hay operativos abiertos: revisa fechas o publica un operativo para habilitar invitaciones.
+            </p>
           ) : null}
         </div>
         {inscripcionesError ? (
@@ -543,6 +588,15 @@ export default async function VoluntarioDetailPage({
           <header className="space-y-1">
             <h2 className="text-lg font-semibold text-slate-900">Inscripciones confirmadas</h2>
             <p className="text-sm text-slate-500">Historial de participaciones aceptadas o confirmadas.</p>
+            <p className="text-xs text-slate-400">
+              Operativos asistidos (según historial): {historicoConfirmadas.length}
+              {operativosAsistidos !== historicoConfirmadas.length ? (
+                <>
+                  <span className="mx-1 text-slate-300">·</span>
+                  Registro manual: {operativosAsistidos}
+                </>
+              ) : null}
+            </p>
           </header>
           {historicoConfirmadas.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
@@ -776,6 +830,22 @@ export default async function VoluntarioDetailPage({
           </table>
         </div>
       </section>
+
+      {/* Nuevo: Equipamiento del voluntario con gear status */}
+      <VolunteerGearSection 
+        voluntarioId={voluntario.id} 
+        voluntarioNombre={displayNombre(voluntario)}
+      />
+
+      {/* Legacy: Mantener por compatibilidad con datos existentes */}
+      <InventorySummarySection
+        voluntarioId={voluntario.id}
+        initialOperativos={operativosAsistidos}
+        initialUniformes={uniformesEntregados}
+        ultimaEntregaLabel={ultimoUniformeLabel}
+        uniformeStatus={uniformeStatus}
+        notaInventario={voluntario.nota_inventario}
+      />
     </div>
   );
 }

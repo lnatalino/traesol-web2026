@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 
 /**
  * Espera: email, password, next
- * Usa tabla admin_users { id, email, password_hash, role, enabled }
+ * Usa tabla admin_users { id, email, password_hash, role, enabled, force_password_change }
  */
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const supabase = createSupabaseRoute();
   const { data: user, error } = await supabase
     .from("admin_users")
-    .select("id, role, enabled")
+    .select("id, role, enabled, force_password_change")
     .eq("email", email)
     .eq("password_hash", hash)
     .maybeSingle();
@@ -44,6 +44,19 @@ export async function POST(req: Request) {
     u.searchParams.set("error", "invalid");
     u.searchParams.set("next", next);
     return NextResponse.redirect(u, 303);
+  }
+
+  // Si el usuario debe cambiar su contraseña, redirigir a esa página
+  if (user.force_password_change) {
+    const cookieStore = await cookies();
+    // Guardar email temporalmente para el cambio de contraseña
+    cookieStore.set("traesol-pending-email", email, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 15, // 15 minutos
+    });
+    return NextResponse.redirect(new URL("/cambiar-contrasena", req.url), 303);
   }
 
   const cookieStore = await cookies();

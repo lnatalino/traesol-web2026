@@ -71,7 +71,8 @@ export async function POST(req: Request) {
 
   try {
     const value = parseBooleanValue(nextValue);
-    const { error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseService as any)
       .from("novedades")
       .update({ en_carrusel: value, updated_at: new Date().toISOString() })
       .eq("id", id);

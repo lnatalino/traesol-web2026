@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev -p 3008",
     "build": "next build",
+    "lint": "eslint .",
     "start": "next start"
   },
   "dependencies": {
+    "@react-email/render": "^2.0.0",
     "@supabase/ssr": "0.7.0",
     "@supabase/supabase-js": "2.81.1",
     "jose": "^6.1.1",

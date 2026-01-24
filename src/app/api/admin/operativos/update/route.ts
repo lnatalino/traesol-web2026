@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { getAdminSession } from "@/lib/adminSession";
 import { toSlug } from "@/lib/slug";
+import { getErrorMessage } from "@/lib/errors";
 import {
   assertValidImageFile,
   createStoragePath,
@@ -23,6 +24,7 @@ type OperativoUpdate = {
   imagen_cabecera_url: string | null;
   instagram_url: string | null;
   whatsapp_grupo_url: string | null;
+  lanyard_type_id: string | null;
 };
 
 const STORAGE_BUCKET = PUBLIC_STORAGE_BUCKET;
@@ -129,7 +131,7 @@ export async function POST(req: Request) {
   const eliminarPortada = parseBoolean(form.get("imagen_cabecera_eliminar"));
   let portadaUpload: UploadedImage | null = null;
   let previousPortadaUrl: string | null = null;
-  let portadaPathsToDelete: string[] = [];
+  const portadaPathsToDelete: string[] = [];
 
   try {
     const { data: currentRow, error: fetchCurrent } = await supabaseService
@@ -177,9 +179,11 @@ export async function POST(req: Request) {
       imagen_cabecera_url: nextPortadaUrl,
       instagram_url: parseFormValue(form.get("instagram_url")) || null,
       whatsapp_grupo_url: parseFormValue(form.get("whatsapp_grupo_url")) || null,
+      lanyard_type_id: parseFormValue(form.get("lanyard_type_id")) || null,
     };
 
-    const { error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseService as any)
       .from("operativos")
       .update(payload)
       .eq("id", id);
@@ -200,7 +204,8 @@ export async function POST(req: Request) {
     const removePaths = toRemove.map((img) => img.path).filter(Boolean);
 
     if (removeIds.length) {
-      const { error: deleteError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: deleteError } = await (supabaseService as any)
         .from("operativo_imagenes")
         .delete()
         .in("id", removeIds);
@@ -218,7 +223,8 @@ export async function POST(req: Request) {
         url: item.url,
         path: item.path,
       }));
-      const { error: insertError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: insertError } = await (supabaseService as any)
         .from("operativo_imagenes")
         .insert(rows);
       if (insertError) throw insertError;
@@ -230,13 +236,14 @@ export async function POST(req: Request) {
 
     const redirectTo = parseFormValue(form.get("redirectTo")) || `/admin/operativos/${id}`;
     return NextResponse.redirect(new URL(redirectTo, req.url), 303);
-  } catch (err: any) {
+  } catch (error: unknown) {
     if (portadaUpload) {
       await supabaseService.storage.from(STORAGE_BUCKET).remove([portadaUpload.path]);
     }
-    const message = err?.message ? String(err.message) : "No se pudo actualizar el operativo.";
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Operativos] Error actualizando operativo", id, debug, error);
     const url = new URL(`/admin/operativos/${id}/editar`, req.url);
-    url.searchParams.set("error", message);
+    url.searchParams.set("error", "No se pudo actualizar el operativo. Intenta nuevamente.");
     return NextResponse.redirect(url, 303);
   }
 }

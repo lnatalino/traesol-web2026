@@ -1,8 +1,118 @@
 import { Database } from "@/lib/database.types";
 
-export type EmpresaProductoRow = Database["public"]["Tables"]["empresa_productos"]["Row"];
-export type EmpresaProductoInsert = Database["public"]["Tables"]["empresa_productos"]["Insert"];
+type EmpresaProductoTable = Database["public"]["Tables"]["empresa_productos"];
+export type EmpresaProductoRowBase = EmpresaProductoTable["Row"];
+type EmpresaProductoInsertBase = EmpresaProductoTable["Insert"];
+type EmpresaProductoUpdateBase = EmpresaProductoTable["Update"];
+
 export type EmpresaProductoCategoria = Database["public"]["Enums"]["empresa_producto_categoria"];
+
+export type EmpresaProductoPackItemDetalle = {
+  id: string;
+  nombre?: string;
+  cantidad: number;
+};
+
+export type EmpresaProductoDetalles = {
+  descripcionLarga?: string;
+  incluye?: string[];
+  notasInternas?: string;
+  pack?: {
+    items: EmpresaProductoPackItemDetalle[];
+  } | null;
+} & Record<string, unknown>;
+
+export const DEFAULT_EMPRESA_PRODUCTO_DETALLES: EmpresaProductoDetalles = { pack: null };
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter((entry) => entry.length > 0);
+  return normalized.length ? normalized : undefined;
+}
+
+function normalizePackItems(value: unknown): EmpresaProductoPackItemDetalle[] {
+  if (!Array.isArray(value)) return [];
+  const items: EmpresaProductoPackItemDetalle[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Record<string, unknown>;
+    const id = typeof raw.id === "string" ? raw.id : typeof raw.producto_id === "string" ? raw.producto_id : null;
+    if (!id) continue;
+    const nombre = typeof raw.nombre === "string" ? raw.nombre : undefined;
+    const cantidadValue = Number(raw.cantidad);
+    const cantidad = Number.isFinite(cantidadValue) ? Math.max(1, Math.round(cantidadValue)) : 1;
+    items.push({ id, nombre, cantidad });
+  }
+  return items;
+}
+
+export function normalizeEmpresaProductoDetalles(value: unknown): EmpresaProductoDetalles {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_EMPRESA_PRODUCTO_DETALLES };
+  }
+
+  const source = value as Record<string, unknown>;
+  const descripcionLarga = typeof source.descripcionLarga === "string" ? source.descripcionLarga : undefined;
+  const incluye = normalizeStringArray(source.incluye);
+  const notasInternas = typeof source.notasInternas === "string" ? source.notasInternas : undefined;
+  let pack: EmpresaProductoDetalles["pack"] = null;
+  if (source.pack && typeof source.pack === "object") {
+    const packRecord = source.pack as Record<string, unknown>;
+    const items = normalizePackItems(packRecord.items);
+    pack = { items };
+  }
+
+  const extras = Object.fromEntries(
+    Object.entries(source).filter(([key]) => !["descripcionLarga", "incluye", "notasInternas", "pack"].includes(key))
+  );
+
+  return {
+    ...extras,
+    descripcionLarga,
+    incluye,
+    notasInternas,
+    pack,
+  } satisfies EmpresaProductoDetalles;
+}
+
+export type EmpresaProductoRow = Omit<EmpresaProductoRowBase, "detalles_json"> & {
+  detalles_json: EmpresaProductoDetalles;
+};
+
+export type EmpresaProductoInsert = Omit<EmpresaProductoInsertBase, "detalles_json"> & {
+  detalles_json: EmpresaProductoDetalles;
+};
+
+export type EmpresaProductoUpdate = Omit<EmpresaProductoUpdateBase, "detalles_json"> & {
+  detalles_json?: EmpresaProductoDetalles;
+};
+
+export type EmpresaPackItemView = {
+  id: string;
+  productoBaseId: string;
+  nombre: string;
+  resumen?: string | null;
+  categoria?: EmpresaProductoCategoria | null;
+  cantidad: number;
+  productoDetalle?: EmpresaProductoRow | null;
+};
+
+export type EmpresaProductoWithPackItems = EmpresaProductoRow & {
+  packItems?: EmpresaPackItemView[];
+};
+
+export function mapEmpresaProductoRow(row: EmpresaProductoRowBase): EmpresaProductoRow {
+  return {
+    ...row,
+    detalles_json: normalizeEmpresaProductoDetalles(row.detalles_json),
+  };
+}
+
+export function mapEmpresaProductoRows(rows: EmpresaProductoRowBase[]): EmpresaProductoRow[] {
+  return rows.map(mapEmpresaProductoRow);
+}
 export type EmpresaPackItemRow = Database["public"]["Tables"]["empresa_pack_items"]["Row"];
 export type EmpresaPackItemInsert = Database["public"]["Tables"]["empresa_pack_items"]["Insert"];
 export type EmpresaMetricsRow = Database["public"]["Tables"]["empresa_metrics"]["Row"];
@@ -91,7 +201,8 @@ export async function updateEmpresaMetrics(payload: EmpresaMetricsValues): Promi
   const normalized = normalizePayload(payload);
   try {
     const { supabaseService } = await import("@/lib/supabaseService");
-    const { data, error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabaseService as any)
       .from("empresa_metrics")
       .upsert(
         [

@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
+import { AdminPageHeader, StatTile, StatTileGrid } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
+import { getErrorMessage } from "@/lib/errors";
 import { supabaseService } from "@/lib/supabaseService";
 import { listMessagingRecipients, parseMessagingFilters, type MessagingRecipient } from "@/lib/mensajeriaRecipients";
+import { Calendar, Mail, Users } from "lucide-react";
 import MessagingForm, { type MensajeriaOperativoOption } from "./MessagingForm";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +17,7 @@ async function fetchOperativos(): Promise<MensajeriaOperativoOption[]> {
   const { data, error } = await supabaseService
     .from("operativos")
     .select("id,titulo,fecha_inicio,lugar")
+    .eq("estado", "publicado")
     .order("fecha_inicio", { ascending: false });
 
   if (error) throw error;
@@ -48,22 +52,38 @@ export default async function MensajeriaPage({ searchParams }: { searchParams: S
     recipients = recipientsList;
     total = recipientsList.length;
     preview = recipientsList.slice(0, PREVIEW_LIMIT);
-  } catch (err: any) {
+  } catch (error: unknown) {
     if (!errorMessage) {
-      errorMessage = err?.message ? String(err.message) : "No se pudo cargar la mensajería.";
+      errorMessage = getErrorMessage(error, "No se pudo cargar la mensajería.");
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Mensajería masiva</h1>
-          <p className="text-sm text-slate-500">
-            Filtra voluntarios y envía un email masivo usando Resend.
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        backHref="/admin"
+        eyebrow="Mensajería"
+        title="Mensajería masiva"
+        description="Segmenta destinatarios por operativo y envía correos personalizados a voluntarios."
+        successMessage={successMessage}
+        errorMessage={errorMessage}
+      />
+
+      {/* Stats */}
+      <StatTileGrid>
+        <StatTile 
+          icon={<Users className="h-4 w-4" />}
+          label="Destinatarios disponibles"
+          value={total}
+          highlight={total > 0}
+          highlightVariant="emerald"
+        />
+        <StatTile 
+          icon={<Calendar className="h-4 w-4" />}
+          label="Operativos disponibles"
+          value={operativos.length}
+        />
+      </StatTileGrid>
 
       <MessagingForm
         filters={filters}

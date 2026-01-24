@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-const tabs = [
-  { label: "Admin", href: "/admin", isActive: (path: string) => path === "/admin" },
+type Tab = {
+  label: string;
+  href: string;
+  isActive: (path: string) => boolean;
+  superadminOnly?: boolean;
+};
+
+const tabs: Tab[] = [
+  { label: "Panel", href: "/admin", isActive: (path: string) => path === "/admin" },
   {
     label: "Operativos",
     href: "/admin/operativos",
     isActive: (path: string) => path.startsWith("/admin/operativos"),
-  },
-  {
-    label: "Novedades",
-    href: "/admin/novedades",
-    isActive: (path: string) => path.startsWith("/admin/novedades"),
   },
   {
     label: "Voluntarios",
@@ -21,14 +24,24 @@ const tabs = [
     isActive: (path: string) => path.startsWith("/admin/voluntarios"),
   },
   {
+    label: "Inscripciones",
+    href: "/admin/inscripciones",
+    isActive: (path: string) => path.startsWith("/admin/inscripciones"),
+  },
+  {
     label: "Invitaciones",
     href: "/admin/invitaciones",
     isActive: (path: string) => path.startsWith("/admin/invitaciones"),
   },
   {
-    label: "Inscripciones",
-    href: "/admin/inscripciones",
-    isActive: (path: string) => path.startsWith("/admin/inscripciones"),
+    label: "Mensajería",
+    href: "/admin/mensajeria",
+    isActive: (path: string) => path.startsWith("/admin/mensajeria"),
+  },
+  {
+    label: "Novedades",
+    href: "/admin/novedades",
+    isActive: (path: string) => path.startsWith("/admin/novedades"),
   },
   {
     label: "Empresas",
@@ -36,18 +49,54 @@ const tabs = [
     isActive: (path: string) => path.startsWith("/admin/empresas"),
   },
   {
-    label: "Mensajería",
-    href: "/admin/mensajeria",
-    isActive: (path: string) => path.startsWith("/admin/mensajeria"),
+    label: "Inventario",
+    href: "/admin/inventario",
+    isActive: (path: string) => path.startsWith("/admin/inventario"),
+  },
+  {
+    label: "Operativo quirúrgico",
+    href: "/admin/quirurgico/operativos",
+    isActive: (path: string) => path.startsWith("/admin/quirurgico"),
+  },
+  {
+    label: "Usuarios",
+    href: "/admin/usuarios",
+    isActive: (path: string) => path.startsWith("/admin/usuarios"),
+    superadminOnly: true,
   },
 ];
 
 export function AdminNav() {
   const pathname = usePathname();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Leer rol desde cookie (traesol-role es httpOnly, necesitamos otra forma)
+    // Usamos un endpoint simple para obtener el rol actual
+    async function fetchRole() {
+      try {
+        const res = await fetch("/api/admin/session");
+        if (res.ok) {
+          const data = await res.json();
+          setRole(data.role || null);
+        }
+      } catch {
+        // Ignorar errores
+      }
+    }
+    fetchRole();
+  }, []);
+
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.superadminOnly) {
+      return role === "superadmin";
+    }
+    return true;
+  });
 
   return (
     <nav className="flex flex-wrap gap-2 text-sm font-medium text-slate-600">
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const active = tab.isActive(pathname);
         return (
           <Link

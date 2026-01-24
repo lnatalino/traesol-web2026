@@ -1,6 +1,11 @@
 // src/app/novedades/page.tsx
-import Link from "next/link";
+import { Newspaper } from "lucide-react";
 import { getPublicNovedades, type PublicNovedadListItem } from "@/lib/novedades";
+import { 
+  PublicHero, 
+  NovedadCard as NovedadCardComponent,
+  EmptyState 
+} from "@/components/public";
 
 export const metadata = { title: "Novedades · Traesol" };
 
@@ -8,38 +13,73 @@ export default async function NovedadesPage() {
   const items = await getPublicNovedades();
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-      <h1 className="title">Novedades</h1>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map((n: PublicNovedadListItem) => (
-          <Link
-            key={n.id}
-            href={`/novedades/${n.slug}`}
-            className="group overflow-hidden rounded-2xl border bg-white transition hover:shadow-md"
-          >
-            <div className="aspect-video bg-gray-100">
-              <img
-                src={n.imagen_portada_url || n.imagenes?.[0]?.url || "/placeholder.png"}
-                alt={n.titulo || "Novedad"}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="p-4">
-              <h3 className="line-clamp-2 font-semibold leading-tight text-slate-900">{n.titulo}</h3>
-              {n.bajada ? <p className="mt-1 line-clamp-2 text-sm text-gray-600">{n.bajada}</p> : null}
-              {n.fecha_publicacion ? (
-                <p className="mt-2 text-xs text-slate-400">
-                  {new Date(n.fecha_publicacion).toLocaleDateString("es-CL", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </p>
-              ) : null}
-            </div>
-          </Link>
-        ))}
+    <main className="min-h-screen bg-slate-50">
+      {/* Hero */}
+      <PublicHero
+        eyebrow="Novedades"
+        title="Últimas noticias"
+        subtitle="Descubre los últimos operativos, campañas y testimonios publicados por la fundación."
+      />
+
+      {/* Grid de novedades */}
+      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 lg:px-6">
+        {items.length === 0 ? (
+          <EmptyState
+            icon={Newspaper}
+            title="Sin novedades aún"
+            message="Pronto publicaremos noticias y actualizaciones sobre nuestras actividades."
+          />
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((n: PublicNovedadListItem) => (
+              <NovedadItem key={n.id} item={n} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
+  );
+}
+
+function NovedadItem({ item }: { item: PublicNovedadListItem }) {
+  const portada = item.imagen_portada_url || item.imagenes?.[0]?.url || null;
+  
+  // Si tiene link externo, usamos ese slug, si no el interno
+  const slug = item.link_externo || (item.slug ? item.slug : "#");
+  const isExternal = !!item.link_externo;
+  
+  // Determinamos el tipo basado en si tiene link externo
+  const tipo = item.link_externo ? "comunicado" : "noticia";
+
+  // Si es link externo, usamos NovedadCard envuelto en un Link externo
+  if (isExternal) {
+    return (
+      <a
+        href={item.link_externo!}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
+        <NovedadCardComponent
+          slug=""
+          titulo={item.titulo || "Novedad"}
+          resumen={item.bajada || null}
+          imagen={portada}
+          fecha_publicacion={item.fecha_publicacion}
+          tipo={tipo}
+        />
+      </a>
+    );
+  }
+
+  return (
+    <NovedadCardComponent
+      slug={slug}
+      titulo={item.titulo || "Novedad"}
+      resumen={item.bajada || null}
+      imagen={portada}
+      fecha_publicacion={item.fecha_publicacion}
+      tipo={tipo}
+    />
   );
 }

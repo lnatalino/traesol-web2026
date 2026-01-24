@@ -30,38 +30,57 @@ function formatBodyHtml(body: string): string {
     if (!content) {
       return '<p style="margin:0 0 12px">&nbsp;</p>';
     }
-    return `<p style="margin:0 0 12px">${escapeHtml(content)}</p>`;
+    return `<p style="margin:0 0 16px">${escapeHtml(content)}</p>`;
   });
 
-  return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;font-size:15px;line-height:1.6;color:#111827;">
-    ${htmlLines.join("\n")}
-  </div>`;
+  return htmlLines.join("\n");
 }
 
 function wrapEmail(subject: string, bodyHtml: string): string {
-  const headerColor = "#0b4dbf";
+  const HEADER_GRADIENT = "linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%)";
+  const SUPPORT_EMAIL = "contacto@fundaciontraesol.cl";
+  const LOGO_URL = process.env.NEXT_PUBLIC_LOGO_URL || 
+    "https://alohwvivujbhlpqunad.supabase.co/storage/v1/object/public/public/logo-traesol.png";
+  const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
+  const year = new Date().getFullYear();
+  
   return `
-  <div style="background:#f8fafc;padding:24px 16px;">
-    <table width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
-      <tr>
-        <td style="background:${headerColor};padding:18px 24px;color:#ffffff;font-weight:600;font-size:18px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">Traesol · Mensajería Interna</td>
-      </tr>
-      <tr>
-        <td style="padding:20px 24px 0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#111827;">
-          <h1 style="margin:0 0 12px;font-size:20px;line-height:1.35;">${escapeHtml(subject)}</h1>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:0 24px 12px;">${bodyHtml}</td>
-      </tr>
-      <tr>
-        <td style="padding:16px 24px 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
-          Este mensaje fue enviado desde el panel de administración de Traesol.
-        </td>
-      </tr>
-    </table>
-  </div>`;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; padding: 24px; margin: 0;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <!-- Header con gradiente -->
+    <div style="background: ${HEADER_GRADIENT}; padding: 32px 24px; text-align: center;">
+      <a href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration: none;">
+        <img src="${LOGO_URL}" alt="Traesol" width="120" height="40" style="display: inline-block; max-height: 40px; width: auto; border: 0; margin-bottom: 12px;" />
+      </a>
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700; line-height: 1.3;">${escapeHtml(subject)}</h1>
+    </div>
+    
+    <!-- Contenido -->
+    <div style="padding: 32px 24px; color: #334155; font-size: 16px; line-height: 1.6;">
+      ${bodyHtml}
+    </div>
+    
+    <!-- Footer -->
+    <div style="background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0;">
+      <p style="color: #64748b; font-size: 12px; margin: 0 0 8px; line-height: 1.5;">
+        Este mensaje fue enviado desde el panel de administración de Traesol.
+      </p>
+      <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px;">
+        ¿Dudas? Escríbenos a <a href="mailto:${SUPPORT_EMAIL}" style="color: #0b4dbf; text-decoration: none;">${SUPPORT_EMAIL}</a>
+      </p>
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+        © ${year} Fundación Traesol. Todos los derechos reservados.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 function buildPreheader(body: string): string {

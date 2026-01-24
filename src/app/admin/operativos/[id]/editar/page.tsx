@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { OperativoForm } from "@/app/admin/operativos/_form";
@@ -9,6 +10,43 @@ export const dynamic = "force-dynamic";
 type Params = Promise<{ id: string }>;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+type OperativoImageRow = {
+  id: string;
+  url: string | null;
+  path: string | null;
+};
+
+type OperativoEditRow = {
+  id: string;
+  titulo: string | null;
+  slug: string | null;
+  descripcion: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  lugar: string | null;
+  direccion: string | null;
+  cupos_total: number | null;
+  estado: string | null;
+  imagen_cabecera_url: string | null;
+  instagram_url: string | null;
+  whatsapp_grupo_url: string | null;
+  lanyard_type_id: string | null;
+  operativo_imagenes: OperativoImageRow[] | null;
+};
+
+type LanyardTypeRow = {
+  id: string;
+  name: string;
+  ribbon_color_name: string;
+  ribbon_hex: string | null;
+  is_active: boolean;
+};
+
+function toInputDate(value: string | null): string | null {
+  if (!value) return null;
+  return value.slice(0, 10);
+}
 
 export default async function EditarOperativoPage({
   params,
@@ -29,13 +67,20 @@ export default async function EditarOperativoPage({
     notFound();
   }
 
+  // Cargar lanyard types disponibles
+  const { data: lanyardTypes } = await supabaseService
+    .from("lanyard_types")
+    .select("id, name, ribbon_color_name, ribbon_hex")
+    .eq("is_active", true)
+    .order("display_order");
+
   const { data, error } = await supabaseService
     .from("operativos")
     .select(
-      "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,whatsapp_grupo_url,operativo_imagenes(id,url,path)"
+      "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,whatsapp_grupo_url,lanyard_type_id,operativo_imagenes(id,url,path)"
     )
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle<OperativoEditRow>();
 
   if (error) {
     const url = `/admin/operativos?error=${encodeURIComponent(String(error.message))}`;
@@ -46,19 +91,18 @@ export default async function EditarOperativoPage({
     notFound();
   }
 
-  const { operativo_imagenes, ...rest } = (data as any) ?? {};
+  const { operativo_imagenes: rawImages, ...rest } = data;
+  const gallery = Array.isArray(rawImages)
+    ? rawImages
+        .filter((img): img is OperativoImageRow & { url: string; path: string } => Boolean(img?.url && img?.path))
+        .map((img) => ({ id: img.id, url: img.url!, path: img.path! }))
+    : [];
 
   const defaults = {
     ...rest,
-    fecha_inicio: data?.fecha_inicio ? String(data.fecha_inicio).slice(0, 10) : null,
-    fecha_fin: data?.fecha_fin ? String(data.fecha_fin).slice(0, 10) : null,
-    imagenes: Array.isArray(operativo_imagenes)
-      ? (operativo_imagenes as Array<{ id: string; url: string; path: string }>).map((img) => ({
-          id: img.id,
-          url: img.url,
-          path: img.path,
-        }))
-      : [],
+    fecha_inicio: toInputDate(rest.fecha_inicio),
+    fecha_fin: toInputDate(rest.fecha_fin),
+    imagenes: gallery,
   };
 
   const errorMessage = typeof sp?.error === "string" ? sp.error : "";
@@ -66,29 +110,27 @@ export default async function EditarOperativoPage({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[36px] border border-white/10 bg-gradient-to-br from-slate-900 to-blue-900 p-6 text-white shadow-2xl shadow-slate-900/30">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-white/70">Operativos</p>
-            <h1 className="text-3xl font-semibold">Editar operativo</h1>
-            <p className="text-sm text-white/70">Actualiza los datos, agrega material y publica cuando esté listo.</p>
-          </div>
+      <AdminHeader
+        eyebrow="Operativos"
+        title="Editar operativo"
+        description="Actualiza los datos, suma material gráfico y publica cuando el operativo esté listo para difusión."
+        action={(
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Link
               href={`/admin/operativos/${id}`}
-              className="inline-flex items-center rounded-full border border-white/30 px-4 py-2 font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Ver detalle
             </Link>
             <Link
               href="/admin/operativos"
-              className="inline-flex items-center rounded-full bg-white/90 px-4 py-2 font-semibold text-slate-900 transition hover:bg-white"
+              className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 font-semibold text-blue-700 transition hover:bg-blue-100"
             >
               Volver al listado
             </Link>
           </div>
-        </div>
-      </section>
+        )}
+      />
 
       {successMessage ? (
         <div className="rounded-[28px] border border-emerald-200/70 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-900 shadow-sm">
@@ -102,7 +144,12 @@ export default async function EditarOperativoPage({
         </div>
       ) : null}
 
-      <OperativoForm action="/api/admin/operativos/update" submitLabel="Guardar cambios" defaults={defaults}>
+      <OperativoForm 
+        action="/api/admin/operativos/update" 
+        submitLabel="Guardar cambios" 
+        defaults={defaults}
+        lanyardTypes={lanyardTypes ?? []}
+      >
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="redirectTo" value={`/admin/operativos/${id}?success=Operativo+actualizado`} />
       </OperativoForm>

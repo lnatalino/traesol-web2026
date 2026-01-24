@@ -78,7 +78,8 @@ export async function GET(req: Request) {
       .order("nombres", { ascending: true })
       .limit(limit);
 
-    let query = baseQuery;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = baseQuery;
 
     if (excludeVoluntarioIds.length) {
       query = query.not("id", "in", buildInFilter(excludeVoluntarioIds));

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { getAdminSession } from "@/lib/adminSession";
+import { getErrorMessage } from "@/lib/errors";
 
 function parseFormValue(value: FormDataEntryValue | null): string {
   return value === null ? "" : String(value).trim();
@@ -30,10 +31,11 @@ export async function POST(req: Request) {
 
     const redirectTo = parseFormValue(form.get("redirectTo")) || "/admin/operativos";
     return NextResponse.redirect(new URL(redirectTo, req.url), 303);
-  } catch (err: any) {
-    const message = err?.message ? String(err.message) : "No se pudo eliminar el operativo.";
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Operativos] Error eliminando operativo", id, debug, error);
     const url = new URL(`/admin/operativos/${id}`, req.url);
-    url.searchParams.set("error", message);
+    url.searchParams.set("error", "No se pudo eliminar el operativo. Intenta nuevamente.");
     return NextResponse.redirect(url, 303);
   }
 }

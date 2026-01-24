@@ -74,8 +74,12 @@ export async function sendMail({
 }
 
 /* =======================================================================
-   SHELL · Layout con LOGO + header + footer (inline CSS)
+   SHELL · Layout con LOGO + header gradiente + footer (inline CSS)
+   Unificado con diseño de "Bienvenida Admin"
    ======================================================================= */
+
+const HEADER_GRADIENT = "linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%)";
+const SUPPORT_EMAIL = "contacto@fundaciontraesol.cl";
 
 function shell({
   title,
@@ -88,48 +92,46 @@ function shell({
 }) {
   const homeUrl = SITE_URL || "https://fundaciontraesol.cl";
   const safeTitle = escapeHtml(title);
+  const year = new Date().getFullYear();
+  const footerNote = prefooter || "Este es un mensaje automático.";
 
   return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f7fafc;padding:24px">
-    <table width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden">
-      <!-- Header con logo -->
-      <tr>
-        <td style="background:${BRAND_COLOR};padding:16px 20px">
-          <a href="${homeUrl}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px">
-            <img src="${LOGO_URL}" alt="Traesol" width="120" height="36" style="display:block;max-height:40px;width:auto;border:0;outline:0" />
-            <span style="color:#fff;font-weight:700;font-size:16px;vertical-align:middle;">Traesol</span>
-          </a>
-        </td>
-      </tr>
-
-      <!-- Título -->
-      <tr>
-        <td style="padding:20px 24px 0">
-          <h1 style="margin:0 0 8px;font-size:20px;line-height:1.35;color:#111827">${safeTitle}</h1>
-        </td>
-      </tr>
-
-      <!-- Cuerpo -->
-      <tr>
-        <td style="padding:8px 24px 8px;color:#111827;font-size:15px;line-height:1.6">
-          ${body}
-        </td>
-      </tr>
-
-      <!-- Footer -->
-      <tr>
-        <td style="padding:14px 24px 20px">
-          <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 14px" />
-          <p style="margin:0 0 4px;color:#6b7280;font-size:12px">
-            ${prefooter ? escapeHtml(prefooter) : "Mensaje automático."}
-          </p>
-          <p style="margin:0;color:#9ca3af;font-size:12px">
-            © ${new Date().getFullYear()} Traesol. Todos los derechos reservados.
-          </p>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; padding: 24px; margin: 0;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <!-- Header con gradiente -->
+    <div style="background: ${HEADER_GRADIENT}; padding: 32px 24px; text-align: center;">
+      <a href="${homeUrl}" target="_blank" rel="noopener" style="text-decoration: none;">
+        <img src="${LOGO_URL}" alt="Traesol" width="120" height="40" style="display: inline-block; max-height: 40px; width: auto; border: 0; margin-bottom: 12px;" />
+      </a>
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700; line-height: 1.3;">${safeTitle}</h1>
+    </div>
+    
+    <!-- Contenido -->
+    <div style="padding: 32px 24px; color: #334155; font-size: 16px; line-height: 1.6;">
+      ${body}
+    </div>
+    
+    <!-- Footer -->
+    <div style="background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0;">
+      <p style="color: #64748b; font-size: 12px; margin: 0 0 8px; line-height: 1.5;">
+        ${escapeHtml(footerNote)}
+      </p>
+      <p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px;">
+        ¿Dudas? Escríbenos a <a href="mailto:${SUPPORT_EMAIL}" style="color: #0b4dbf; text-decoration: none;">${SUPPORT_EMAIL}</a>
+      </p>
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+        © ${year} Fundación Traesol. Todos los derechos reservados.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 /* =======================================================================

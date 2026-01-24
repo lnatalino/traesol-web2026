@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
-import type { EmpresaProductoRow } from "@/lib/empresas";
+import type { EmpresaProductoRow, EmpresaProductoRowBase } from "@/lib/empresas";
+import { mapEmpresaProductoRow } from "@/lib/empresas";
 import EmpresaProductoForm from "../EmpresaProductoForm";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +19,13 @@ export default async function EmpresaProductoEditPage({ params }: PageProps) {
     redirect("/login?next=/admin/empresas/productos");
   }
 
-  const { data: producto, error } = await supabaseService
+  const { data: productoRaw, error } = await supabaseService
     .from("empresa_productos")
     .select("*")
     .eq("id", resolvedParams.id)
-    .maybeSingle<EmpresaProductoRow>();
+    .maybeSingle<EmpresaProductoRowBase>();
 
-  if (error || !producto) {
+  if (error || !productoRaw) {
     return (
       <div className="space-y-4">
         <Link
@@ -42,6 +43,8 @@ export default async function EmpresaProductoEditPage({ params }: PageProps) {
       </div>
     );
   }
+
+  const producto = mapEmpresaProductoRow(productoRaw);
 
   return (
     <div className="space-y-6">

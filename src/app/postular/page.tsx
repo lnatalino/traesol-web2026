@@ -1,7 +1,7 @@
 // src/app/postular/page.tsx
 "use client";
 
-import { useEffect, useReducer, useCallback, memo, useState, useRef } from "react";
+import { useEffect, useReducer, useCallback, memo, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import { formatOperativoOptionLabel, type PublicOperativo } from "@/lib/operativosShared";
@@ -149,6 +149,14 @@ const Field = memo(function Field({
 });
 
 export default function PostularPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><p className="text-slate-600">Cargando formulario…</p></div>}>
+      <PostularContent />
+    </Suspense>
+  );
+}
+
+function PostularContent() {
   const sp = useSearchParams();
   const [ops, setOps] = useState<Operativo[]>([]);
   const [sending, setSending] = useState(false);

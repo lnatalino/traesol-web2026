@@ -1,4 +1,8 @@
-type FilterableQuery = any;
+type FilterableQuery = {
+  or: (filters: string) => FilterableQuery;
+  eq: (column: string, value: string | boolean) => FilterableQuery;
+  is: (column: string, value: null) => FilterableQuery;
+};
 
 export type VoluntarioAdminRow = {
   id: string;
@@ -28,6 +32,10 @@ export type VoluntarioAdminRow = {
   nombre_credencial: string | null;
   tipo_usuario: string | null;
   created_at: string | null;
+  operativos_asistidos: number;
+  uniformes_entregados: number;
+  ultima_entrega_uniforme_en: string | null;
+  nota_inventario: string | null;
 };
 
 export const VOLUNTARIO_COLUMNS = [
@@ -58,6 +66,10 @@ export const VOLUNTARIO_COLUMNS = [
   "nombre_credencial",
   "tipo_usuario",
   "created_at",
+  "operativos_asistidos",
+  "uniformes_entregados",
+  "ultima_entrega_uniforme_en",
+  "nota_inventario",
 ].join(",");
 
 export type VoluntarioFilters = {
@@ -123,6 +135,7 @@ export function applyVolunteerFilters(
       `id_nacional.ilike.${pattern}`,
       `pasaporte.ilike.${pattern}`,
       `nombre_credencial.ilike.${pattern}`,
+      `instagram.ilike.${pattern}`,
     ];
 
     const normalizedRut = filters.q.replace(/[.\-\s]+/g, "").toUpperCase();

@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import ImageGalleryField from "@/app/admin/components/ImageGalleryField";
 
+type LanyardTypeOption = {
+  id: string;
+  name: string;
+  ribbon_color_name: string;
+  ribbon_hex: string | null;
+};
+
 type OperativoDefaults = {
   titulo?: string | null;
   slug?: string | null;
@@ -14,6 +21,7 @@ type OperativoDefaults = {
   imagen_cabecera_url?: string | null;
   instagram_url?: string | null;
   whatsapp_grupo_url?: string | null;
+  lanyard_type_id?: string | null;
   imagenes?: Array<{ id: string; url: string; path: string }>;
 };
 
@@ -21,6 +29,7 @@ type OperativoFormProps = {
   action: string;
   submitLabel: string;
   defaults?: OperativoDefaults;
+  lanyardTypes?: LanyardTypeOption[];
   children?: ReactNode;
 };
 
@@ -31,7 +40,7 @@ const ESTADOS = [
   { value: "finalizado", label: "Finalizado" },
 ];
 
-export function OperativoForm({ action, submitLabel, defaults, children }: OperativoFormProps) {
+export function OperativoForm({ action, submitLabel, defaults, lanyardTypes = [], children }: OperativoFormProps) {
   const cupos = typeof defaults?.cupos_total === "number" ? String(defaults?.cupos_total ?? "") : "";
   const estado = (defaults?.estado || "borrador").toLowerCase();
   const cabeceraInputId = "operativo-cabecera";
@@ -50,10 +59,13 @@ export function OperativoForm({ action, submitLabel, defaults, children }: Opera
             <input
               name="titulo"
               required
+              minLength={3}
+              maxLength={200}
               defaultValue={defaults?.titulo ?? ""}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
               placeholder="Operativo Traesol"
             />
+            <p className="text-xs text-slate-500">Mínimo 3 caracteres, máximo 200.</p>
           </label>
           <label className="space-y-2 text-sm">
             <span className="font-medium text-slate-700">Slug</span>
@@ -110,6 +122,8 @@ export function OperativoForm({ action, submitLabel, defaults, children }: Opera
               type="number"
               name="cupos_total"
               min={0}
+              max={10000}
+              step={1}
               defaultValue={cupos}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
             />
@@ -130,6 +144,24 @@ export function OperativoForm({ action, submitLabel, defaults, children }: Opera
             </select>
           </label>
         </div>
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium text-slate-700">Tema / Lanyard</span>
+          <select
+            name="lanyard_type_id"
+            defaultValue={defaults?.lanyard_type_id ?? ""}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm"
+          >
+            <option value="">Sin tema específico (lanyard genérico)</option>
+            {lanyardTypes.map((lt) => (
+              <option key={lt.id} value={lt.id}>
+                {lt.name} ({lt.ribbon_color_name})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500">
+            Define el tema del operativo para determinar el color de lanyard de los voluntarios (ej: cinta rosada para cáncer de mama).
+          </p>
+        </label>
       </section>
 
       <section className="space-y-6 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-sm shadow-slate-900/5">

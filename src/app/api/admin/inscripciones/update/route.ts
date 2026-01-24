@@ -6,6 +6,7 @@ import {
   sendInscripcionAceptadaEmail,
   sendInscripcionRechazadaEmail,
 } from "@/lib/email";
+import { getErrorMessage } from "@/lib/errors";
 
 function parseValue(value: FormDataEntryValue | null): string {
   return value === null ? "" : String(value).trim();
@@ -22,13 +23,6 @@ export async function POST(req: Request) {
   const estadoRaw = parseValue(form.get("estado"));
   const estadoNormalized = normalizeInscripcionEstado(estadoRaw);
   const redirectTo = parseValue(form.get("redirectTo")) || "/admin/operativos";
-
-  console.log("DEBUG inscripcion-update:request", {
-    id,
-    estadoRaw: estadoRaw || null,
-    estadoNormalized,
-    redirectTo,
-  });
 
   if (!id) {
     const url = new URL(redirectTo || "/admin/operativos", req.url);
@@ -54,16 +48,13 @@ export async function POST(req: Request) {
       throw new Error("Inscripción no encontrada");
     }
 
-    const previousEstado = normalizeInscripcionEstado(currentRow.estado);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentData = currentRow as any;
+    const previousEstado = normalizeInscripcionEstado(currentData.estado);
 
-    console.log("DEBUG inscripcion-update:before", {
-      id,
-      previousEstado,
-      estadoRaw: estadoRaw || null,
-      estadoNormalized,
-    });
-
-    const { data: updatedRow, error: updateError } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = supabaseService as any;
+    const { data: updatedRow, error: updateError } = await client
       .from("inscripciones")
       .update({ estado: estadoNormalized })
       .eq("id", id)
@@ -76,11 +67,6 @@ export async function POST(req: Request) {
     }
 
     const updatedEstado = normalizeInscripcionEstado(updatedRow.estado) ?? estadoNormalized;
-
-    console.log("DEBUG inscripcion-update:after", {
-      id,
-      estadoFinal: updatedEstado,
-    });
 
     const shouldSendAprobada = estadoNormalized === "aprobado" && previousEstado !== "aprobado";
     const shouldSendRechazada = estadoNormalized === "rechazado" && previousEstado !== "rechazado";
@@ -99,8 +85,10 @@ export async function POST(req: Request) {
           .maybeSingle(),
       ]);
 
-      const voluntario = voluntarioResult.data;
-      const operativo = operativoResult.data;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const voluntario = voluntarioResult.data as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const operativo = operativoResult.data as any;
 
       if (voluntario?.email) {
         const payload = {
@@ -115,32 +103,26 @@ export async function POST(req: Request) {
 
         try {
           if (shouldSendAprobada) {
-            console.log("DEBUG inscripcion-update:email", {
-              id,
-              from: previousEstado,
-              to: updatedEstado,
-              action: "aprobado",
-            });
             await sendInscripcionAceptadaEmail(payload);
           } else if (shouldSendRechazada) {
-            console.log("DEBUG inscripcion-update:email", {
-              id,
-              from: previousEstado,
-              to: updatedEstado,
-              action: "rechazado",
-            });
             await sendInscripcionRechazadaEmail(payload);
           }
         } catch (emailError) {
-          console.error("No se pudo enviar el correo de inscripción", emailError);
+          console.error(
+            "[Admin/Inscripciones] No se pudo enviar el correo de inscripción",
+            getErrorMessage(emailError),
+            emailError,
+          );
         }
       }
     }
 
     return NextResponse.redirect(new URL(redirectTo, req.url), 303);
-  } catch (err: any) {
+  } catch (error: unknown) {
     const url = new URL(redirectTo, req.url);
-    url.searchParams.set("error", err?.message ? String(err.message) : "No se pudo actualizar");
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Inscripciones] Error actualizando inscripción", id, debug, error);
+    url.searchParams.set("error", "No se pudo actualizar la inscripción.");
     return NextResponse.redirect(url, 303);
   }
 }

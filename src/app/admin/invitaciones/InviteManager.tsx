@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Send, Users, AlertCircle, CheckCircle2 } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
+import { AdminSectionCard, EmptyState, StatTile, StatTileGrid } from "@/components/admin/ui";
+import { OperativoSelector, type OperativoOption } from "./OperativoSelector";
+import { InvitacionesHistorial, type InvitacionHistorialRow } from "./InvitacionesHistorial";
 
 export type InviteVolunteer = {
   id: string;
@@ -11,18 +17,12 @@ export type InviteVolunteer = {
   especialidad: string | null;
 };
 
-export type InviteOperativo = {
-  id: string;
-  titulo: string | null;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  lugar: string | null;
-  estado: string | null;
-};
+export type InviteOperativo = OperativoOption;
 
 type Props = {
   volunteers: InviteVolunteer[];
   operativos: InviteOperativo[];
+  invitacionesPorOperativo: Map<string, InvitacionHistorialRow[]>;
   errorMessage: string;
 };
 
@@ -39,36 +39,29 @@ function formatNombre(vol: InviteVolunteer): string {
   return "Voluntario sin nombre";
 }
 
-function formatIsoDate(iso: string | null): string {
-  if (!iso) return "";
-  const datePart = iso.split("T")[0];
-  const [year, month, day] = datePart.split("-");
-  if (!year || !month || !day) return datePart;
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
-}
-
-function formatOperativoOption(op: InviteOperativo): string {
-  const titulo = op.titulo || "Operativo sin título";
-  const fecha = formatIsoDate(op.fecha_inicio);
-  const lugar = op.lugar ? ` · ${op.lugar}` : "";
-  const fechaLabel = fecha ? ` — ${fecha}` : "";
-  return `${titulo}${fechaLabel}${lugar}`;
-}
-
 function buildUniqueOptions(values: Array<string | null>): string[] {
   return Array.from(new Set(values.map((value) => (value || "").trim()).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "es")
   );
 }
 
-export default function InviteManager({ volunteers, operativos, errorMessage }: Props) {
+export default function InviteManager({ volunteers, operativos, invitacionesPorOperativo, errorMessage }: Props) {
+  const searchParams = useSearchParams();
+  const initialOperativo = searchParams.get("operativo") || "";
+  
+  const [selectedOperativo, setSelectedOperativo] = useState(initialOperativo);
   const [search, setSearch] = useState("");
   const [profesionFilter, setProfesionFilter] = useState("");
   const [especialidadFilter, setEspecialidadFilter] = useState("");
-  const [selectedOperativo, setSelectedOperativo] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<Feedback>({ success: "", warning: "", error: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Limpiar selección al cambiar de operativo
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setFeedback({ success: "", warning: "", error: "" });
+  }, [selectedOperativo]);
 
   const professionOptions = useMemo(() => buildUniqueOptions(volunteers.map((vol) => vol.profesion)), [volunteers]);
   const specialtyOptions = useMemo(() => buildUniqueOptions(volunteers.map((vol) => vol.especialidad)), [volunteers]);
@@ -97,6 +90,11 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
 
   const totalSelected = selectedIds.size;
 
+  // Historial de invitaciones para el operativo seleccionado
+  const invitacionesHistorial = selectedOperativo 
+    ? invitacionesPorOperativo.get(selectedOperativo) || []
+    : [];
+
   const toggleVolunteer = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -122,7 +120,15 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
   };
 
   const handleSubmit = async () => {
-    if (!selectedOperativo || selectedIds.size === 0) return;
+    if (!selectedOperativo) {
+      setFeedback({ success: "", warning: "", error: "Debes seleccionar un operativo primero." });
+      return;
+    }
+    if (selectedIds.size === 0) {
+      setFeedback({ success: "", warning: "", error: "Debes seleccionar al menos un voluntario." });
+      return;
+    }
+
     setIsSubmitting(true);
     setFeedback({ success: "", warning: "", error: "" });
 
@@ -133,279 +139,302 @@ export default function InviteManager({ volunteers, operativos, errorMessage }: 
         body: JSON.stringify({ operativoId: selectedOperativo, voluntarioIds: Array.from(selectedIds) }),
       });
 
-      let payload: any = null;
+      type InviteApiResult = {
+        error?: string;
+        message?: string;
+        supabaseError?: { message?: string; code?: string; details?: string };
+        summary?: Record<string, unknown> | null;
+        results?: Array<{ id: string; ok: boolean; status: string; message?: string }>;
+      };
+
+      let payload: InviteApiResult | null = null;
       try {
-        payload = await response.json();
-      } catch (error) {
-        // ignore JSON parse errors for non-2xx
+        payload = (await response.json()) as InviteApiResult;
+      } catch {
+        payload = null;
       }
 
       if (!response.ok) {
         const baseMessage = payload?.error || payload?.message || "No se pudieron enviar las invitaciones.";
         const supabaseError = payload?.supabaseError;
         const detailParts: string[] = [];
-        if (supabaseError?.message) {
-          detailParts.push(`Supabase: ${supabaseError.message}`);
-        }
-        if (supabaseError?.code) {
-          detailParts.push(`Código ${supabaseError.code}`);
-        }
-        if (supabaseError?.details) {
-          detailParts.push(supabaseError.details);
-        }
+        if (supabaseError?.message) detailParts.push(`Supabase: ${supabaseError.message}`);
+        if (supabaseError?.code) detailParts.push(`Código ${supabaseError.code}`);
+        if (supabaseError?.details) detailParts.push(supabaseError.details);
         const detail = detailParts.length ? ` (${detailParts.join(" · ")})` : "";
         throw new Error(`${baseMessage}${detail}`);
       }
 
-      const summary = (payload?.summary && typeof payload.summary === "object") ? payload.summary : {};
+      const summary = (payload?.summary ?? {}) as Record<string, unknown>;
+      const summaryNumber = (key: string): number => {
+        const value = summary[key];
+        if (typeof value === "number") return value;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
       const resultsArray: Array<{ id: string; ok: boolean; status: string; message?: string }> = Array.isArray(
         payload?.results
-      )
-        ? payload.results
-        : [];
+      ) ? payload.results : [];
 
-      const invited = Number(summary?.INVITACION_ENVIADA || 0);
-      const resent = Number(summary?.INVITACION_REENVIADA || 0);
-      const alreadyPostulado = Number(summary?.YA_POSTULO || 0);
-      const alreadyInscrito = Number(summary?.YA_INSCRITO || 0);
-      const failures = Number(summary?.ERROR || 0);
+      const invited = summaryNumber("INVITACION_ENVIADA");
+      const resent = summaryNumber("INVITACION_REENVIADA");
+      const alreadyPostulado = summaryNumber("YA_POSTULO");
+      const alreadyInscrito = summaryNumber("YA_INSCRITO");
+      const failures = summaryNumber("ERROR");
 
       const successParts: string[] = [];
       if (invited > 0) {
-        successParts.push(
-          invited === 1 ? "Se envió 1 invitación nueva." : `Se enviaron ${invited} invitaciones nuevas.`
-        );
+        successParts.push(invited === 1 ? "Se envió 1 invitación nueva." : `Se enviaron ${invited} invitaciones nuevas.`);
       }
       if (resent > 0) {
-        successParts.push(
-          resent === 1 ? "Se reenvió 1 invitación." : `Se reenviaron ${resent} invitaciones.`
-        );
+        successParts.push(resent === 1 ? "Se reenvió 1 invitación." : `Se reenviaron ${resent} invitaciones.`);
       }
 
       const warningParts: string[] = [];
       if (alreadyInscrito > 0) {
-        warningParts.push(
-          alreadyInscrito === 1
-            ? "1 persona ya estaba inscrita."
-            : `${alreadyInscrito} personas ya estaban inscritas.`
-        );
+        warningParts.push(alreadyInscrito === 1 ? "1 persona ya estaba inscrita." : `${alreadyInscrito} personas ya estaban inscritas.`);
       }
       if (alreadyPostulado > 0) {
-        warningParts.push(
-          alreadyPostulado === 1
-            ? "1 persona ya había postulado."
-            : `${alreadyPostulado} personas ya habían postulado.`
-        );
+        warningParts.push(alreadyPostulado === 1 ? "1 persona ya había postulado." : `${alreadyPostulado} personas ya habían postulado.`);
       }
 
       const errorParts: string[] = [];
       if (failures > 0) {
         const firstError = resultsArray.find((item) => !item.ok && item.status === "ERROR");
         const detail = firstError?.message ? ` (${firstError.message})` : "";
-        errorParts.push(
-          failures === 1
-            ? `1 invitación falló${detail}.`
-            : `${failures} invitaciones fallaron. Revisa los registros.`
-        );
+        errorParts.push(failures === 1 ? `1 invitación falló${detail}.` : `${failures} invitaciones fallaron.`);
       }
 
       setFeedback({ success: successParts.join(" "), warning: warningParts.join(" "), error: errorParts.join(" ") });
 
       if (invited > 0 || resent > 0) {
         setSelectedIds(new Set());
+        // Recargar la página para actualizar el historial
+        window.location.reload();
       }
-    } catch (error: any) {
-      setFeedback({ success: "", warning: "", error: error?.message || "No se pudieron enviar las invitaciones." });
+    } catch (error: unknown) {
+      setFeedback({
+        success: "",
+        warning: "",
+        error: getErrorMessage(error, "No se pudieron enviar las invitaciones."),
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const disableSubmit = isSubmitting || !selectedOperativo || selectedIds.size === 0;
-  const noDataLoaded = volunteers.length === 0 || operativos.length === 0;
+  const operativoNoSeleccionado = !selectedOperativo;
+  const disableSubmit = isSubmitting || operativoNoSeleccionado || selectedIds.size === 0;
 
   return (
     <div className="space-y-6">
-      {errorMessage ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
+      {/* Error global de carga */}
+      {errorMessage && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
           {errorMessage}
         </div>
-      ) : null}
+      )}
 
-      {feedback.success ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
+      {/* PASO 1: Selector de Operativo */}
+      <AdminSectionCard
+        title="1. Selecciona el operativo"
+        hint="Solo aparecen operativos publicados con fechas vigentes"
+        icon={<span className="text-lg font-bold text-blue-600">1</span>}
+      >
+        <OperativoSelector
+          operativos={operativos}
+          selectedId={selectedOperativo}
+          onSelect={setSelectedOperativo}
+        />
+      </AdminSectionCard>
+
+      {/* Stats del operativo seleccionado */}
+      {selectedOperativo && (
+        <StatTileGrid>
+          <StatTile
+            icon={<Users className="h-4 w-4" />}
+            label="Voluntarios seleccionados"
+            value={totalSelected}
+            highlight={totalSelected > 0}
+            highlightVariant="blue"
+          />
+          <StatTile
+            icon={<Send className="h-4 w-4" />}
+            label="Invitaciones enviadas"
+            value={invitacionesHistorial.length}
+            highlight={invitacionesHistorial.length > 0}
+            highlightVariant="emerald"
+          />
+        </StatTileGrid>
+      )}
+
+      {/* PASO 2: Selección de voluntarios (solo si hay operativo) */}
+      {operativoNoSeleccionado ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+          <AlertCircle className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+          <p className="text-sm text-slate-600">
+            Selecciona un operativo arriba para ver y seleccionar voluntarios.
+          </p>
+        </div>
+      ) : (
+        <AdminSectionCard
+          title="2. Selecciona los voluntarios"
+          hint="Marca a las personas que quieras invitar"
+          icon={<span className="text-lg font-bold text-blue-600">2</span>}
+        >
+          {/* Filtros */}
+          <div className="mb-4 grid gap-3 md:grid-cols-3">
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium text-slate-700">Buscar</span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nombre o email"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium text-slate-700">Profesión</span>
+              <select
+                value={profesionFilter}
+                onChange={(e) => setProfesionFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Todas</option>
+                {professionOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium text-slate-700">Especialidad</span>
+              <select
+                value={especialidadFilter}
+                onChange={(e) => setEspecialidadFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Todas</option>
+                {specialtyOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {/* Seleccionar todos */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <label className="inline-flex items-center gap-2 font-medium text-slate-600">
+              <input
+                type="checkbox"
+                ref={selectAllRef}
+                checked={allFilteredSelected}
+                onChange={toggleAllFiltered}
+                className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                disabled={filteredIds.length === 0}
+              />
+              Seleccionar todos ({filteredIds.length})
+            </label>
+            <span className="text-slate-500">
+              Seleccionados: <span className="font-semibold text-slate-900">{totalSelected}</span>
+            </span>
+          </div>
+
+          {/* Tabla de voluntarios */}
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="max-h-[350px] overflow-y-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 bg-slate-50/95 backdrop-blur">
+                  <tr>
+                    <th className="w-10 px-3 py-2.5"></th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Email</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Profesión</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Especialidad</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredVolunteers.length > 0 ? (
+                    filteredVolunteers.map((vol) => (
+                      <tr 
+                        key={vol.id} 
+                        className={`cursor-pointer hover:bg-slate-50 ${selectedIds.has(vol.id) ? "bg-blue-50/50" : ""}`}
+                        onClick={() => toggleVolunteer(vol.id)}
+                      >
+                        <td className="px-3 py-2.5">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                            checked={selectedIds.has(vol.id)}
+                            onChange={() => toggleVolunteer(vol.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 font-medium text-slate-900">{formatNombre(vol)}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{vol.email || "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{vol.profesion || "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{vol.especialidad || "—"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        {volunteers.length === 0 
+                          ? "No hay voluntarios registrados." 
+                          : "No hay voluntarios con los filtros actuales."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </AdminSectionCard>
+      )}
+
+      {/* Feedback de envío */}
+      {feedback.success && (
+        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="mt-0.5 h-4 w-4" />
           {feedback.success}
         </div>
-      ) : null}
-      {feedback.warning ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-700 shadow">
+      )}
+      {feedback.warning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
           {feedback.warning}
         </div>
-      ) : null}
-      {feedback.error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
+      )}
+      {feedback.error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
           {feedback.error}
         </div>
-      ) : null}
+      )}
 
-      <section className="space-y-4 rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
-        <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Paso 1</p>
-          <h2 className="text-2xl font-semibold text-slate-900">Selecciona los voluntarios</h2>
-          <p className="text-sm text-slate-500">
-            Marca a las personas que quieras invitar. Puedes buscar por nombre, email, profesión o especialidad.
-          </p>
-        </header>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="space-y-2 text-sm md:col-span-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Nombre o email"
-              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 shadow-inner focus:border-blue-500 focus:outline-none"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Profesión</span>
-            <select
-              value={profesionFilter}
-              onChange={(event) => setProfesionFilter(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Todas</option>
-              {professionOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Especialidad</span>
-            <select
-              value={especialidadFilter}
-              onChange={(event) => setEspecialidadFilter(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Todas</option>
-              {specialtyOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium text-slate-600">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="checkbox"
-              ref={selectAllRef}
-              checked={allFilteredSelected}
-              onChange={toggleAllFiltered}
-              className="h-4 w-4 rounded border-slate-300 accent-blue-600"
-              disabled={filteredIds.length === 0}
-            />
-            Seleccionar todos ({filteredIds.length})
-          </label>
-          <div>
-            Seleccionados: <span className="font-semibold text-slate-900">{totalSelected}</span>
-            {filteredIds.length !== volunteers.length ? (
-              <span className="text-xs text-slate-400"> · filtrados: {filteredIds.length}</span>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-[30px] border border-slate-100 shadow-inner shadow-blue-900/5">
-          <div className="max-h-[420px] overflow-y-auto bg-white/90">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50/80 text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Seleccionar</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Voluntario</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Email</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Profesión</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">Especialidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVolunteers.length ? (
-                  filteredVolunteers.map((vol) => (
-                    <tr key={vol.id} className="border-t align-middle text-slate-700">
-                      <td className="px-5 py-3">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 accent-blue-600"
-                          checked={selectedIds.has(vol.id)}
-                          onChange={() => toggleVolunteer(vol.id)}
-                        />
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="font-medium text-slate-900">{formatNombre(vol)}</div>
-                      </td>
-                      <td className="px-5 py-3 text-slate-600">{vol.email}</td>
-                      <td className="px-5 py-3 text-slate-600">{vol.profesion || "—"}</td>
-                      <td className="px-5 py-3 text-slate-600">{vol.especialidad || "—"}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-slate-500">
-                      {noDataLoaded
-                        ? "Aún no hay datos para mostrar."
-                        : "No hay voluntarios con los filtros actuales."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
-        <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Paso 2</p>
-          <h2 className="text-2xl font-semibold text-slate-900">Selecciona el operativo</h2>
-          <p className="text-sm text-slate-500">
-            El correo reutiliza la misma plantilla que usas desde la ficha del voluntario.
-          </p>
-        </header>
-
-        <label className="space-y-2 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operativo al que quieres invitar</span>
-          <select
-            value={selectedOperativo}
-            onChange={(event) => setSelectedOperativo(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none"
-            disabled={operativos.length === 0}
+      {/* Botón de enviar */}
+      {!operativoNoSeleccionado && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={disableSubmit}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="">Selecciona un operativo</option>
-            {operativos.map((op) => (
-              <option key={op.id} value={op.id}>
-                {formatOperativoOption(op)}
-              </option>
-            ))}
-          </select>
-        </label>
+            <Send className="h-4 w-4" />
+            {isSubmitting ? "Enviando..." : `Enviar ${totalSelected > 0 ? totalSelected : ""} invitación${totalSelected !== 1 ? "es" : ""}`}
+          </button>
+        </div>
+      )}
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="w-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disableSubmit || noDataLoaded}
+      {/* PASO 3: Historial de invitaciones */}
+      {selectedOperativo && (
+        <AdminSectionCard
+          title="3. Invitaciones enviadas"
+          hint="Historial de invitaciones para este operativo"
+          icon={<span className="text-lg font-bold text-blue-600">3</span>}
         >
-          {isSubmitting ? "Enviando invitaciones…" : "Enviar invitaciones"}
-        </button>
-
-        <p className="text-xs text-slate-500">
-          El botón se habilita cuando tienes al menos un voluntario seleccionado y un operativo elegido.
-        </p>
-      </section>
+          <InvitacionesHistorial invitaciones={invitacionesHistorial} />
+        </AdminSectionCard>
+      )}
     </div>
   );
 }

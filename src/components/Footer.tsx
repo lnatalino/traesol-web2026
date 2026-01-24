@@ -1,5 +1,6 @@
 // src/components/Footer.tsx
 import Link from "next/link";
+import { PUBLIC_CONTACT_EMAIL, SOCIAL_LINKS } from "@/lib/constants/publicContact";
 
 export default function Footer() {
   return (
@@ -16,7 +17,7 @@ export default function Footer() {
           </p>
           <div className="flex items-center gap-3 pt-1">
             <a
-              href="https://www.instagram.com/traesol/?hl=es-la"
+              href={SOCIAL_LINKS.instagram}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-[var(--brand-700)] hover:underline"
@@ -37,6 +38,7 @@ export default function Footer() {
             <li><Link href="/postular" className="link-brand">Hazte voluntario</Link></li>
             <li><Link href="/empresas" className="link-brand">Empresas</Link></li>
             <li><Link href="/contacto" className="link-brand">Contacto</Link></li>
+            <li><Link href="/privacidad" className="link-brand">Política de Privacidad</Link></li>
           </ul>
         </div>
 
@@ -45,15 +47,15 @@ export default function Footer() {
           <h4 className="font-semibold mb-3">Contáctanos</h4>
           <ul className="space-y-2 text-sm">
             <li>
-              <a className="link-brand" href="mailto:contacto@fundaciontraesol.cl">
-                contacto@fundaciontraesol.cl
+              <a className="link-brand" href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>
+                {PUBLIC_CONTACT_EMAIL}
               </a>
             </li>
             <li className="text-gray-600">Santiago, Chile</li>
             <li>
               <a
                 className="link-brand"
-                href="https://www.instagram.com/traesol/?hl=es-la"
+                href={SOCIAL_LINKS.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
               >

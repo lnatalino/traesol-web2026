@@ -100,7 +100,8 @@ export async function GET(req: Request) {
   const volunteerId = (searchParams.get("id") ?? "").trim();
   const limit = parseLimit(searchParams);
 
-  let query = supabaseService
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = supabaseService
     .from("voluntarios")
     .select(VOLUNTARIO_COLUMNS)
     .order("created_at", { ascending: false })

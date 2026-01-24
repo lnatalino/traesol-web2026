@@ -23,10 +23,10 @@ export function EmpresasHeroMetrics({ metrics }: { metrics: EmpresaMetricsRecord
   ];
 
   return (
-    <div className="mt-8 grid gap-4 md:grid-cols-3">
+    <div className="mt-4 grid gap-4 md:grid-cols-3 max-w-3xl mx-auto">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-lg backdrop-blur">
-          <p className="text-sm text-white/80">{card.label}</p>
+        <div key={card.label} className="rounded-2xl border border-white/15 bg-white/10 p-4 text-center">
+          <p className="text-sm text-slate-300">{card.label}</p>
           <p className="text-3xl font-bold tracking-tight text-white">
             <CountUpNumber target={card.value} prefix={card.prefix} />
           </p>

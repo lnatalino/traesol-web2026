@@ -22,7 +22,11 @@ function sanitizeSearch(value: string): string {
   return value.replace(/[,%]/g, " ").trim();
 }
 
-function applySearch(query: any, search: string) {
+type SearchableQuery<T> = {
+  or: (filters: string, options?: { foreignTable?: string; referencedTable?: string }) => T;
+};
+
+function applySearch<T extends SearchableQuery<T>>(query: T, search: string): T {
   const term = sanitizeSearch(search);
   if (!term) return query;
   const pattern = `%${term}%`;

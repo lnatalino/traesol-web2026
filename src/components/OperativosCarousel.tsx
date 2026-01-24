@@ -1,16 +1,16 @@
 import OperativoCard from "./OperativoCard";
 
-type Operativo = {
+export type OperativosCarouselItem = {
   id: string;
   titulo: string;
   slug: string;
   fecha_inicio: string;
   lugar: string | null;
   imagen_cabecera_url: string | null;
-  imagenes?: Array<{ url: string; path?: string | null }>;
+  imagenes?: Array<{ id?: string; url: string; path?: string | null }>;
 };
 
-export default function OperativosCarousel({ items }: { items: Operativo[] }) {
+export default function OperativosCarousel({ items }: { items: OperativosCarouselItem[] }) {
   if (!items.length) return null;
 
   return (

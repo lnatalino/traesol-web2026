@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
+import { getErrorMessage } from "@/lib/errors";
 
 type Payload = {
   id: string;
@@ -48,8 +49,9 @@ async function parsePayload(req: Request): Promise<Payload> {
 }
 
 export async function POST(req: Request) {
+  let payload: Payload | null = null;
   try {
-    const payload = await parsePayload(req);
+    payload = await parsePayload(req);
     const id = payload.id.trim();
     const estado = payload.estado.trim().toLowerCase();
 
@@ -66,7 +68,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 403 });
     }
 
-    const { error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseService as any)
       .from("operativos")
       .update({ estado })
       .eq("id", id);
@@ -83,10 +86,21 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.redirect(new URL("/admin/operativos", req.url), 303);
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Error" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Operativos] Error cambiando estado", payload?.id ?? "", debug, error);
+    const fallback = "No se pudo actualizar el estado del operativo.";
+    if (payload?.redirectTo) {
+      const url = new URL(payload.redirectTo, req.url);
+      url.searchParams.set("error", fallback);
+      return NextResponse.redirect(url, 303);
+    }
+    const wantsJson = (req.headers.get("accept") || "").includes("application/json");
+    if (wantsJson || (req.headers.get("content-type") || "").includes("application/json")) {
+      return NextResponse.json({ ok: false, error: fallback }, { status: 500 });
+    }
+    const url = new URL("/admin/operativos", req.url);
+    url.searchParams.set("error", fallback);
+    return NextResponse.redirect(url, 303);
   }
 }

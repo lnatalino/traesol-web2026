@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import type { EmpresaMetricsRecord } from "@/lib/empresas";
 
 const inputStyles =
@@ -20,16 +20,26 @@ export function EmpresaMetricsForm({ initialMetrics }: { initialMetrics: Empresa
   });
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialMetrics.updatedAt);
   const [status, setStatus] = useState<Status>({ type: "idle" });
+  const [formattedUpdatedAt, setFormattedUpdatedAt] = useState<string>("—");
 
-  const formattedUpdatedAt = useMemo(() => {
-    if (!lastUpdated) return "Aún no registrado";
+  useEffect(() => {
+    if (!lastUpdated) {
+      setFormattedUpdatedAt("—");
+      return;
+    }
     try {
-      return new Intl.DateTimeFormat("es-CL", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(lastUpdated));
+      const date = new Date(lastUpdated);
+      const formatted = date.toLocaleString("es-CL", {
+        timeZone: "America/Santiago",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setFormattedUpdatedAt(formatted);
     } catch {
-      return lastUpdated;
+      setFormattedUpdatedAt(lastUpdated);
     }
   }, [lastUpdated]);
 

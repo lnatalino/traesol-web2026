@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { getAdminSession } from "@/lib/adminSession";
 import { toSlug } from "@/lib/slug";
+import { getErrorMessage } from "@/lib/errors";
 import {
   assertValidImageFile,
   createStoragePath,
@@ -22,6 +23,13 @@ type OperativoInsert = {
   imagen_cabecera_url: string | null;
   instagram_url: string | null;
   whatsapp_grupo_url: string | null;
+  lanyard_type_id: string | null;
+};
+
+type OperativoImageInsert = {
+  operativo_id: string;
+  url: string;
+  path: string;
 };
 
 const STORAGE_BUCKET = PUBLIC_STORAGE_BUCKET;
@@ -110,6 +118,7 @@ export async function POST(req: Request) {
     imagen_cabecera_url: null,
     instagram_url: parseFormValue(form.get("instagram_url")) || null,
     whatsapp_grupo_url: parseFormValue(form.get("whatsapp_grupo_url")) || null,
+    lanyard_type_id: parseFormValue(form.get("lanyard_type_id")) || null,
   };
 
   const galleryFiles = form.getAll("operativo_galeria_files");
@@ -123,7 +132,8 @@ export async function POST(req: Request) {
       payload.imagen_cabecera_url = portadaUpload.url;
     }
 
-    const { data, error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabaseService as any)
       .from("operativos")
       .insert(payload)
       .select("id")
@@ -133,12 +143,13 @@ export async function POST(req: Request) {
 
     const uploaded = await uploadGalleryImages(galleryFiles);
     if (uploaded.length && data?.id) {
-      const rows = uploaded.map((item) => ({
+      const rows: OperativoImageInsert[] = uploaded.map((item) => ({
         operativo_id: data.id,
         url: item.url,
         path: item.path,
       }));
-      const { error: galleryError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: galleryError } = await (supabaseService as any)
         .from("operativo_imagenes")
         .insert(rows);
       if (galleryError) throw galleryError;
@@ -147,13 +158,14 @@ export async function POST(req: Request) {
     const redirectTo = parseFormValue(form.get("redirectTo")) || `/admin/operativos/${data?.id ?? ""}`;
     const target = redirectTo || "/admin/operativos";
     return NextResponse.redirect(new URL(target, req.url), 303);
-  } catch (err: any) {
+  } catch (error: unknown) {
     if (portadaUpload) {
       await supabaseService.storage.from(STORAGE_BUCKET).remove([portadaUpload.path]);
     }
-    const message = err?.message ? String(err.message) : "No se pudo crear el operativo.";
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Operativos] Error creando operativo", debug, error);
     const url = new URL("/admin/operativos/nuevo", req.url);
-    url.searchParams.set("error", message);
+    url.searchParams.set("error", "No se pudo crear el operativo. Intenta nuevamente.");
     return NextResponse.redirect(url, 303);
   }
 }

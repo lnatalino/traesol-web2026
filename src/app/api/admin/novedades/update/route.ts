@@ -188,7 +188,8 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseService as any)
       .from("novedades")
       .update(payload)
       .eq("id", id);
@@ -209,7 +210,8 @@ export async function POST(req: Request) {
     const removePaths = toRemove.map((img) => img.path).filter(Boolean);
 
     if (removeIds.length) {
-      const { error: deleteError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: deleteError } = await (supabaseService as any)
         .from("novedad_imagenes")
         .delete()
         .in("id", removeIds);
@@ -227,7 +229,8 @@ export async function POST(req: Request) {
         url: item.url,
         path: item.path,
       }));
-      const { error: insertError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: insertError } = await (supabaseService as any)
         .from("novedad_imagenes")
         .insert(rows);
       if (insertError) throw insertError;

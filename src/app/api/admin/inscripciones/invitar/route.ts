@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { sendInvitacionOperativoEmail } from "@/lib/email";
+import { getErrorMessage } from "@/lib/errors";
 import {
   inferInscripcionOrigen,
   INSCRIPCION_ORIGEN,
@@ -118,14 +119,20 @@ export async function POST(req: Request) {
   let redirectTo = "";
 
   if (expectsJson) {
-    let payload: any = null;
-    try {
-      payload = await req.json();
-    } catch (error) {
-      payload = null;
-    }
+    type JsonPayload = {
+      voluntarioIds?: unknown;
+      operativoId?: unknown;
+      estado?: unknown;
+    };
 
-    const ids = Array.isArray(payload?.voluntarioIds) ? payload.voluntarioIds : [];
+    let rawPayload: unknown = null;
+    try {
+      rawPayload = await req.json();
+    } catch {
+      rawPayload = null;
+    }
+    const payload = rawPayload && typeof rawPayload === "object" ? (rawPayload as JsonPayload) : null;
+    const ids = Array.isArray(payload?.voluntarioIds) ? payload?.voluntarioIds : [];
     voluntarioIds = ids
       .map((value: unknown) => (typeof value === "string" ? value.trim() : ""))
       .filter((value: string): value is string => value.length > 0);
@@ -146,14 +153,6 @@ export async function POST(req: Request) {
   const invitacionEstado = normalizeInscripcionEstado(estadoRaw) ?? INVITACION_ESTADO_FALLBACK;
   const fallback = operativoId ? `/admin/operativos/${operativoId}` : "/admin/inscripciones";
   const successUrl = expectsJson ? null : ensureRedirect(redirectTo, fallback, req);
-
-  console.log("DEBUG invitacion:init", {
-    operativoId,
-    voluntarioIds,
-    estadoRaw: estadoRaw || null,
-    estadoFinal: invitacionEstado,
-    redirectTo,
-  });
 
   if (!voluntarioIds.length || !operativoId) {
     if (expectsJson) {
@@ -279,7 +278,8 @@ export async function POST(req: Request) {
           origen: INSCRIPCION_ORIGEN.INVITACION,
         };
 
-        const { error: insertError } = await supabaseService.from("inscripciones").insert(insertPayload);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: insertError } = await supabaseService.from("inscripciones").insert(insertPayload as any);
         if (insertError) throw insertError;
 
         const nombres = [voluntario.nombres, voluntario.apellidos]
@@ -302,14 +302,15 @@ export async function POST(req: Request) {
 
         summary.INVITACION_ENVIADA += 1;
         results.push({ id, ok: true, status: "INVITACION_ENVIADA", message: "Invitación enviada correctamente." });
-      } catch (error: any) {
-        console.error("Error invitando voluntario", id, error);
+      } catch (error: unknown) {
+        const debug = getErrorMessage(error);
+        console.error("Error invitando voluntario", id, debug, error);
         summary.ERROR += 1;
         results.push({
           id,
           ok: false,
           status: "ERROR",
-          message: error?.message ? String(error.message) : "Error desconocido",
+          message: "No se pudo enviar la invitación.",
         });
       }
     }
@@ -377,17 +378,18 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.redirect(successUrl ?? new URL("/admin/invitaciones", req.url), 303);
-  } catch (error: any) {
-    console.error("Error enviando invitaciones", error);
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("Error enviando invitaciones", debug, error);
     if (expectsJson) {
       return NextResponse.json(
-        { ok: false, error: error?.message ? String(error.message) : "No se pudieron enviar las invitaciones." },
+        { ok: false, error: "No se pudieron enviar las invitaciones." },
         { status: 500 }
       );
     }
 
     const url = ensureRedirect(redirectTo, fallback, req);
-    url.searchParams.set("error", error?.message ? String(error.message) : "No se pudo enviar la invitación.");
+    url.searchParams.set("error", "No se pudo enviar la invitación.");
     return NextResponse.redirect(url, 303);
   }
 }

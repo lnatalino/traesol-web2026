@@ -23,7 +23,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { data, error } = await supabaseService
+    // Bypass type checking due to Supabase client type inference issues
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = supabaseService as any;
+    const { data, error } = await client
       .from("empresa_productos")
       .update({ activo, updated_at: new Date().toISOString() })
       .eq("id", id)

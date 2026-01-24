@@ -6,11 +6,12 @@ import { useMemo, useState } from "react";
 
 const navLinks = [
   { href: "/", label: "Inicio" },
-  { href: "/sobre-nosotros", label: "Sobre nosotros" }, // ← nuevo
+  { href: "/sobre-nosotros", label: "Sobre nosotros" },
   { href: "/operativos", label: "Operativos" },
   { href: "/contacto", label: "Contacto" },
+  { href: "/privacidad", label: "Privacidad" },
   { href: "/empresas", label: "Empresas" },
-  { href: "/admin", label: "Admin" }, // ← nuevo (middleware pedirá login si corresponde)
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function Navbar() {

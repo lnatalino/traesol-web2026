@@ -2,23 +2,40 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowser } from "@/lib/supabaseServer";
 
-type Operativo = {
+type OperativoRow = {
   id: string;
-  titulo: string;
   slug: string;
-  descripcion: string | null;
-  fecha_inicio: string;
+  titulo: string | null;
+  fecha_inicio: string | null;
   fecha_fin: string | null;
   lugar: string | null;
   direccion: string | null;
+  descripcion: string | null;
   cupos_total: number | null;
-  estado: "borrador" | "publicado" | "cerrado" | "finalizado";
   imagen_cabecera_url: string | null;
+  estado: string | null;
   instagram_url: string | null;
-  imagenes: Array<{ id: string; url: string; path: string | null }>;
+  whatsapp_grupo_url: string | null;
+  created_at: string;
+};
+
+type OperativoImagenRow = {
+  id: string;
+  operativo_id: string;
+  url: string | null;
+  path: string | null;
+};
+
+type Operativo = OperativoRow & {
+  imagenes: Array<Pick<OperativoImagenRow, "id" | "url" | "path">>;
+};
+
+type OperativoWithImages = OperativoRow & {
+  operativo_imagenes?: Array<Pick<OperativoImagenRow, "id" | "url" | "path">>;
 };
 
 function fDate(iso: string | null) {
@@ -41,32 +58,28 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       setMotivo(null);
 
       // 1) publicado
-      const { data: pub, error: e1 } = await supabase
+      const { data: pub, error: publishedError } = await supabase
         .from("operativos")
         .select(
           "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,operativo_imagenes(id,url,path)"
         )
         .eq("slug", slug)
         .eq("estado", "publicado")
-        .maybeSingle();
+        .maybeSingle<OperativoWithImages>();
 
-      if (e1) console.log("operativo publicado error:", e1);
+      if (publishedError) console.error("[operativos] client published error", publishedError);
 
       if (alive && pub) {
-        const imagenes = Array.isArray((pub as any)?.operativo_imagenes)
-          ? (pub as any).operativo_imagenes
-              .filter((img: any) => typeof img?.url === "string" && img.url)
-              .map((img: any) => ({
-                id: String(img.id ?? img.url),
-                url: String(img.url),
-                path: img.path ?? null,
-              }))
+        const { operativo_imagenes: publishedImages, ...rest } = pub;
+
+        const imagenes = Array.isArray(publishedImages)
+          ? publishedImages
+              .filter((img) => typeof img?.url === "string" && !!img.url)
+              .map((img) => ({ id: String(img.id ?? img.url), url: String(img.url), path: img.path ?? null }))
           : [];
 
-        const { operativo_imagenes, ...rest } = (pub as any) ?? {};
-
         setOp({
-          ...(rest as Omit<Operativo, "imagenes">),
+          ...rest,
           imagenes,
         });
         setLoading(false);
@@ -74,13 +87,13 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       }
 
       // 2) Diagnóstico: ver si existe con otro estado
-      const { data: anyRow, error: e2 } = await supabase
+      const { data: anyRow, error: anyStateError } = await supabase
         .from("operativos")
         .select("id,slug,estado,titulo")
         .eq("slug", slug)
-        .maybeSingle();
+        .maybeSingle<Pick<OperativoRow, "id" | "slug" | "estado" | "titulo">>();
 
-      if (e2) console.log("operativo any error:", e2);
+      if (anyStateError) console.error("[operativos] client any-state error", anyStateError);
 
       if (alive) {
         if (anyRow) {
@@ -113,9 +126,9 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       <main className="max-w-3xl mx-auto px-4 py-20 text-center space-y-4">
         <h1 className="text-2xl font-bold">Operativo no encontrado</h1>
         {motivo && <p className="text-gray-600">{motivo}</p>}
-        <a href="/" className="inline-block px-4 py-2 rounded-xl border hover:bg-gray-50">
+        <Link href="/" className="inline-block px-4 py-2 rounded-xl border hover:bg-gray-50">
           Volver al inicio
-        </a>
+        </Link>
       </main>
     );
   }
@@ -129,7 +142,7 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
       <div className="relative h-56 md:h-72 rounded-2xl overflow-hidden border shadow">
-        <Image src={imageSrc} alt={op.titulo} fill className="object-cover" unoptimized priority />
+        <Image src={imageSrc} alt={op.titulo || "Operativo Traesol"} fill className="object-cover" unoptimized priority />
       </div>
 
       <header className="space-y-2">
@@ -170,12 +183,12 @@ export default function OperativoDetailClient({ slug }: { slug: string }) {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">¿Quieres participar?</h2>
         <div className="flex gap-3">
-          <a
+          <Link
             href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
             className="px-4 py-2 rounded-xl border shadow hover:shadow-md transition"
           >
             Postular como voluntario
-          </a>
+          </Link>
           <a href="#contacto" className="px-4 py-2 rounded-xl border hover:bg-gray-50 transition">
             Consultas
           </a>

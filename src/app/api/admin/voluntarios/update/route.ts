@@ -11,6 +11,16 @@ function normalizeOrNull(value: FormDataEntryValue | null): string | null {
   return v.length ? v : null;
 }
 
+function normalizeNonNegativeInt(value: FormDataEntryValue | null): number {
+  const raw = parseValue(value);
+  if (!raw) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
+}
+
 export async function POST(req: Request) {
   const session = await getAdminSession();
   if (!session.allowed) {
@@ -40,10 +50,15 @@ export async function POST(req: Request) {
     talla_polera: normalizeOrNull(form.get("talla_polera")),
     talla_pantalon: normalizeOrNull(form.get("talla_pantalon")),
     tipo_usuario: normalizeOrNull(form.get("tipo_usuario")),
+    operativos_asistidos: normalizeNonNegativeInt(form.get("operativos_asistidos")),
+    uniformes_entregados: normalizeNonNegativeInt(form.get("uniformes_entregados")),
+    ultima_entrega_uniforme_en: normalizeOrNull(form.get("ultima_entrega_uniforme_en")),
+    nota_inventario: normalizeOrNull(form.get("nota_inventario")),
   } as const;
 
   try {
-    const { error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseService as any)
       .from("voluntarios")
       .update(payload)
       .eq("id", id);

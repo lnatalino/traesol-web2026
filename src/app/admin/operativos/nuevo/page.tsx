@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { getAdminSession } from "@/lib/adminSession";
+import { supabaseService } from "@/lib/supabaseService";
 import { OperativoForm } from "@/app/admin/operativos/_form";
 
 export const dynamic = "force-dynamic";
@@ -16,34 +18,49 @@ export default async function NuevoOperativoPage({
     redirect("/login?next=/admin/operativos/nuevo");
   }
 
-  const error = typeof params?.error === "string" ? params.error : "";
-  const success = typeof params?.success === "string" ? params.success : "";
+  // Cargar lanyard types disponibles
+  const { data: lanyardTypes } = await supabaseService
+    .from("lanyard_types")
+    .select("id, name, ribbon_color_name, ribbon_hex")
+    .eq("is_active", true)
+    .order("display_order");
+
+  const errorMessage = typeof params?.error === "string" ? params.error : "";
+  const successMessage = typeof params?.success === "string" ? params.success : "";
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Nuevo operativo</h1>
-          <p className="text-sm text-slate-500">Crea un operativo y publícalo cuando esté listo.</p>
-        </div>
-        <Link href="/admin/operativos" className="text-sm text-blue-600 underline">
-          Volver al listado
-        </Link>
-      </div>
+      <AdminHeader
+        eyebrow="Operativos"
+        title="Nuevo operativo"
+        description="Crea un operativo multiespecialidad, carga sus fechas y deja todo listo para publicar cuando estés preparado."
+        action={(
+          <Link
+            href="/admin/operativos"
+            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Volver al listado
+          </Link>
+        )}
+      />
 
-      {success && (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-700 shadow">
+          {successMessage}
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+      {errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 shadow">
+          {errorMessage}
         </div>
-      )}
+      ) : null}
 
-      <OperativoForm action="/api/admin/operativos/create" submitLabel="Crear operativo">
+      <OperativoForm 
+        action="/api/admin/operativos/create" 
+        submitLabel="Crear operativo"
+        lanyardTypes={lanyardTypes ?? []}
+      >
         <input type="hidden" name="redirectTo" value="/admin/operativos" />
       </OperativoForm>
     </div>

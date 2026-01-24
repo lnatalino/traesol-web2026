@@ -147,7 +147,8 @@ export async function POST(request: Request) {
       carrito_resumen,
     };
 
-    const { data: solicitudData, error: solicitudError } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: solicitudData, error: solicitudError } = await (supabaseService as any)
       .from("empresa_solicitudes")
       .insert(solicitudInsert)
       .select(
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: false, error: "No se pudo validar los productos seleccionados" }, { status: 500 });
       }
 
-      const activos = (productosData ?? []).filter((item) => item.activo);
+      const activos = ((productosData ?? []) as Array<{ id: string; nombre: string; categoria: string | null; activo: boolean }>).filter((item) => item.activo);
       productosResumen = selecciones
         .map((seleccion): ProductoResumen | null => {
           const meta = activos.find((prod) => prod.id === seleccion.id);
@@ -201,7 +202,8 @@ export async function POST(request: Request) {
         }));
         console.log("[EMPRESAS] Detalle a insertar", JSON.stringify(detallePayload, null, 2));
         try {
-          const { error: detalleError } = await supabaseService.from("empresa_solicitud_items").insert(detallePayload);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: detalleError } = await (supabaseService as any).from("empresa_solicitud_items").insert(detallePayload);
           if (detalleError) {
             console.error("[EMPRESAS] Error al guardar detalle", detalleError);
             return NextResponse.json(

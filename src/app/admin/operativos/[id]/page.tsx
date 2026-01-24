@@ -1,7 +1,28 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AdminHero } from "@/components/admin/AdminHero";
+import {
+  Users,
+  UserCheck,
+  UserPlus,
+  ClipboardList,
+  Package,
+  Download,
+  ArrowLeft,
+  Search,
+  ExternalLink,
+  Send,
+  History,
+} from "lucide-react";
+import { AdminSectionCard } from "@/components/admin/operativos/AdminSectionCard";
+import { OperativoSummaryCard } from "@/components/admin/operativos/OperativoSummaryCard";
+import { OperativoInventoryMassive } from "@/components/admin/OperativoInventoryMassive";
+import InviteVolunteers from "./InviteVolunteers";
+import {
+  buildProfesionOptions,
+  buildEspecialidadOptions,
+} from "@/lib/voluntariosAdmin";
+import { ConfirmadosTableWithSearch } from "./ConfirmadosTableWithSearch";
 import { getAdminSession } from "@/lib/adminSession";
 import {
   humanizeInscripcionEstado,
@@ -14,6 +35,7 @@ import {
   normalizeInscripcionOrigen,
   type InscripcionEstado,
 } from "@/lib/inscripciones";
+import { getPlanInventarioOperativo } from "@/lib/inventario";
 import { supabaseService } from "@/lib/supabaseService";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +59,6 @@ type Operativo = {
   imagen_cabecera_url: string | null;
   instagram_url: string | null;
   whatsapp_grupo_url: string | null;
-  operativo_imagenes?: Array<{ id: string; url: string | null; path: string | null }>;
 };
 
 type Inscripcion = {
@@ -56,65 +77,24 @@ type Voluntario = {
   email: string | null;
   telefono: string | null;
   rut: string | null;
-  id_nacional: string | null;
-  pasaporte: string | null;
   profesion: string | null;
   profesion_otro: string | null;
   especialidad: string | null;
   nombre_credencial: string | null;
-  instagram: string | null;
 };
 
-function humanOperativoEstado(value: string): string {
-  const normalized = value.toLowerCase();
-  switch (normalized) {
-    case "publicado":
-      return "Publicado";
-    case "borrador":
-      return "Borrador";
-    case "finalizado":
-      return "Finalizado";
-    case "cerrado":
-      return "Cerrado";
-    default:
-      return value;
-  }
-}
-
-function estadoBadgeClass(value: string): string {
-  const normalized = value.toLowerCase();
-  if (normalized === "publicado") return "bg-green-100 text-green-700 ring-green-200";
-  if (normalized === "borrador") return "bg-amber-100 text-amber-700 ring-amber-200";
-  if (normalized === "finalizado") return "bg-slate-200 text-slate-700 ring-slate-300";
-  if (normalized === "cerrado") return "bg-red-100 text-red-700 ring-red-200";
-  return "bg-slate-100 text-slate-600 ring-slate-200";
-}
+/* ─────────────────────────────────────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────────────────────────────────────── */
 
 function inscripcionEstadoBadgeClass(estado: InscripcionEstado | null): string {
-  if (isPendingEstado(estado)) return "bg-amber-100 text-amber-700 ring-amber-200";
-  if (isConfirmedEstado(estado)) return "bg-emerald-100 text-emerald-700 ring-emerald-200";
-  if (isRejectedEstado(estado)) return "bg-rose-100 text-rose-700 ring-rose-200";
+  if (isPendingEstado(estado))
+    return "bg-amber-100 text-amber-700 ring-amber-200";
+  if (isConfirmedEstado(estado))
+    return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+  if (isRejectedEstado(estado))
+    return "bg-rose-100 text-rose-700 ring-rose-200";
   return "bg-slate-100 text-slate-600 ring-slate-200";
-}
-
-function formatRangoFechas(inicio: string | null, fin: string | null): string {
-  const formatter = new Intl.DateTimeFormat("es-CL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-  const startDate = inicio ? new Date(inicio) : null;
-  const endDate = fin ? new Date(fin) : null;
-
-  if (!startDate || Number.isNaN(startDate.getTime())) {
-    return endDate && !Number.isNaN(endDate.getTime()) ? formatter.format(endDate) : "Por confirmar";
-  }
-
-  if (!endDate || Number.isNaN(endDate.getTime()) || startDate.getTime() === endDate.getTime()) {
-    return formatter.format(startDate);
-  }
-
-  return `${formatter.format(startDate)} – ${formatter.format(endDate)}`;
 }
 
 function formatFechaCorta(value: string | null): string {
@@ -130,23 +110,6 @@ function formatFechaCorta(value: string | null): string {
   });
 }
 
-function formatInstagramHandle(value: string | null): { label: string; href?: string } {
-  if (!value) return { label: "—" };
-  try {
-    const url = new URL(value.startsWith("http") ? value : `https://${value.replace(/^\/+/, "")}`);
-    if (url.hostname.includes("instagram.com")) {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const handle = parts[0] ? `@${parts[0]}` : url.hostname;
-      return { label: handle, href: url.toString() };
-    }
-    return { label: url.hostname, href: url.toString() };
-  } catch (error) {
-    const trimmed = value.trim();
-    const label = trimmed.startsWith("@") ? trimmed : `@${trimmed.replace(/^@/, "")}`;
-    return { label };
-  }
-}
-
 function formatNombreVoluntario(voluntario?: Voluntario): string {
   if (!voluntario) return "—";
   const parts = [voluntario.nombres, voluntario.apellidos].filter(Boolean);
@@ -154,36 +117,15 @@ function formatNombreVoluntario(voluntario?: Voluntario): string {
   return voluntario.nombre_credencial || "—";
 }
 
-function describeInvitacionEstado(estado: InscripcionEstado | null): string {
-  if (!estado || estado === INSCRIPCION_ESTADO.POSTULADO || estado === INSCRIPCION_ESTADO.PENDIENTE) {
-    return "Pendiente de aceptación";
-  }
-  if (estado === INSCRIPCION_ESTADO.APROBADO || estado === INSCRIPCION_ESTADO.CONFIRMADO) {
-    return "Aceptada por voluntario";
-  }
-  return "Rechazada";
-}
-
 function originBadgeClass(origin: "postulacion" | "invitacion"): string {
-  if (origin === "invitacion") return "bg-blue-50 text-blue-700 ring-blue-200";
+  if (origin === "invitacion")
+    return "bg-blue-50 text-blue-700 ring-blue-200";
   return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-}
-
-function renderEstadoPill(estado: string): ReactElement {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${estadoBadgeClass(
-        estado,
-      )}`}
-    >
-      {humanOperativoEstado(estado)}
-    </span>
-  );
 }
 
 function readMessage(
   source: Record<string, string | string[] | undefined> | undefined,
-  key: string,
+  key: string
 ): string {
   if (!source) return "";
   const raw = source[key];
@@ -191,7 +133,14 @@ function readMessage(
   return typeof raw === "string" ? raw : "";
 }
 
-export default async function OperativoDetailPage({ params, searchParams }: PageProps) {
+/* ─────────────────────────────────────────────────────────────────────────────
+   PAGE COMPONENT
+   ───────────────────────────────────────────────────────────────────────────── */
+
+export default async function OperativoDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const [resolvedParams, resolvedSearchParams] = await Promise.all([
     params,
     searchParams ?? Promise.resolve(undefined),
@@ -207,11 +156,15 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
     redirect(`/login?next=/admin/operativos/${operativoId}`);
   }
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     FETCH DATA
+     ─────────────────────────────────────────────────────────────────────────── */
+
   const [operativoResult, inscripcionesResult] = await Promise.all([
     supabaseService
       .from("operativos")
       .select(
-        "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,whatsapp_grupo_url,operativo_imagenes(id,url,path)"
+        "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,whatsapp_grupo_url"
       )
       .eq("id", operativoId)
       .maybeSingle<Operativo>(),
@@ -239,7 +192,11 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
 
   const inscripciones = (inscripcionesResult.data ?? []) as Inscripcion[];
   const voluntarioIds = Array.from(
-    new Set(inscripciones.map((row) => row.voluntario_id).filter((value): value is string => Boolean(value)))
+    new Set(
+      inscripciones
+        .map((row) => row.voluntario_id)
+        .filter((value): value is string => Boolean(value))
+    )
   );
 
   const statusSummary = inscripciones.reduce(
@@ -259,7 +216,7 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
     const voluntariosResult = await supabaseService
       .from("voluntarios")
       .select(
-        "id,nombres,apellidos,email,telefono,rut,id_nacional,pasaporte,profesion,profesion_otro,especialidad,nombre_credencial,instagram"
+        "id,nombres,apellidos,email,telefono,rut,profesion,profesion_otro,especialidad,nombre_credencial"
       )
       .in("id", voluntarioIds);
 
@@ -273,31 +230,48 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
     }
   }
 
-  const statusOptions: readonly string[] = INSCRIPCION_ESTADOS;
+  // Cargar opciones para filtros de invitaciones
+  const allVolunteersResult = await supabaseService
+    .from("voluntarios")
+    .select("profesion,especialidad");
+  const allVolunteers = (allVolunteersResult.data ?? []) as Array<{
+    profesion: string | null;
+    especialidad: string | null;
+  }>;
+  const profesionOptions = buildProfesionOptions(allVolunteers);
+  const especialidadOptions = buildEspecialidadOptions(allVolunteers);
+  const inviteFilterOptions = {
+    profesiones: profesionOptions.values,
+    especialidades: especialidadOptions.values,
+    includeEmptyProfesion: profesionOptions.includeEmpty,
+    includeEmptyEspecialidad: especialidadOptions.includeEmpty,
+  };
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     PROCESS DATA
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  const statusOptions: readonly string[] = INSCRIPCION_ESTADOS;
   const successMessage = readMessage(resolvedSearchParams, "success");
   const errorMessage = readMessage(resolvedSearchParams, "error");
-  const fechaInicioCompleta = operativo.fecha_inicio ? formatFechaCorta(operativo.fecha_inicio) : "—";
-  const fechaFinCompleta = operativo.fecha_fin ? formatFechaCorta(operativo.fecha_fin) : "—";
-  const fechaRango = formatRangoFechas(operativo.fecha_inicio, operativo.fecha_fin);
-  const galeria = Array.isArray(operativo.operativo_imagenes)
-    ? operativo.operativo_imagenes
-        .filter((item) => typeof item?.url === "string" && item.url)
-        .map((item) => ({ id: item.id, url: item.url as string }))
-    : [];
-  const instagramHandle = formatInstagramHandle(operativo.instagram_url);
+  const noticeMessage = readMessage(resolvedSearchParams, "notice");
   const csvHref = `/api/admin/operativos/${operativoId}/inscripciones/accepted`;
-  const publicUrl = operativo.slug ? `/operativos/${operativo.slug}` : null;
   const redirectToUrl = `/admin/operativos/${operativoId}?success=Estado+actualizado`;
 
   const inscripcionesDetalladas = inscripciones.map((inscripcion) => {
-    const voluntario = inscripcion.voluntario_id ? voluntariosMap.get(inscripcion.voluntario_id) : undefined;
-    const estadoActual = normalizeInscripcionEstado(inscripcion.estado) ?? INSCRIPCION_ESTADO.POSTULADO;
-    const origenNormalizado = normalizeInscripcionOrigen(inscripcion.origen) === "invitacion" ? "invitacion" : "postulacion";
+    const voluntario = inscripcion.voluntario_id
+      ? voluntariosMap.get(inscripcion.voluntario_id)
+      : undefined;
+    const estadoActual =
+      normalizeInscripcionEstado(inscripcion.estado) ?? INSCRIPCION_ESTADO.POSTULADO;
+    const origenNormalizado =
+      normalizeInscripcionOrigen(inscripcion.origen) === "invitacion"
+        ? "invitacion"
+        : "postulacion";
 
     return {
       raw: inscripcion,
-      voluntario,
+      voluntario: voluntario ? { id: voluntario.id, rut: voluntario.rut } : undefined,
       estadoActual,
       estadoLabel: humanizeInscripcionEstado(estadoActual),
       estadoBadge: inscripcionEstadoBadgeClass(estadoActual),
@@ -309,431 +283,535 @@ export default async function OperativoDetailPage({ params, searchParams }: Page
     } as const;
   });
 
-  const postulaciones = inscripcionesDetalladas.filter((row) => row.origen === "postulacion");
-  const invitaciones = inscripcionesDetalladas.filter((row) => row.origen === "invitacion");
+  // Separar por tipo
   const confirmados = inscripcionesDetalladas.filter(
-    (row) => row.estadoActual === INSCRIPCION_ESTADO.APROBADO || row.estadoActual === INSCRIPCION_ESTADO.CONFIRMADO,
+    (row) =>
+      row.estadoActual === INSCRIPCION_ESTADO.APROBADO ||
+      row.estadoActual === INSCRIPCION_ESTADO.CONFIRMADO
   );
 
-  return (
-    <div className="space-y-8">
-      <AdminHero
-        eyebrow={(
-          <span className="inline-flex items-center gap-2">
-            Operativo
-            <span className="text-white/70">ID {operativo.id.slice(0, 8)}</span>
-          </span>
-        )}
-        title={operativo.titulo}
-        description={(
-          <div className="space-y-2 text-white/80">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span>{fechaRango}</span>
-              {operativo.lugar ? (
-                <>
-                  <span>·</span>
-                  <span>{operativo.lugar}</span>
-                </>
-              ) : null}
-            </div>
-            <p className="max-w-3xl text-sm text-white/80">
-              {operativo.descripcion || "Sin descripción disponible."}
-            </p>
-          </div>
-        )}
-        rightSlot={(
-          <div className="flex flex-col items-end gap-4 text-right">
-            {renderEstadoPill(operativo.estado)}
-            <div className="text-xs text-white/70">
-              Slug: <span className="font-mono text-white">{operativo.slug || "—"}</span>
-            </div>
-            <div className="flex flex-col gap-3 text-xs">
-              {publicUrl ? (
-                <Link
-                  href={publicUrl}
-                  className="inline-flex items-center justify-center rounded-full border border-white/30 px-4 py-2 font-semibold text-white transition hover:bg-white/10"
-                >
-                  Ver en sitio público
-                </Link>
-              ) : null}
-              <Link
-                href={`/admin/operativos/${operativoId}/editar`}
-                className="inline-flex items-center justify-center rounded-full bg-white/90 px-4 py-2 font-semibold text-slate-900 transition hover:bg-white"
-              >
-                Editar operativo
-              </Link>
-            </div>
-          </div>
-        )}
-        footer={(
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[{
-              label: "Pendientes",
-              value: statusSummary.pending,
-              tone: "text-amber-200",
-            }, {
-              label: "Confirmados",
-              value: statusSummary.confirmed,
-              tone: "text-emerald-200",
-            }, {
-              label: "Rechazados",
-              value: statusSummary.rejected,
-              tone: "text-rose-200",
-            }].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-white/15 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/70">{item.label}</p>
-                <p className={`text-2xl font-semibold ${item.tone}`}>{item.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      />
+  const postulacionesPendientes = inscripcionesDetalladas.filter(
+    (row) => row.origen === "postulacion" && isPendingEstado(row.estadoActual)
+  );
 
+  const postulacionesResueltas = inscripcionesDetalladas.filter(
+    (row) =>
+      row.origen === "postulacion" &&
+      (isConfirmedEstado(row.estadoActual) || isRejectedEstado(row.estadoActual))
+  );
+
+  const invitaciones = inscripcionesDetalladas.filter(
+    (row) => row.origen === "invitacion"
+  );
+
+  // Inventario
+  const inventarioPlan = await getPlanInventarioOperativo(operativoId);
+  const inventarioPlanCards = [
+    {
+      key: "uniformes" as const,
+      label: "Uniformes",
+      needed: inventarioPlan.necesidades.uniformesNecesarios,
+      detail: "Renovación al primer operativo y cada 3.",
+      stock: inventarioPlan.stock.uniforme,
+    },
+    {
+      key: "lanyards" as const,
+      label: "Lanyards",
+      needed: inventarioPlan.necesidades.lanyardsNecesarios,
+      detail: "Uno por cada voluntario confirmado.",
+      stock: inventarioPlan.stock.lanyard,
+    },
+    {
+      key: "credenciales" as const,
+      label: "Credenciales",
+      needed: inventarioPlan.necesidades.credencialesTotales,
+      detail: `Incluye ${inventarioPlan.necesidades.credencialesExtra} de respaldo.`,
+      stock: inventarioPlan.stock.credencial,
+    },
+  ];
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     RENDER
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb / Volver */}
+      <nav className="flex items-center gap-2 text-sm">
+        <Link
+          href="/admin/operativos"
+          className="inline-flex items-center gap-1.5 text-slate-500 transition hover:text-slate-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a operativos
+        </Link>
+      </nav>
+
+      {/* Mensajes de feedback */}
       {successMessage ? (
-        <div className="rounded-[28px] border border-emerald-200/70 bg-emerald-50/80 px-5 py-4 text-sm font-medium text-emerald-900 shadow-sm">
-          {successMessage}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          ✓ {successMessage}
+        </div>
+      ) : null}
+
+      {noticeMessage ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          ℹ {noticeMessage}
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-[28px] border border-rose-200/70 bg-rose-50/80 px-5 py-4 text-sm font-medium text-rose-900 shadow-sm">
-          {errorMessage}
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+          ⚠ {errorMessage}
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Lugar</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900">{operativo.lugar || operativo.direccion || "—"}</p>
-          <p className="text-xs text-slate-500">Dirección completa: {operativo.direccion || "Sin dirección registrada"}</p>
-        </article>
-        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Cupos</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900">{operativo.cupos_total ?? "—"}</p>
-          <p className="text-xs text-slate-500">Confirmados: {statusSummary.confirmed} · Pendientes: {statusSummary.pending}</p>
-        </article>
-        <article className="rounded-[28px] border border-slate-100 bg-white/95 p-5 shadow-xl shadow-slate-900/5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Enlaces internos</p>
-          <div className="mt-2 space-y-2 text-sm text-slate-600">
-            <div>
-              <p className="text-xs font-semibold text-slate-400">WhatsApp</p>
-              {operativo.whatsapp_grupo_url ? (
-                <a href={operativo.whatsapp_grupo_url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
-                  Abrir chat interno
-                </a>
-              ) : (
-                <span>Sin link interno</span>
-              )}
-            </div>
-            {instagramHandle.label !== "—" ? (
-              <div>
-                <p className="text-xs font-semibold text-slate-400">Instagram</p>
-                {instagramHandle.href ? (
-                  <a href={instagramHandle.href} className="text-blue-600 underline" target="_blank" rel="noreferrer">
-                    {instagramHandle.label}
-                  </a>
-                ) : (
-                  <span>{instagramHandle.label}</span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </article>
-      </div>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         A) RESUMEN DEL OPERATIVO
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <OperativoSummaryCard
+        operativo={operativo}
+        stats={{
+          pending: statusSummary.pending,
+          confirmed: statusSummary.confirmed,
+          rejected: statusSummary.rejected,
+          total: inscripciones.length,
+        }}
+      />
 
-      <section className="rounded-[36px] border border-slate-100 bg-white/95 p-8 text-sm shadow-xl shadow-slate-900/5">
-        <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Fechas</p>
-              <div className="mt-3 grid gap-2 text-base font-semibold text-slate-900 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-medium text-slate-400">Inicio</p>
-                  <p>{fechaInicioCompleta}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-400">Fin</p>
-                  <p>{fechaFinCompleta}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-slate-100 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dirección</p>
-              <p className="mt-3 text-base text-slate-900">{operativo.direccion || "—"}</p>
-            </div>
-            {operativo.descripcion ? (
-              <div className="rounded-3xl border border-slate-100 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Descripción extendida</p>
-                <p className="mt-3 whitespace-pre-line text-base text-slate-900">{operativo.descripcion}</p>
-              </div>
-            ) : null}
-          </div>
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Notas internas</p>
-              <div className="mt-3 text-base text-slate-900">
-                {operativo.whatsapp_grupo_url ? (
-                  <a
-                    href={operativo.whatsapp_grupo_url}
-                    className="inline-flex items-center gap-2 text-blue-600 underline"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span aria-hidden="true" className="text-lg">
-                      💬
-                    </span>
-                    Abrir chat interno
-                  </a>
-                ) : (
-                  <span className="text-slate-500">Sin enlace interno</span>
-                )}
-              </div>
-              <p className="text-xs text-slate-500">Solo visible para administradores.</p>
-            </div>
-            {instagramHandle.label !== "—" ? (
-              <div className="rounded-3xl border border-slate-100 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Instagram</p>
-                {instagramHandle.href ? (
-                  <a href={instagramHandle.href} className="mt-3 inline-flex items-center gap-2 text-blue-600 underline" target="_blank" rel="noreferrer">
-                    {instagramHandle.label}
-                  </a>
-                ) : (
-                  <p className="mt-3 text-base text-slate-900">{instagramHandle.label}</p>
-                )}
-              </div>
-            ) : null}
-            {galeria.length ? (
-              <div className="rounded-3xl border border-slate-100 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Galería</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  {galeria.map((img, index) => (
-                    <figure key={img.id} className="overflow-hidden rounded-2xl border border-slate-100">
-                      <img
-                        src={img.url}
-                        alt={`Imagen ${index + 1} del operativo ${operativo.titulo}`}
-                        className="h-full w-full object-cover"
-                      />
-                    </figure>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-6 rounded-[36px] border border-slate-100 bg-white/95 p-8 shadow-xl shadow-slate-900/5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Inscripciones</h2>
-            <p className="text-sm text-slate-500">
-              Pendientes: {statusSummary.pending} · Confirmados: {statusSummary.confirmed} · Rechazados: {statusSummary.rejected}
-            </p>
-          </div>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         B) CONFIRMADOS - Lo más importante
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <AdminSectionCard
+        title={`Voluntarios confirmados (${confirmados.length})`}
+        hint="Voluntarios que ya están listos para participar en este operativo. Haz clic en un nombre para ver su ficha completa."
+        icon={<UserCheck className="h-4 w-4" />}
+        actions={
           <a
             href={csvHref}
-            className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            Descargar voluntarios aceptados (CSV)
+            <Download className="h-3.5 w-3.5" />
+            Descargar CSV
           </a>
-        </div>
+        }
+      >
+        {confirmados.length === 0 ? (
+          <EmptyState message="Aún no hay voluntarios confirmados. Revisa las postulaciones pendientes o envía invitaciones." />
+        ) : (
+          <ConfirmadosTableWithSearch rows={confirmados} />
+        )}
+      </AdminSectionCard>
 
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                Postulaciones ({postulaciones.length})
-              </h3>
-            </div>
-            {postulaciones.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
-                No hay postulaciones para este operativo.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3 text-left">Nombre</th>
-                      <th className="px-5 py-3 text-left">Email</th>
-                      <th className="px-5 py-3 text-left">Profesión</th>
-                      <th className="px-5 py-3 text-left">Estado</th>
-                      <th className="px-5 py-3 text-left">Registrada</th>
-                      <th className="px-5 py-3 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {postulaciones.map((row) => (
-                      <tr key={row.raw.id} className="border-t">
-                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
-                        <td className="px-5 py-4">
-                          {row.email ? (
-                            <a href={`mailto:${row.email}`} className="text-blue-600 underline">
-                              {row.email}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${row.estadoBadge}`}
-                          >
-                            {row.estadoLabel}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">{row.createdLabel}</td>
-                        <td className="px-5 py-4 text-right text-xs">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <form action="/api/admin/inscripciones/update" method="post">
-                              <input type="hidden" name="id" value={row.raw.id} />
-                              <input type="hidden" name="estado" value="aprobado" />
-                              <input type="hidden" name="redirectTo" value={redirectToUrl} />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                              >
-                                Aceptar
-                              </button>
-                            </form>
-                            <form action="/api/admin/inscripciones/update" method="post">
-                              <input type="hidden" name="id" value={row.raw.id} />
-                              <input type="hidden" name="estado" value="rechazado" />
-                              <input type="hidden" name="redirectTo" value={redirectToUrl} />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-4 py-1.5 font-semibold text-rose-700 transition hover:bg-rose-100"
-                              >
-                                Rechazar
-                              </button>
-                            </form>
-                          </div>
-                          <form action="/api/admin/inscripciones/update" method="post" className="mt-4 space-y-2">
-                            <input type="hidden" name="id" value={row.raw.id} />
-                            <input type="hidden" name="redirectTo" value={redirectToUrl} />
-                            <select
-                              name="estado"
-                              defaultValue={row.estadoActual}
-                              className="w-full rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
-                            >
-                              {statusOptions.map((status) => (
-                                <option key={status} value={status}>
-                                  {humanizeInscripcionEstado(status)}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="submit"
-                              className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 px-4 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                              Guardar
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         C) POSTULACIONES
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <AdminSectionCard
+        title={`Postulaciones pendientes (${postulacionesPendientes.length})`}
+        hint="Aquí revisas las postulaciones y decides quién participa. Acepta o rechaza cada una."
+        icon={<ClipboardList className="h-4 w-4" />}
+      >
+        {postulacionesPendientes.length === 0 ? (
+          <EmptyState message="No hay postulaciones pendientes de revisión. ¡Todo al día!" />
+        ) : (
+          <PostulacionesTable
+            rows={postulacionesPendientes}
+            redirectToUrl={redirectToUrl}
+            statusOptions={statusOptions}
+          />
+        )}
+      </AdminSectionCard>
 
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              Invitaciones enviadas ({invitaciones.length})
-            </h3>
-            {invitaciones.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
-                No hay invitaciones para este operativo.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3 text-left">Nombre</th>
-                      <th className="px-5 py-3 text-left">Email</th>
-                      <th className="px-5 py-3 text-left">Profesión</th>
-                      <th className="px-5 py-3 text-left">Estado</th>
-                      <th className="px-5 py-3 text-left">Registrada</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invitaciones.map((row) => (
-                      <tr key={row.raw.id} className="border-t">
-                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
-                        <td className="px-5 py-4">
-                          {row.email ? (
-                            <a href={`mailto:${row.email}`} className="text-blue-600 underline">
-                              {row.email}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
-                        <td className="px-5 py-4 text-sm text-slate-600">
-                          {describeInvitacionEstado(row.estadoActual)}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">{row.createdLabel}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+      {postulacionesResueltas.length > 0 ? (
+        <AdminSectionCard
+          title={`Postulaciones resueltas (${postulacionesResueltas.length})`}
+          hint="Historial de postulaciones que ya fueron aprobadas o rechazadas."
+          icon={<History className="h-4 w-4" />}
+        >
+          <VolunteerTable
+            rows={postulacionesResueltas}
+            columns={["nombre", "email", "profesion", "estado"]}
+            showEstado
+          />
+        </AdminSectionCard>
+      ) : null}
 
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              Voluntarios confirmados ({confirmados.length})
-            </h3>
-            {confirmados.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 text-center text-sm text-slate-500">
-                Aún no hay voluntarios confirmados.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white/90 shadow-inner">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3 text-left">Nombre</th>
-                      <th className="px-5 py-3 text-left">Email</th>
-                      <th className="px-5 py-3 text-left">Profesión</th>
-                      <th className="px-5 py-3 text-left">Origen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {confirmados.map((row) => (
-                      <tr key={row.raw.id} className="border-t">
-                        <td className="px-5 py-4 font-semibold text-slate-900">{row.nombre}</td>
-                        <td className="px-5 py-4">
-                          {row.email ? (
-                            <a href={`mailto:${row.email}`} className="text-blue-600 underline">
-                              {row.email}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">{row.profesion}</td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${originBadgeClass(row.origen)}`}
-                          >
-                            {row.origen === "invitacion" ? "Invitación" : "Postulación"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* ═══════════════════════════════════════════════════════════════════════
+         D) INVITACIONES - Invitar + Historial
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <AdminSectionCard
+        title="Invitar voluntarios"
+        hint="Invita voluntarios desde la base general. Las invitaciones enviadas quedarán registradas abajo."
+        icon={<Send className="h-4 w-4" />}
+      >
+        <InviteVolunteers
+          operativoId={operativoId}
+          redirectTo={redirectToUrl}
+          options={inviteFilterOptions}
+        />
+      </AdminSectionCard>
+
+      <AdminSectionCard
+        title={`Invitaciones enviadas (${invitaciones.length})`}
+        hint="Historial de invitaciones enviadas para este operativo. Puedes ver el estado de cada una."
+        icon={<History className="h-4 w-4" />}
+      >
+        {invitaciones.length === 0 ? (
+          <EmptyState message="Aún no se han enviado invitaciones para este operativo." />
+        ) : (
+          <InvitacionesTable rows={invitaciones} />
+        )}
+      </AdminSectionCard>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+         E) INVENTARIO PARA CONFIRMADOS - ENTREGA MASIVA
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <OperativoInventoryMassive operativoId={operativo.id} />
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SUB-COMPONENTS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-8 text-center text-sm text-slate-500">
+      {message}
+    </div>
+  );
+}
+
+type RowData = {
+  raw: { id: string };
+  voluntario?: {
+    id: string;
+    rut: string | null;
+  };
+  nombre: string;
+  email: string;
+  profesion: string;
+  estadoLabel: string;
+  estadoBadge: string;
+  estadoActual: string;
+  origen: "postulacion" | "invitacion";
+  createdLabel: string;
+};
+
+function VolunteerTable({
+  rows,
+  columns,
+  showEstado = false,
+  showOrigen = false,
+}: {
+  rows: RowData[];
+  columns: string[];
+  showEstado?: boolean;
+  showOrigen?: boolean;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-left">Nombre</th>
+            <th className="px-4 py-3 text-left">Email</th>
+            <th className="px-4 py-3 text-left">Profesión</th>
+            {showEstado ? (
+              <th className="px-4 py-3 text-left">Estado</th>
+            ) : null}
+            {showOrigen ? (
+              <th className="px-4 py-3 text-left">Origen</th>
+            ) : null}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.raw.id} className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 font-medium text-slate-900">
+                {row.nombre}
+              </td>
+              <td className="px-4 py-3">
+                {row.email ? (
+                  <a
+                    href={`mailto:${row.email}`}
+                    className="text-blue-600 underline"
+                  >
+                    {row.email}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="px-4 py-3 text-slate-600">{row.profesion}</td>
+              {showEstado ? (
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${row.estadoBadge}`}
+                  >
+                    {row.estadoLabel}
+                  </span>
+                </td>
+              ) : null}
+              {showOrigen ? (
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${originBadgeClass(row.origen)}`}
+                  >
+                    {row.origen === "invitacion" ? "Invitación" : "Postulación"}
+                  </span>
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PostulacionesTable({
+  rows,
+  redirectToUrl,
+  statusOptions,
+}: {
+  rows: RowData[];
+  redirectToUrl: string;
+  statusOptions: readonly string[];
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-left">Nombre</th>
+            <th className="px-4 py-3 text-left">Email</th>
+            <th className="px-4 py-3 text-left">Profesión</th>
+            <th className="px-4 py-3 text-left">Fecha</th>
+            <th className="px-4 py-3 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.raw.id} className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 font-medium text-slate-900">
+                {row.nombre}
+              </td>
+              <td className="px-4 py-3">
+                {row.email ? (
+                  <a
+                    href={`mailto:${row.email}`}
+                    className="text-blue-600 underline"
+                  >
+                    {row.email}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="px-4 py-3 text-slate-600">{row.profesion}</td>
+              <td className="px-4 py-3 text-xs text-slate-500">
+                {row.createdLabel}
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {/* Botón Aceptar */}
+                  <form action="/api/admin/inscripciones/update" method="post">
+                    <input type="hidden" name="id" value={row.raw.id} />
+                    <input type="hidden" name="estado" value="aprobado" />
+                    <input type="hidden" name="redirectTo" value={redirectToUrl} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      ✓ Aceptar
+                    </button>
+                  </form>
+                  {/* Botón Rechazar */}
+                  <form action="/api/admin/inscripciones/update" method="post">
+                    <input type="hidden" name="id" value={row.raw.id} />
+                    <input type="hidden" name="estado" value="rechazado" />
+                    <input type="hidden" name="redirectTo" value={redirectToUrl} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                    >
+                      ✗ Rechazar
+                    </button>
+                  </form>
+                </div>
+                {/* Selector avanzado */}
+                <form
+                  action="/api/admin/inscripciones/update"
+                  method="post"
+                  className="mt-2 flex items-center gap-2"
+                >
+                  <input type="hidden" name="id" value={row.raw.id} />
+                  <input type="hidden" name="redirectTo" value={redirectToUrl} />
+                  <select
+                    name="estado"
+                    defaultValue={row.estadoActual}
+                    className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700"
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {humanizeInscripcionEstado(status)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Guardar
+                  </button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InvitacionesTable({ rows }: { rows: RowData[] }) {
+  function describeEstado(estado: string): string {
+    const normalized = estado.toLowerCase();
+    if (
+      normalized === "postulado" ||
+      normalized === "pendiente"
+    )
+      return "Pendiente de respuesta";
+    if (normalized === "aprobado" || normalized === "confirmado")
+      return "Aceptada";
+    return "Rechazada";
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-4 py-3 text-left">Nombre</th>
+            <th className="px-4 py-3 text-left">Email</th>
+            <th className="px-4 py-3 text-left">Profesión</th>
+            <th className="px-4 py-3 text-left">Estado</th>
+            <th className="px-4 py-3 text-left">Enviada</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.raw.id} className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 font-medium text-slate-900">
+                {row.nombre}
+              </td>
+              <td className="px-4 py-3">
+                {row.email ? (
+                  <a
+                    href={`mailto:${row.email}`}
+                    className="text-blue-600 underline"
+                  >
+                    {row.email}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className="px-4 py-3 text-slate-600">{row.profesion}</td>
+              <td className="px-4 py-3 text-slate-600">
+                {describeEstado(row.estadoActual)}
+              </td>
+              <td className="px-4 py-3 text-xs text-slate-500">
+                {row.createdLabel}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type InventoryCardData = {
+  key: string;
+  label: string;
+  needed: number;
+  detail: string;
+  stock: {
+    cantidadActual: number | null;
+    unidad: string | null;
+  };
+};
+
+function InventoryCard({ card }: { card: InventoryCardData }) {
+  const unidadLabel = card.stock.unidad?.trim() || "unidades";
+  const isConfigured = typeof card.stock.cantidadActual === "number";
+  const stockActual = isConfigured ? (card.stock.cantidadActual ?? 0) : null;
+  const faltantes =
+    typeof stockActual === "number"
+      ? Math.max(0, card.needed - stockActual)
+      : null;
+
+  const status =
+    !isConfigured || faltantes === null
+      ? {
+          label: "Configura stock",
+          className: "bg-slate-100 text-slate-600",
+        }
+      : faltantes === 0
+      ? {
+          label: "✓ Suficiente",
+          className: "bg-emerald-100 text-emerald-700",
+        }
+      : faltantes <= 5
+      ? {
+          label: `Atención: faltan ${faltantes}`,
+          className: "bg-amber-100 text-amber-700",
+        }
+      : {
+          label: `Faltan ${faltantes}`,
+          className: "bg-rose-100 text-rose-700",
+        };
+
+  return (
+    <article className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-semibold text-slate-900">{card.label}</p>
+          <p className="text-xs text-slate-500">{card.detail}</p>
+        </div>
+        <span
+          className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${status.className}`}
+        >
+          {status.label}
+        </span>
+      </div>
+      <dl className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-slate-50 px-2 py-2">
+          <dt className="text-[10px] font-medium uppercase text-slate-400">
+            Necesarios
+          </dt>
+          <dd className="text-lg font-bold text-slate-900">{card.needed}</dd>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-2 py-2">
+          <dt className="text-[10px] font-medium uppercase text-slate-400">
+            Stock
+          </dt>
+          <dd className="text-lg font-bold text-slate-900">
+            {isConfigured ? stockActual : "—"}
+          </dd>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-2 py-2">
+          <dt className="text-[10px] font-medium uppercase text-slate-400">
+            Faltantes
+          </dt>
+          <dd className="text-lg font-bold text-slate-900">
+            {isConfigured ? faltantes : "—"}
+          </dd>
+        </div>
+      </dl>
+    </article>
   );
 }

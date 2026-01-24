@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { AdminPageHeader, StatTile, StatTileGrid } from "@/components/admin/ui";
 import { getAdminSession } from "@/lib/adminSession";
+import { getErrorMessage } from "@/lib/errors";
 import { supabaseService } from "@/lib/supabaseService";
 import type { VoluntarioAdminRow } from "@/lib/voluntariosAdmin";
 import {
@@ -9,6 +11,7 @@ import {
   parseVolunteerFilters,
   VOLUNTARIO_COLUMNS,
 } from "@/lib/voluntariosAdmin";
+import { Users, UserCheck, UserX, Briefcase } from "lucide-react";
 import VoluntariosTable from "./VoluntariosTable";
 
 export const dynamic = "force-dynamic";
@@ -83,8 +86,10 @@ export default async function AdminVoluntariosPage({ searchParams }: { searchPar
       filters
     );
 
-    const [listRes, profesionRes, especialidadRes] = await Promise.all([
-      listQuery,
+    // Ejecutar las queries en paralelo
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const listRes = await (listQuery as any);
+    const [profesionRes, especialidadRes] = await Promise.all([
       supabaseService.from("voluntarios").select("profesion"),
       supabaseService.from("voluntarios").select("especialidad"),
     ]);
@@ -109,14 +114,22 @@ export default async function AdminVoluntariosPage({ searchParams }: { searchPar
       includeEmptyEspecialidad: especialidadOptions.includeEmpty,
     };
 
-    if (profesionRes.error && !errorMessage) {
-      errorMessage = `No se pudieron cargar las profesiones (${profesionRes.error.message}).`;
+    if (profesionRes.error) {
+      console.error("[Admin/Voluntarios] Error cargando profesiones", profesionRes.error);
+      if (!errorMessage) {
+        errorMessage = "No se pudieron cargar las profesiones.";
+      }
     }
-    if (especialidadRes.error && !errorMessage) {
-      errorMessage = `No se pudieron cargar las especialidades (${especialidadRes.error.message}).`;
+    if (especialidadRes.error) {
+      console.error("[Admin/Voluntarios] Error cargando especialidades", especialidadRes.error);
+      if (!errorMessage) {
+        errorMessage = "No se pudieron cargar las especialidades.";
+      }
     }
-  } catch (err: any) {
-    errorMessage = err?.message ? String(err.message) : "No se pudieron cargar los voluntarios.";
+  } catch (error: unknown) {
+    const debug = getErrorMessage(error);
+    console.error("[Admin/Voluntarios] Error cargando listado", debug, error);
+    errorMessage = "No se pudieron cargar los voluntarios.";
   }
 
   const items = rows.map((row) => ({
@@ -125,19 +138,39 @@ export default async function AdminVoluntariosPage({ searchParams }: { searchPar
     birthLabel: formatDate(row.fecha_nacimiento),
   }));
 
+  const filterKey = JSON.stringify(filters);
+
+  // Stats
+  const totalVoluntarios = total;
+  const uniqueProfesiones = options.profesiones.length;
+
   return (
     <div className="space-y-6">
-      <section className="rounded-[30px] border border-slate-100 bg-white/95 p-6 shadow-lg shadow-blue-900/5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Voluntariado</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Base de voluntarios</h1>
-          <p className="text-sm text-slate-500 max-w-3xl">
-            Busca perfiles, filtra por profesión o especialidad y exporta un CSV para trabajar con otras herramientas.
-          </p>
-        </div>
-      </section>
+      <AdminPageHeader
+        backHref="/admin"
+        eyebrow="Voluntariado"
+        title="Gestión de voluntarios"
+        description="Base completa de voluntarios registrados. Filtra por profesión, especialidad o restricción alimentaria."
+      />
+
+      {/* Stats */}
+      <StatTileGrid>
+        <StatTile 
+          icon={<Users className="h-4 w-4" />}
+          label="Total voluntarios"
+          value={totalVoluntarios}
+        />
+        <StatTile 
+          icon={<Briefcase className="h-4 w-4" />}
+          label="Profesiones distintas"
+          value={uniqueProfesiones}
+          highlight
+          highlightVariant="blue"
+        />
+      </StatTileGrid>
 
       <VoluntariosTable
+        key={filterKey}
         items={items}
         total={total}
         limit={LIMIT}

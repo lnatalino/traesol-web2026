@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { PUBLIC_CONTACT_EMAIL } from "@/lib/constants/publicContact";
+import { PublicHero } from "@/components/public";
 
 export default function ContactoPage() {
   const [form, setForm] = useState({
@@ -44,31 +46,35 @@ export default function ContactoPage() {
   }
 
   return (
-    <main className="bg-slate-50">
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-12 lg:px-6">
-        <header className="space-y-3 text-center lg:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Contacto</p>
-          <h1 className="text-4xl font-semibold text-slate-900">Conversemos</h1>
-          <p className="text-base text-slate-600">
-            Escríbenos para coordinar operativos, alianzas o voluntariado. Te responderemos a la brevedad.
-          </p>
-        </header>
+    <main className="min-h-screen bg-slate-50">
+      {/* Hero */}
+      <PublicHero
+        eyebrow="Contacto"
+        title="Conversemos"
+        subtitle="Escríbenos para coordinar operativos, alianzas o voluntariado. Te responderemos a la brevedad."
+      />
 
-        {okMsg && <div className="alert success">{okMsg}</div>}
-        {errMsg && <div className="alert error">{errMsg}</div>}
+      {/* Contenido */}
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-12 lg:px-6">
+        {okMsg && <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm">{okMsg}</div>}
+        {errMsg && <div className="rounded-xl bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm">{errMsg}</div>}
 
         <section className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-[32px] border border-blue-100 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 p-6 text-white shadow-xl sm:p-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Escríbenos</p>
-            <h2 className="mt-4 text-3xl font-semibold leading-tight">Estamos para ayudarte</h2>
-            <p className="mt-4 text-sm text-white/80">
+          <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-lg sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600">Escríbenos</p>
+            <h2 className="mt-4 text-2xl font-semibold leading-tight text-slate-900">Estamos para ayudarte</h2>
+            <p className="mt-4 text-sm text-slate-600">
               Cuéntanos qué necesitas: coordinación de operativos, voluntariado, alianzas empresariales o información general sobre Traesol.
             </p>
-            <div className="mt-8 space-y-4 text-sm text-white/85">
-              <div className="rounded-2xl border border-white/30 bg-white/10 p-4">
-                También puedes escribirnos a <span className="font-semibold">contacto@traesol.cl</span> si prefieres usar tu correo.
+            <div className="mt-8 space-y-4 text-sm text-slate-600">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                También puedes escribirnos a{" "}
+                <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`} className="font-semibold text-blue-600 hover:underline">
+                  {PUBLIC_CONTACT_EMAIL}
+                </a>{" "}
+                si prefieres usar tu correo.
               </div>
-              <div className="rounded-2xl border border-white/30 bg-white/10 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 Revisamos cada mensaje en menos de 48 horas hábiles.
               </div>
             </div>
@@ -78,18 +84,18 @@ export default function ContactoPage() {
             <div className="grid gap-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block text-sm">
-                  <span className="label">Nombre</span>
+                  <span className="font-medium text-slate-700">Nombre</span>
                   <input
-                    className="inp mt-1"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                     value={form.nombre}
                     onChange={(e) => set("nombre", e.target.value)}
                   />
                 </label>
                 <label className="block text-sm">
-                  <span className="label">Email *</span>
+                  <span className="font-medium text-slate-700">Email *</span>
                   <input
                     type="email"
-                    className="inp mt-1"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
                     required
@@ -99,17 +105,17 @@ export default function ContactoPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block text-sm">
-                  <span className="label">Teléfono</span>
+                  <span className="font-medium text-slate-700">Teléfono</span>
                   <input
-                    className="inp mt-1"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                     value={form.telefono}
                     onChange={(e) => set("telefono", e.target.value)}
                   />
                 </label>
                 <label className="block text-sm">
-                  <span className="label">Asunto</span>
+                  <span className="font-medium text-slate-700">Asunto</span>
                   <input
-                    className="inp mt-1"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                     value={form.asunto}
                     onChange={(e) => set("asunto", e.target.value)}
                   />
@@ -117,9 +123,9 @@ export default function ContactoPage() {
               </div>
 
               <label className="block text-sm">
-                <span className="label">Mensaje *</span>
+                <span className="font-medium text-slate-700">Mensaje *</span>
                 <textarea
-                  className="inp mt-1 min-h-[180px]"
+                  className="mt-1 w-full min-h-[180px] rounded-xl border border-slate-200 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-y"
                   value={form.mensaje}
                   onChange={(e) => set("mensaje", e.target.value)}
                   required
@@ -127,7 +133,11 @@ export default function ContactoPage() {
               </label>
 
               <div className="pt-2">
-                <button className="btn-primary w-full text-base" disabled={sending}>
+                <button 
+                  type="submit"
+                  disabled={sending}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   {sending ? "Enviando…" : "Enviar mensaje"}
                 </button>
               </div>

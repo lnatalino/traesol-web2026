@@ -1,25 +1,44 @@
 // src/app/operativos/[slug]/page.tsx
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import { createSupabaseServer } from "@/lib/supabaseServer";
+import { 
+  getComputedEstado, 
+  isOperativoParaPublico, 
+  getNowInChile,
+  type OperativoState 
+} from "@/lib/operativosShared";
 
 export const dynamic = "force-dynamic";
 
-type Operativo = {
+type OperativoRow = {
   id: string;
-  titulo: string;
   slug: string;
-  descripcion: string | null;
-  fecha_inicio: string;   // ISO
+  titulo: string | null;
+  fecha_inicio: string | null;
   fecha_fin: string | null;
   lugar: string | null;
   direccion: string | null;
+  descripcion: string | null;
   cupos_total: number | null;
-  estado: "borrador" | "publicado" | "cerrado" | "finalizado";
   imagen_cabecera_url: string | null;
+  estado: string | null;
   instagram_url: string | null;
-  operativo_imagenes?: Array<{ id: string; url: string | null; path: string | null }>;
+  whatsapp_grupo_url: string | null;
+  created_at: string;
+};
+
+type OperativoImagenRow = {
+  id: string;
+  operativo_id: string;
+  url: string | null;
+  path: string | null;
+};
+
+type Operativo = OperativoRow & {
+  operativo_imagenes?: Array<Pick<OperativoImagenRow, "id" | "url" | "path">>;
 };
 
 function fDate(iso: string | null) {
@@ -37,12 +56,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const supabase = createSupabaseServer();
 
-  const { data: op } = await supabase
+  const { data: op, error } = await supabase
     .from("operativos")
     .select("titulo")
     .eq("slug", (slug ?? "").trim().toLowerCase())
     .eq("estado", "publicado")
-    .maybeSingle();
+    .maybeSingle<Pick<OperativoRow, "titulo">>();
+
+  if (error) {
+    console.error("[operativos] metadata error", error, { slug });
+  }
 
   const title = op?.titulo ? `${op.titulo} · Operativo Traesol` : "Operativo · Traesol";
   return { title, robots: { index: true, follow: true } };
@@ -66,17 +89,30 @@ export default async function OperativoPage({
       "id,titulo,slug,descripcion,fecha_inicio,fecha_fin,lugar,direccion,cupos_total,estado,imagen_cabecera_url,instagram_url,operativo_imagenes(id,url,path)"
     )
     .eq("slug", niceSlug)
-    .eq("estado", "publicado")
     .maybeSingle<Operativo>();
 
-  if (error || !op) {
+  if (error) {
+    console.error("[operativos] detail error", error, { slug: niceSlug });
+  }
+
+  if (!op) {
+    return notFound();
+  }
+
+  // Verificar que el operativo es válido para mostrar en público
+  const now = getNowInChile();
+  const computedEstado = getComputedEstado(op as OperativoState, now);
+  const puedePostular = isOperativoParaPublico(op as OperativoState, now);
+  
+  // Si no es publicado, no mostrar (404)
+  if (computedEstado !== "publicado") {
     return notFound();
   }
 
   const galeria = Array.isArray(op.operativo_imagenes)
     ? op.operativo_imagenes
-        .filter((img) => typeof img?.url === "string" && img.url)
-        .map((img) => ({ id: img.id, url: img.url as string }))
+        .filter((img) => typeof img?.url === "string" && !!img.url)
+        .map((img) => ({ id: img.id, url: String(img.url) }))
     : [];
 
   const portadaFallback = galeria[0]?.url;
@@ -95,7 +131,7 @@ export default async function OperativoPage({
 
         <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow">
           <div className="relative h-60 w-full bg-slate-200 md:h-80">
-            <Image src={imageSrc} alt={op.titulo} fill className="object-cover" unoptimized priority />
+            <Image src={imageSrc} alt={op.titulo || "Operativo Traesol"} fill className="object-cover" unoptimized priority />
           </div>
           <div className="space-y-5 p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Operativo Traesol</p>
@@ -137,6 +173,7 @@ export default async function OperativoPage({
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {galeria.map((img, index) => (
                 <figure key={img.id} className="overflow-hidden rounded-2xl border bg-slate-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.url}
                     alt={`Imagen ${index + 1} del operativo ${op.titulo}`}
@@ -150,24 +187,48 @@ export default async function OperativoPage({
 
         <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-slate-900">¿Quieres participar?</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Postula para sumarte a este operativo o vuelve al inicio para conocer más iniciativas de Traesol.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <a
-              href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
-              className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
-            >
-              Postular aquí
-            </a>
-            <a
-              href="/"
-              className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
-            >
-              Volver al inicio
-            </a>
-          </div>
-          <p className="mt-3 text-xs text-blue-700/70">* La postulación requiere aprobación manual.</p>
+          {puedePostular ? (
+            <>
+              <p className="mt-2 text-sm text-slate-600">
+                Postula para sumarte a este operativo o vuelve al inicio para conocer más iniciativas de Traesol.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
+                  className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+                >
+                  Postular aquí
+                </Link>
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
+                >
+                  Volver al inicio
+                </Link>
+              </div>
+              <p className="mt-3 text-xs text-blue-700/70">* La postulación requiere aprobación manual.</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm text-slate-600">
+                Este operativo ya no está aceptando postulaciones. Visita nuestra página de operativos para ver las próximas oportunidades.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/operativos"
+                  className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+                >
+                  Ver próximos operativos
+                </Link>
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
+                >
+                  Volver al inicio
+                </Link>
+              </div>
+            </>
+          )}
         </section>
       </div>
     </main>

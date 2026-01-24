@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { VoluntarioAdminRow, VoluntarioFilters } from "@/lib/voluntariosAdmin";
@@ -90,21 +90,12 @@ export default function VoluntariosTable({ items, total, limit, filters, options
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState<FormState>({
+  const [form, setForm] = useState<FormState>(() => ({
     q: filters.q,
     profesion: filters.profesion,
     especialidad: filters.especialidad,
     veg: filters.veg,
-  });
-
-  useEffect(() => {
-    setForm({
-      q: filters.q,
-      profesion: filters.profesion,
-      especialidad: filters.especialidad,
-      veg: filters.veg,
-    });
-  }, [filters.q, filters.profesion, filters.especialidad, filters.veg]);
+  }));
 
   const csvHref = useMemo(() => buildCsvHref(filters), [filters]);
   const showing = items.length;
@@ -334,7 +325,11 @@ export default function VoluntariosTable({ items, total, limit, filters, options
             ) : (
               <tr>
                 <td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">
-                  No se encontraron voluntarios con los criterios actuales.
+                  {errorMessage
+                    ? errorMessage
+                    : (filters.q || filters.profesion || filters.especialidad || filters.veg)
+                      ? "No se encontraron voluntarios con los filtros aplicados. Intenta limpiar los filtros."
+                      : "Todavía no hay voluntarios registrados en la plataforma."}
                 </td>
               </tr>
             )}

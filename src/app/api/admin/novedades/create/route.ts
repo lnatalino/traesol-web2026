@@ -137,7 +137,8 @@ export async function POST(req: Request) {
       payload.imagen_portada_url = portadaUpload.url;
     }
 
-    const { data, error } = await supabaseService
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabaseService as any)
       .from("novedades")
       .insert(payload)
       .select("id")
@@ -152,7 +153,8 @@ export async function POST(req: Request) {
         url: item.url,
         path: item.path,
       }));
-      const { error: galleryError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: galleryError } = await (supabaseService as any)
         .from("novedad_imagenes")
         .insert(rows);
       if (galleryError) throw galleryError;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { EMPTY_OPTION_VALUE } from "@/lib/voluntariosAdmin";
 
 type OptionLists = {
@@ -108,10 +109,10 @@ export default function InviteVolunteers({ operativoId, redirectTo, options }: P
         return next;
       });
       setFetchState({ loading: false, error: "" });
-    } catch (error: any) {
+    } catch (error: unknown) {
       setFetchState({
         loading: false,
-        error: error?.message ? String(error.message) : "No se pudo cargar la búsqueda.",
+        error: getErrorMessage(error, "No se pudo cargar la búsqueda."),
       });
       setResults([]);
       setTotal(0);
@@ -159,14 +160,7 @@ export default function InviteVolunteers({ operativoId, redirectTo, options }: P
   }, [selectedCount]);
 
   return (
-    <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">Invitar voluntarios a este operativo</h2>
-        <p className="text-sm text-slate-500">
-          Busca voluntarios existentes y envía invitaciones por correo.
-        </p>
-      </header>
-
+    <div className="space-y-4">
       <form
         className="grid gap-3 md:grid-cols-4"
         onSubmit={(event) => {
@@ -324,6 +318,6 @@ export default function InviteVolunteers({ operativoId, redirectTo, options }: P
           </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }

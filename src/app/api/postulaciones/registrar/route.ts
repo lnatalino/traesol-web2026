@@ -188,25 +188,27 @@ export async function POST(req: Request) {
     } as const;
 
     if (voluntario) {
-      const { data: updated, error: updateError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: updated, error: updateError } = await (supabaseService as any)
         .from("voluntarios")
         .update(record)
         .eq("id", voluntario.id)
         .select("id,nombres,apellidos,email")
-        .single<VoluntarioMinimal>();
+        .single();
 
       if (updateError) throw updateError;
-      voluntario = updated;
+      voluntario = updated as VoluntarioMinimal;
       updatedVoluntario = true;
     } else {
-      const { data: inserted, error: insertError } = await supabaseService
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: inserted, error: insertError } = await (supabaseService as any)
         .from("voluntarios")
         .insert({ ...record })
         .select("id,nombres,apellidos,email")
-        .single<VoluntarioMinimal>();
+        .single();
 
       if (insertError) throw insertError;
-      voluntario = inserted;
+      voluntario = inserted as VoluntarioMinimal;
       wasNewVoluntario = true;
     }
 
@@ -305,7 +307,7 @@ export async function POST(req: Request) {
             ok: false,
             code: "ALREADY_REVIEWED",
             message:
-              "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@traesol.cl.",
+              "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@fundaciontraesol.cl.",
             extra: { origin },
           });
         }
@@ -320,14 +322,15 @@ export async function POST(req: Request) {
         };
 
       try {
-        const { data: insc, error: inscError } = await supabaseService
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: insc, error: inscError } = await (supabaseService as any)
           .from("inscripciones")
           .insert(insertPayload)
           .select("id")
-          .single<{ id: string }>();
+          .single();
 
         if (inscError) throw inscError;
-        inscripcionId = insc?.id ?? null;
+        inscripcionId = (insc as { id: string } | null)?.id ?? null;
         createdInscripcion = true;
       } catch (inscErr: any) {
         const message = String(inscErr?.message || "");

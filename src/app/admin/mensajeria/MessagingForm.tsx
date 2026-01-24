@@ -198,10 +198,23 @@ export default function MessagingForm({
     (filters.mode === "custom" && selectedIds.length === 0);
 
   const recipientSummary = useMemo(() => {
-    if (isPending) return "Recalculando resultados...";
-    if (total === 0) return "No hay voluntarios que coincidan con los filtros seleccionados.";
+    if (isPending) return "Recalculando destinatarios...";
+    if (filters.mode === "all") {
+      if (total === 0) return "No hay voluntarios registrados con email válido.";
+      return `Se enviará a TODOS los ${total} voluntarios registrados con email.`;
+    }
+    if (filters.mode === "operativo") {
+      if (!filters.operativoId) return "Selecciona un operativo para ver los destinatarios.";
+      if (total === 0) return "Este operativo no tiene inscripciones con email válido.";
+      const opLabel = operativos.find(op => op.id === filters.operativoId)?.titulo || "el operativo seleccionado";
+      return `Se enviará a ${total} voluntario${total === 1 ? "" : "s"} de "${opLabel}".`;
+    }
+    if (filters.mode === "custom") {
+      if (total === 0) return "No hay voluntarios disponibles para seleccionar.";
+      return `Base de ${total} voluntarios disponibles. Selecciona los que recibirán el mensaje.`;
+    }
     return `Se enviará el mensaje a ${total} voluntario${total === 1 ? "" : "s"}.`;
-  }, [isPending, total]);
+  }, [isPending, total, filters.mode, filters.operativoId, operativos]);
 
   const selectionSummary = customModeActive
     ? selectedIds.length
@@ -267,8 +280,8 @@ export default function MessagingForm({
       >
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">1. Define a quién quieres escribir</h2>
-            <p className="text-sm text-slate-500">Elige entre todos los voluntarios o acota por operativo.</p>
+            <h2 className="text-lg font-semibold">1. ¿A quién quieres escribir?</h2>
+            <p className="text-sm text-slate-500">Elige el alcance del mensaje.</p>
           </div>
           <button
             type="button"
@@ -282,72 +295,111 @@ export default function MessagingForm({
 
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <label className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+            <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm transition ${
+              filterState.mode === "all" ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+            }`}>
               <input
                 type="radio"
                 name="mode"
                 value="all"
                 checked={filterState.mode === "all"}
                 onChange={() => handleModeChange("all")}
+                className="sr-only"
               />
+              <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                filterState.mode === "all" ? "border-blue-500 bg-blue-500" : "border-slate-300"
+              }`}>
+                {filterState.mode === "all" && <div className="h-2 w-2 rounded-full bg-white" />}
+              </div>
               <div>
                 <div className="font-medium text-slate-900">Todos los voluntarios</div>
-                <p className="text-xs text-slate-500">Se enviará el mensaje a toda la base con email registrado.</p>
+                <p className="text-xs text-slate-500">Mensaje masivo a toda la base.</p>
               </div>
             </label>
-            <label className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+            <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm transition ${
+              filterState.mode === "operativo" ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+            }`}>
               <input
                 type="radio"
                 name="mode"
                 value="operativo"
                 checked={filterState.mode === "operativo"}
                 onChange={() => handleModeChange("operativo")}
+                className="sr-only"
               />
+              <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                filterState.mode === "operativo" ? "border-blue-500 bg-blue-500" : "border-slate-300"
+              }`}>
+                {filterState.mode === "operativo" && <div className="h-2 w-2 rounded-full bg-white" />}
+              </div>
               <div>
                 <div className="font-medium text-slate-900">Por operativo</div>
-                <p className="text-xs text-slate-500">Envía solo a quienes tienen inscripciones en un operativo.</p>
+                <p className="text-xs text-slate-500">Inscritos en un operativo específico.</p>
               </div>
             </label>
-            <label className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+            <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 px-4 py-3 text-sm transition ${
+              filterState.mode === "custom" ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+            }`}>
               <input
                 type="radio"
                 name="mode"
                 value="custom"
                 checked={filterState.mode === "custom"}
                 onChange={() => handleModeChange("custom")}
+                className="sr-only"
               />
+              <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                filterState.mode === "custom" ? "border-blue-500 bg-blue-500" : "border-slate-300"
+              }`}>
+                {filterState.mode === "custom" && <div className="h-2 w-2 rounded-full bg-white" />}
+              </div>
               <div>
                 <div className="font-medium text-slate-900">Personalizado</div>
-                <p className="text-xs text-slate-500">Selecciona manualmente voluntarios individuales.</p>
+                <p className="text-xs text-slate-500">Selección manual uno a uno.</p>
               </div>
             </label>
           </div>
 
           {filterState.mode === "operativo" ? (
-            <label className="space-y-1 text-sm">
-              <span className="text-xs font-medium text-slate-500">Operativo</span>
-              <select
-                value={filterState.operativoId}
-                onChange={(event) => setFilterState((prev) => ({ ...prev, operativoId: event.target.value }))}
-                className="w-full rounded-md border px-3 py-2"
-                required
-              >
-                <option value="">Selecciona un operativo</option>
-                {operativos.map((op) => (
-                  <option key={op.id} value={op.id}>
-                    {formatOperativoLabel(op)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+              <label className="space-y-2 text-sm">
+                <span className="font-medium text-slate-700">Selecciona el operativo</span>
+                <select
+                  value={filterState.operativoId}
+                  onChange={(event) => setFilterState((prev) => ({ ...prev, operativoId: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 font-medium shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  required
+                >
+                  <option value="">— Selecciona un operativo —</option>
+                  {operativos.map((op) => (
+                    <option key={op.id} value={op.id}>
+                      {formatOperativoLabel(op)}
+                    </option>
+                  ))}
+                </select>
+                {operativos.length === 0 && (
+                  <p className="text-xs text-amber-600">No hay operativos publicados disponibles.</p>
+                )}
+              </label>
+            </div>
           ) : filterState.mode === "all" ? (
-            <p className="text-sm text-slate-500">
-              Se enviará el mensaje a todos los voluntarios registrados con email válido.
-            </p>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+              <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-600">
+                  {total}
+                </span>
+                voluntarios recibirán este mensaje
+              </p>
+              <p className="mt-1 text-xs text-emerald-700">
+                Se incluyen todos los voluntarios registrados con email válido.
+              </p>
+            </div>
           ) : (
-            <p className="text-sm text-slate-500">
-              Podrás elegir voluntarios específicos en la siguiente etapa.
-            </p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <p className="text-sm text-slate-600">
+                Podrás seleccionar voluntarios específicos en la siguiente sección.
+              </p>
+            </div>
           )}
 
           <label className="space-y-1 text-sm">
@@ -534,6 +586,51 @@ export default function MessagingForm({
           </div>
         )}
       </section>
+
+      {/* RESUMEN DE DESTINATARIOS - Siempre visible */}
+      <div className={`rounded-xl border p-4 ${
+        (filters.mode === "custom" && selectedIds.length === 0) || total === 0
+          ? "border-amber-200 bg-amber-50"
+          : "border-emerald-200 bg-emerald-50"
+      }`}>
+        <div className="flex items-start gap-3">
+          <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${
+            (filters.mode === "custom" && selectedIds.length === 0) || total === 0
+              ? "bg-amber-100 text-amber-600"
+              : "bg-emerald-100 text-emerald-600"
+          }`}>
+            <span className="text-sm font-bold">
+              {filters.mode === "custom" ? selectedIds.length : total}
+            </span>
+          </div>
+          <div className="flex-1">
+            <p className={`font-medium ${
+              (filters.mode === "custom" && selectedIds.length === 0) || total === 0
+                ? "text-amber-800"
+                : "text-emerald-800"
+            }`}>
+              {filters.mode === "all" && "Destinatarios: Todos los voluntarios"}
+              {filters.mode === "operativo" && (filters.operativoId 
+                ? `Destinatarios: Voluntarios de "${operativos.find(op => op.id === filters.operativoId)?.titulo || "operativo"}"`
+                : "Destinatarios: Pendiente de seleccionar operativo"
+              )}
+              {filters.mode === "custom" && `Destinatarios: ${selectedIds.length} voluntario${selectedIds.length === 1 ? "" : "s"} seleccionado${selectedIds.length === 1 ? "" : "s"}`}
+            </p>
+            <p className={`mt-0.5 text-sm ${
+              (filters.mode === "custom" && selectedIds.length === 0) || total === 0
+                ? "text-amber-700"
+                : "text-emerald-700"
+            }`}>
+              {filters.mode === "custom" 
+                ? (selectedIds.length > 0 
+                    ? "El mensaje se enviará solo a los voluntarios marcados arriba."
+                    : "Selecciona al menos un voluntario en la tabla de arriba.")
+                : recipientSummary
+              }
+            </p>
+          </div>
+        </div>
+      </div>
 
       <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <header className="space-y-1">

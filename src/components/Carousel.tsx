@@ -58,13 +58,7 @@ export default function Carousel({
     };
   }, [totalSlides, auto, interval]);
 
-  useEffect(() => {
-    if (!totalSlides) {
-      setI(0);
-      return;
-    }
-    setI((prev) => (prev >= totalSlides ? 0 : prev));
-  }, [totalSlides]);
+  const activeIndex = totalSlides ? Math.min(i, totalSlides - 1) : 0;
 
   // Swipe (móvil)
   const touch = useRef<{ x: number | null }>({ x: null });
@@ -86,10 +80,10 @@ export default function Carousel({
   return (
     <div className="w-full" tabIndex={0} onKeyDown={onKeyDown}>
       <div
-        className={`relative w-full overflow-hidden rounded-[30px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur ${
+        className={`relative w-full overflow-hidden ${
           variant === "hero"
-            ? "h-full min-h-[420px] sm:min-h-[480px] lg:min-h-[560px] 2xl:min-h-[620px]"
-            : "aspect-[16/9]"
+            ? "aspect-[21/9] min-h-[200px] sm:min-h-[240px] lg:min-h-[300px]"
+            : "aspect-[16/9] rounded-[32px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur"
         }`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -103,15 +97,15 @@ export default function Carousel({
                   <img
                     src={s.imagen_url}
                     alt={s.titulo || "Slide"}
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${idx === i ? "opacity-100" : "opacity-0"}`}
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${idx === activeIndex ? "opacity-100" : "opacity-0"}`}
                     draggable={false}
                   />
                 );
 
                 return (
-                  <div key={s.id} className={idx === i ? "relative h-full w-full" : "relative h-0 w-full"}>
+                  <div key={s.id} className={idx === activeIndex ? "relative h-full w-full" : "relative h-0 w-full"}>
                     {s.href ? <Link href={s.href}>{img}</Link> : img}
-                    {s.titulo && idx === i && (
+                    {s.titulo && idx === activeIndex && (
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent px-4 pb-4 pt-10 text-sm text-white sm:text-base">
                         {s.titulo}
                       </div>
@@ -146,7 +140,7 @@ export default function Carousel({
                   key={idx}
                   aria-label={`Ir a slide ${idx + 1}`}
                   onClick={() => setI(idx)}
-                  className={`h-2.5 w-2.5 rounded-full ${idx === i ? "bg-white" : "bg-white/45"} ring-1 ring-black/10 transition`}
+                  className={`h-2.5 w-2.5 rounded-full ${idx === activeIndex ? "bg-white" : "bg-white/45"} ring-1 ring-black/10 transition`}
                   type="button"
                 />
               ))}
