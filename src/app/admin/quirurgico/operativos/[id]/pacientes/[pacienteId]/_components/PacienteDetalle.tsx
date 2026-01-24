@@ -282,6 +282,8 @@ export function PacienteDetalle({ operativo, pacienteId }: Props) {
             pacienteId={pacienteId} 
             token={portalToken}
             pacienteNombre={`${paciente.nombres} ${paciente.apellidos}`}
+            pacienteEmail={paciente.email}
+            patientCanEdit={paciente.patient_can_edit ?? false}
             onRefresh={fetchData}
           />
         )}

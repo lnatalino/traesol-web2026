@@ -91,6 +91,9 @@ export interface Paciente {
   notes_admin: string | null;
   estado: string;
   
+  // Permisos del portal
+  patient_can_edit?: boolean;
+  
   // Timestamps
   created_at: string;
   updated_at: string | null;

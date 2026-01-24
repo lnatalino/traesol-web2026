@@ -1,7 +1,7 @@
 # QA Checklist - Portal del Paciente
 
 **Fecha:** 2026-01-24  
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Última actualización:** Después del deploy a Vercel
 
 ---
@@ -17,11 +17,16 @@
   - `survey_assignments`
   - `survey_responses`
 - [ ] Verificar que `paciente_portal_tokens` tiene columna `caso_id`
+- [ ] Verificar columna `patient_can_edit` en tabla `pacientes`
 
 ### 2. Variables de entorno en Vercel
 - [ ] `RESEND_API_KEY` - Para envío real de emails
 - [ ] `NEXT_PUBLIC_SITE_URL` - URL de producción (ej: `https://fundaciontraesol.cl`)
 - [ ] `PORTAL_TOKEN_SECRET` o `NEXTAUTH_SECRET` - Para firmar tokens JWT
+
+### 3. Storage Bucket en Supabase
+- [ ] Verificar que existe bucket `pacientes-archivos`
+- [ ] Verificar políticas de acceso del bucket
 
 ---
 
@@ -30,13 +35,22 @@
 ### Portal del Paciente (Acceso por Token)
 
 #### A. Generación de Token desde Admin
-1. [ ] Admin > Quirúrgico > Pacientes > [Seleccionar paciente]
-2. [ ] Click "Generar nuevo enlace"
-3. [ ] Verificar que la URL generada NO contiene `localhost`
-4. [ ] Verificar que el token tiene expiración (30 días por defecto)
+1. [ ] Admin > Quirúrgico > Operativos > [Operativo] > Pacientes > [Seleccionar paciente]
+2. [ ] Ir a pestaña "Portal"
+3. [ ] Click "Generar y copiar" o "Enviar por email"
+4. [ ] Verificar que la URL generada NO contiene `localhost`
+5. [ ] Verificar que el token tiene expiración (30 días por defecto)
 
-#### B. Envío de Email con Token
-1. [ ] Admin > Paciente > "Enviar por email"
+#### B. Control de Permiso de Edición (NUEVO)
+1. [ ] En Admin > Paciente > Portal, verificar que existe el toggle "Permiso de edición"
+2. [ ] Por defecto debe estar DESACTIVADO (🔒 Solo lectura)
+3. [ ] Click en el toggle para ACTIVAR edición
+4. [ ] Verificar mensaje de éxito: "Paciente ahora puede editar sus datos"
+5. [ ] Click nuevamente para DESACTIVAR
+6. [ ] Verificar mensaje: "Edición de datos deshabilitada para el paciente"
+
+#### C. Envío de Email con Token
+1. [ ] Admin > Paciente > Portal > "Enviar email"
 2. [ ] Ingresar email válido y enviar
 3. [ ] **IMPORTANTE:** Verificar que el email LLEGA realmente (revisar bandeja de entrada/spam)
 4. [ ] Verificar contenido del email:
@@ -45,26 +59,28 @@
    - Fecha de expiración
    - Email de contacto: `contacto@fundaciontraesol.cl`
 
-#### C. Acceso al Portal
+#### D. Acceso al Portal
 1. [ ] Abrir URL del portal con token válido
 2. [ ] Verificar que carga sin errores server-side
 3. [ ] Verificar datos del paciente mostrados correctamente
 4. [ ] Verificar sección de cirugía (diagnóstico, fecha, hora)
 5. [ ] Verificar logística de viaje (si aplica)
 
-#### D. Edición de Datos del Paciente
-**Nota:** Requiere `patient_can_edit = true` en la base de datos
+#### E. Edición de Datos del Paciente
+**Pre-requisito:** `patient_can_edit = true` (activar desde Admin > Portal)
 
-1. [ ] Si botón "Editar" NO aparece:
-   - Verificar en Supabase: `SELECT patient_can_edit FROM pacientes WHERE id = '[id]'`
-   - Si es `false`, cambiar a `true` para prueba
+1. [ ] Si botón "Editar" NO aparece, verificar:
+   - El toggle está activado en Admin > Paciente > Portal
+   - Refrescar la página del portal
 2. [ ] Click "Editar"
 3. [ ] Modificar datos (nombres, teléfono, dirección, etc.)
 4. [ ] Click "Guardar"
 5. [ ] Verificar mensaje de éxito
 6. [ ] Refrescar página y verificar que cambios persisten
 
-#### E. Contactos de Emergencia
+#### F. Contactos de Emergencia
+**Pre-requisito:** `patient_can_edit = true`
+
 1. [ ] Click "Agregar contacto"
 2. [ ] Llenar: nombre, relación, teléfono
 3. [ ] Guardar
@@ -72,7 +88,7 @@
 5. [ ] Probar edición de contacto existente
 6. [ ] Probar eliminación de contacto
 
-#### F. Subida de Archivos
+#### G. Subida de Archivos
 1. [ ] En sección "Documentos Requeridos", click "Subir archivo"
 2. [ ] Seleccionar archivo (PDF, JPG, PNG ≤ 10MB)
 3. [ ] Verificar progreso de subida
@@ -125,8 +141,9 @@
 2. [ ] Intentar acceder
 3. [ ] Verificar mensaje apropiado
 
-### Sin Permiso de Edición
-1. [ ] Asegurar `patient_can_edit = false`
+### Sin Permiso de Edición (ACTUALIZADO)
+1. [ ] Verificar en Admin > Paciente > Portal que el toggle está DESACTIVADO
+2. [ ] Acceder al portal con token válido
 2. [ ] Intentar acceder a `/api/paciente/update`
 3. [ ] Verificar error 403 con mensaje claro
 

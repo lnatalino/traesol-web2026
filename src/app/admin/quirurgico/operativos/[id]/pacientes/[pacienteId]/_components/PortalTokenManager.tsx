@@ -4,7 +4,7 @@
 // Componente para gestionar el token de acceso al portal del paciente
 // Con 2 opciones: Enviar por email o Copiar link + texto preformateado
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { PacientePortalToken } from "@/lib/quirurgico/types";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   token: PacientePortalToken | null;
   pacienteNombre: string;
   pacienteEmail?: string | null;
+  patientCanEdit?: boolean; // Permiso de edición desde el portal
   onRefresh: () => void;
 }
 
@@ -44,7 +45,7 @@ Fundación Traesol
 https://fundaciontraesol.cl`;
 }
 
-export function PortalTokenManager({ pacienteId, token, pacienteNombre, pacienteEmail, onRefresh }: Props) {
+export function PortalTokenManager({ pacienteId, token, pacienteNombre, pacienteEmail, patientCanEdit, onRefresh }: Props) {
   const [generating, setGenerating] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [sending, setSending] = useState(false);
@@ -57,6 +58,40 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, paciente
   const [showSendEmailModal, setShowSendEmailModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState<boolean>(patientCanEdit ?? false);
+  const [togglingEdit, setTogglingEdit] = useState(false);
+
+  // Sincronizar cuando cambia la prop
+  useEffect(() => {
+    setCanEdit(patientCanEdit ?? false);
+  }, [patientCanEdit]);
+
+  // Toggle patient_can_edit
+  const handleToggleCanEdit = async () => {
+    setTogglingEdit(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/pacientes/${pacienteId}/toggle-edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_can_edit: !canEdit }),
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setCanEdit(!canEdit);
+        setSuccess(result.message);
+        setTimeout(() => setSuccess(null), 3000);
+        onRefresh();
+      } else {
+        setError(result.error || "Error al cambiar permisos");
+      }
+    } catch (err) {
+      setError("Error de conexión");
+    } finally {
+      setTogglingEdit(false);
+    }
+  };
 
   // Función para enviar email (regenera token y envía)
   const handleSendEmailOnly = async () => {
@@ -202,6 +237,40 @@ export function PortalTokenManager({ pacienteId, token, pacienteNombre, paciente
         <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
           Acceso al portal del paciente
         </h3>
+      </div>
+
+      {/* Control de edición del paciente */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">
+              Permiso de edición
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {canEdit
+                ? "El paciente PUEDE editar sus datos personales y contactos desde el portal"
+                : "El paciente solo puede VER información (lectura). No puede editar datos ni agregar contactos."}
+            </p>
+          </div>
+          <button
+            onClick={handleToggleCanEdit}
+            disabled={togglingEdit}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 ${
+              canEdit ? "bg-green-500" : "bg-slate-300"
+            }`}
+            role="switch"
+            aria-checked={canEdit}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                canEdit ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-amber-200">
+          {canEdit ? "✏️ Edición habilitada" : "🔒 Solo lectura"} — Cambiar este permiso actualiza inmediatamente el comportamiento del portal.
+        </p>
       </div>
 
       {/* Mensajes de error/éxito */}
