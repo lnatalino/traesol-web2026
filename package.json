@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "2.81.1",
     "jose": "^6.1.1",
     "lucide-react": "^0.553.0",
-    "next": "16.0.1",
+    "next": "^16.1.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "resend": "^6.4.2"
@@ -25,7 +25,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.1",
+    "eslint-config-next": "^16.1.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -15,20 +15,9 @@ interface Props {
   onRefresh: () => void;
 }
 
-export function PortalTokenManager({ pacienteId, token, pacienteNombre, pacienteEmail, onRefresh }: Props) {
-  const [generating, setGenerating] = useState(false);
-  const [revoking, setRevoking] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [newTokenUrl, setNewTokenUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [copiedEmail, setCopiedEmail] = useState(false);
-  const [emailInput, setEmailInput] = useState(pacienteEmail || "");
-  const [showEmailOption, setShowEmailOption] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Texto de email preformateado para copiar
-  const getEmailText = (url: string) => `Estimado/a ${pacienteNombre},
+// Texto de email idéntico al que se envía por email (consistencia)
+function getEmailText(nombre: string, url: string, expirationDate: string): string {
+  return `Estimado/a ${nombre},
 
 Ha sido registrado como paciente en un operativo quirúrgico de la Fundación Traesol.
 
@@ -36,16 +25,37 @@ Para completar su información y subir los documentos necesarios, ingrese al sig
 
 ${url}
 
-Este enlace es personal e intransferible. Le permite:
-- Verificar y actualizar sus datos personales
-- Agregar contactos de emergencia
-- Subir exámenes y documentos médicos requeridos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+¿Qué puede hacer en el portal?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Verificar y actualizar sus datos personales
+• Agregar contactos de emergencia
+• Subir exámenes y documentos médicos requeridos
 
-El enlace expira en 30 días. Si tiene problemas para acceder, contacte al equipo de coordinación.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ IMPORTANTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Este enlace es PERSONAL E INTRANSFERIBLE. No lo comparta con terceros.
+• El enlace expira el ${expirationDate}.
+• Si el enlace expira, contacte al equipo de coordinación para solicitar uno nuevo.
 
 Atentamente,
 Fundación Traesol
 https://fundaciontraesol.cl`;
+}
+
+export function PortalTokenManager({ pacienteId, token, pacienteNombre, pacienteEmail, onRefresh }: Props) {
+  const [generating, setGenerating] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [newTokenUrl, setNewTokenUrl] = useState<string | null>(null);
+  const [expirationDateFormatted, setExpirationDateFormatted] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState(pacienteEmail || "");
+  const [showEmailOption, setShowEmailOption] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleGenerateToken = async (sendEmail: boolean = false, email?: string) => {
     if (sendEmail && !email) {
@@ -73,6 +83,7 @@ https://fundaciontraesol.cl`;
 
       if (response.ok && result.portal_url) {
         setNewTokenUrl(result.portal_url);
+        setExpirationDateFormatted(result.expiration_date_formatted || "en 30 días");
         onRefresh();
         
         if (sendEmail && result.email_sent) {
@@ -138,7 +149,7 @@ https://fundaciontraesol.cl`;
   const handleCopyEmailText = async () => {
     if (!newTokenUrl) return;
     try {
-      await navigator.clipboard.writeText(getEmailText(newTokenUrl));
+      await navigator.clipboard.writeText(getEmailText(pacienteNombre, newTokenUrl, expirationDateFormatted));
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
     } catch (err) {
@@ -341,7 +352,7 @@ https://fundaciontraesol.cl`;
           <div className="bg-white rounded-lg p-3 border border-green-200">
             <p className="text-xs text-slate-500 mb-1 font-medium">Texto de email (para copiar y pegar):</p>
             <pre className="text-xs text-slate-700 whitespace-pre-wrap break-words max-h-40 overflow-y-auto bg-slate-50 p-2 rounded border">
-              {getEmailText(newTokenUrl)}
+              {getEmailText(pacienteNombre, newTokenUrl, expirationDateFormatted)}
             </pre>
             <button
               onClick={handleCopyEmailText}

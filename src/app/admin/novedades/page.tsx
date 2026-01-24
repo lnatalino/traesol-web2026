@@ -110,7 +110,7 @@ export default async function AdminNovedadesPage({
           label="En novedades"
           value={enNovedades}
           highlight
-          highlightVariant="violet"
+          highlightVariant="rose"
         />
       </StatTileGrid>
 

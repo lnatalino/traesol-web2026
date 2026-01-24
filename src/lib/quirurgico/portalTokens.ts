@@ -3,12 +3,16 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { supabaseService } from "../supabaseService";
+import { getPortalPacienteUrl } from "../publicUrl";
 import type { PacientePortalToken, PacientePortalTokenInfo } from "./types";
 
 // Secreto para HMAC - debe estar en variables de entorno
 const TOKEN_SECRET = process.env.PORTAL_TOKEN_SECRET || process.env.NEXTAUTH_SECRET || "fallback-dev-secret-change-in-prod";
 
 // Duración del token en días
+// NOTA: Se mantiene fijo en 30 días por simplicidad.
+// La función calculateTokenExpiry() ya soporta días personalizados si se necesita en el futuro.
+// Para cambiar: pasar 'days' como parámetro a createPortalToken() y modificar calculateTokenExpiry().
 const TOKEN_EXPIRY_DAYS = 30;
 
 /**
@@ -96,11 +100,8 @@ export async function createPortalToken(
     throw new Error("No se pudo crear el token de acceso");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                  process.env.NEXT_PUBLIC_SITE_URL || 
-                  "http://localhost:3000";
-  
-  const url = `${baseUrl.replace(/\/$/, "")}/paciente/portal?token=${token}`;
+  // Usar helper centralizado para generar URL con dominio correcto
+  const url = getPortalPacienteUrl(token);
 
   return { token, url, expiresAt };
 }
