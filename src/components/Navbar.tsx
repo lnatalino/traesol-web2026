@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
+import UserAvatar from "@/components/UserAvatar";
 
+// Links públicos del navbar (sin Admin, ahora está en el dropdown de usuario)
 const navLinks = [
   { href: "/", label: "Inicio" },
   { href: "/sobre-nosotros", label: "Sobre nosotros" },
@@ -11,7 +13,6 @@ const navLinks = [
   { href: "/contacto", label: "Contacto" },
   { href: "/privacidad", label: "Privacidad" },
   { href: "/empresas", label: "Empresas" },
-  { href: "/admin", label: "Admin" },
 ];
 
 export default function Navbar() {
@@ -59,6 +60,7 @@ export default function Navbar() {
           <Link href="/postular" className="btn-primary text-sm">
             Hazte voluntario
           </Link>
+          <UserAvatar />
         </div>
 
         {/* Mobile trigger */}
@@ -93,6 +95,10 @@ export default function Navbar() {
               >
                 Hazte voluntario
               </Link>
+              {/* UserAvatar para móvil */}
+              <div className="pt-2 border-t border-slate-100">
+                <UserAvatar />
+              </div>
             </div>
           </div>
         </div>
