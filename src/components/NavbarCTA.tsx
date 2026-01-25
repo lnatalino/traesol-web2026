@@ -1,5 +1,5 @@
 // src/components/NavbarCTA.tsx
-// CTA condicional en navbar: "Hazte voluntario" o "Postular a operativo"
+// CTA condicional en navbar según estado de sesión y rol
 "use client";
 
 import Link from "next/link";
@@ -11,7 +11,7 @@ interface NavbarCTAProps {
 }
 
 export default function NavbarCTA({ className = "", onClick }: NavbarCTAProps) {
-  const { user, loading } = useUserSession();
+  const { user, role, loading } = useUserSession();
 
   // Mientras carga, mostrar el botón default para evitar flash
   if (loading) {
@@ -26,8 +26,22 @@ export default function NavbarCTA({ className = "", onClick }: NavbarCTAProps) {
     );
   }
 
-  // Si hay sesión, mostrar "Postular a operativo"
+  // Si hay sesión
   if (user) {
+    // Admin/superadmin: mostrar "Panel Admin"
+    if (role === "admin" || role === "superadmin") {
+      return (
+        <Link
+          href="/admin"
+          className={`btn-primary text-sm ${className}`}
+          onClick={onClick}
+        >
+          Panel Admin
+        </Link>
+      );
+    }
+    
+    // Voluntario: mostrar "Postular a operativo"
     return (
       <Link
         href="/operativos"

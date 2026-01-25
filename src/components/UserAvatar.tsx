@@ -12,7 +12,6 @@ export default function UserAvatar() {
   const router = useRouter();
   const { user, profile, role, loading } = useUserSession();
   const [open, setOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = role === "admin" || role === "superadmin";
@@ -29,15 +28,15 @@ export default function UserAvatar() {
   }, []);
 
   async function handleLogout() {
-    setLoggingOut(true);
     setOpen(false); // Cerrar dropdown inmediatamente
-    try {
-      await signOut();
-    } finally {
-      // Forzar navegación y refresh aunque falle el signOut
-      router.replace("/");
+    
+    // Navegar PRIMERO para que la UI no quede bloqueada
+    router.replace("/");
+    
+    // Luego hacer signOut en background
+    signOut().finally(() => {
       router.refresh();
-    }
+    });
   }
 
   if (loading) {
@@ -139,13 +138,12 @@ export default function UserAvatar() {
           <div className="py-1 border-t border-slate-100">
             <button
               onClick={handleLogout}
-              disabled={loggingOut}
               className="flex items-center gap-3 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              {loggingOut ? "Cerrando..." : "Cerrar sesión"}
+              Cerrar sesión
             </button>
           </div>
         </div>

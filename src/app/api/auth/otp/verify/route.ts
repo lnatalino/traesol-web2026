@@ -1,9 +1,10 @@
 // src/app/api/auth/otp/verify/route.ts
-// Verifica un código OTP y marca al usuario como verificado
+// Verifica un código OTP, marca al usuario como verificado, y retorna info para login
 
 import { NextResponse } from "next/server";
 import { verifyOtp, type OtpPurpose } from "@/lib/otpService";
 import { createSupabaseServiceRole } from "@/lib/supabaseRoute";
+import { getEffectiveRole } from "@/lib/adminAuth";
 
 export async function POST(req: Request) {
   try {
@@ -44,30 +45,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // Si es verificación de email, marcar perfil como verificado
-    if (purpose === "verify_email") {
-      const supabase = createSupabaseServiceRole();
-      
-      // Buscar usuario por email
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      const user = authUsers?.users?.find(
-        u => u.email?.toLowerCase() === email.toLowerCase()
-      );
+    const supabase = createSupabaseServiceRole();
+    let userId: string | null = null;
+    let userRole: string = "volunteer";
 
-      if (user) {
-        // Marcar como verificado en user_profiles
+    // Buscar usuario por email
+    const { data: authUsers } = await supabase.auth.admin.listUsers();
+    const user = authUsers?.users?.find(
+      u => u.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (user) {
+      userId = user.id;
+      
+      // Si es verificación de email, marcar perfil como verificado
+      if (purpose === "verify_email") {
         const { error: updateError } = await supabase
           .from("user_profiles")
-          .update({ verified: true })
+          .update({ verified: true } as never)
           .eq("id", user.id);
 
         if (updateError) {
           console.error("[otp/verify] Error updating verified status:", updateError);
-          // No falla la operación, el OTP ya fue verificado
         } else {
           console.log(`[otp/verify] Usuario ${email} marcado como verificado`);
         }
       }
+
+      // Obtener rol del usuario
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+
+      if (roleData?.role) {
+        userRole = roleData.role;
+      }
+
+      // Calcular rol efectivo (considera SUPERADMIN_EMAILS)
+      userRole = getEffectiveRole(userRole, email);
     }
 
     return NextResponse.json({
@@ -75,6 +92,10 @@ export async function POST(req: Request) {
       message: purpose === "verify_email" 
         ? "Email verificado correctamente" 
         : "Código válido",
+      userId,
+      role: userRole,
+      // Indicar a dónde redirigir
+      redirectTo: userRole === "admin" || userRole === "superadmin" ? "/admin" : "/mi-cuenta",
     });
   } catch (err) {
     console.error("[otp/verify] Error:", err);

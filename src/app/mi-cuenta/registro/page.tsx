@@ -4,7 +4,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUpWithEmailPassword, formatRut, isValidRutFormat, isAdult } from "@/lib/userAuth";
+import { formatRut, isValidRutFormat, isAdult } from "@/lib/userAuth";
 import BackButton from "@/components/BackButton";
 
 export default function RegistroPage() {
@@ -75,43 +75,37 @@ export default function RegistroPage() {
 
     setLoading(true);
 
-    const result = await signUpWithEmailPassword({
-      email: form.email,
-      password: form.password,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      birthdate: form.birthdate,
-      rut: form.rut || undefined,
-      phone: form.phone || undefined,
-    });
-
-    if (!result.success) {
-      setError(result.error || "Error al registrar");
-      setLoading(false);
-      return;
-    }
-
-    // Enviar código OTP de verificación
+    // Usar endpoint de servidor para registro (evita email automático de Supabase)
     try {
-      const otpRes = await fetch("/api/auth/otp/send", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email,
-          purpose: "verify_email",
-          userId: result.user?.id,
+          password: form.password,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          birthdate: form.birthdate,
+          rut: form.rut || undefined,
+          phone: form.phone || undefined,
         }),
       });
 
-      if (!otpRes.ok) {
-        console.error("[registro] Error enviando OTP");
-      }
-    } catch (err) {
-      console.error("[registro] Error enviando OTP:", err);
-    }
+      const result = await res.json();
 
-    // Redirigir a página de verificación
-    router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(form.email)}`);
+      if (!result.success) {
+        setError(result.error || "Error al registrar");
+        setLoading(false);
+        return;
+      }
+
+      // Redirigir a página de verificación (el OTP ya fue enviado por el servidor)
+      router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(form.email)}`);
+    } catch (err) {
+      console.error("[registro] Error:", err);
+      setError("Error de conexión. Intenta nuevamente.");
+      setLoading(false);
+    }
   }
 
   return (

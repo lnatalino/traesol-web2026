@@ -5,6 +5,7 @@ import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, ArrowRight, RefreshCw, Mail } from "lucide-react";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 function VerificarContent() {
   const router = useRouter();
@@ -65,12 +66,12 @@ function VerificarContent() {
         return;
       }
 
-      setSuccess("¡Email verificado! Redirigiendo...");
+      setSuccess("¡Email verificado! Redirigiendo al login...");
       
-      // Redirigir a mi cuenta después de un momento
+      // Redirigir al login después de verificar
+      // El usuario deberá ingresar su contraseña para iniciar sesión
       setTimeout(() => {
-        router.push("/mi-cuenta");
-        router.refresh();
+        router.push(`/mi-cuenta/login?verified=1&email=${encodeURIComponent(emailParam)}`);
       }, 1500);
     } catch {
       setError("Error al verificar. Intenta nuevamente.");

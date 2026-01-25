@@ -26,32 +26,45 @@ export function useUserSession(): UseUserSessionReturn {
   const [role, setRole] = useState<UserRole>("volunteer");
   const [loading, setLoading] = useState(true);
 
-  const fetchProfileAndRole = useCallback(async (userId: string) => {
+  const fetchProfileAndRole = useCallback(async (userId: string, userEmail?: string | null) => {
     const supabase = createSupabaseBrowser();
     
-    // Obtener perfil y rol en paralelo
-    const [profileResult, roleResult] = await Promise.all([
-      supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single(),
-      supabase
+    // Obtener perfil de la DB
+    const { data: profileData } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    
+    if (profileData) {
+      setProfile(profileData as UserProfile);
+    }
+    
+    // Obtener rol efectivo del servidor (considera SUPERADMIN_EMAILS)
+    let userRole: UserRole = "volunteer";
+    
+    try {
+      const res = await fetch("/api/auth/check-role");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.role) {
+          userRole = data.role as UserRole;
+        }
+      }
+    } catch {
+      // Fallback: obtener rol de la tabla user_roles
+      const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .single(),
-    ]);
-    
-    if (profileResult.data) {
-      setProfile(profileResult.data as UserProfile);
+        .single();
+      
+      if (roleData?.role) {
+        userRole = roleData.role as UserRole;
+      }
     }
     
-    if (roleResult.data?.role) {
-      setRole(roleResult.data.role as UserRole);
-    } else {
-      setRole("volunteer");
-    }
+    setRole(userRole);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -63,7 +76,7 @@ export function useUserSession(): UseUserSessionReturn {
     setUser(currentSession?.user ?? null);
     
     if (currentSession?.user) {
-      await fetchProfileAndRole(currentSession.user.id);
+      await fetchProfileAndRole(currentSession.user.id, currentSession.user.email);
     } else {
       setProfile(null);
       setRole("volunteer");
@@ -85,7 +98,7 @@ export function useUserSession(): UseUserSessionReturn {
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
-          await fetchProfileAndRole(newSession.user.id);
+          await fetchProfileAndRole(newSession.user.id, newSession.user.email);
         } else {
           setProfile(null);
           setRole("volunteer");

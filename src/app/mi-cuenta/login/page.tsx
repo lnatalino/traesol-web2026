@@ -5,17 +5,21 @@ import { useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailPassword } from "@/lib/userAuth";
+import { createSupabaseBrowser } from "@/lib/supabase";
 import BackButton from "@/components/BackButton";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next") || "/mi-cuenta";
+  const nextUrl = searchParams.get("next") || "";
+  const justVerified = searchParams.get("verified") === "1";
+  const emailFromVerify = searchParams.get("email") || "";
   
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailFromVerify);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showVerifiedMsg, setShowVerifiedMsg] = useState(justVerified);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -30,8 +34,65 @@ function LoginContent() {
       return;
     }
 
-    // Redirigir a la URL solicitada o a mi-cuenta
-    const redirectTo = nextUrl.startsWith("/") ? nextUrl : "/mi-cuenta";
+    // Obtener perfil y rol del usuario
+    const supabase = createSupabaseBrowser();
+    const userId = result.user?.id;
+
+    if (!userId) {
+      setError("Error al obtener sesión");
+      setLoading(false);
+      return;
+    }
+
+    // Obtener perfil y verificar estado
+    const [profileResult, roleResult] = await Promise.all([
+      supabase.from("user_profiles").select("verified").eq("id", userId).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId).single(),
+    ]);
+
+    const verified = profileResult.data?.verified ?? false;
+    const role = roleResult.data?.role || "volunteer";
+
+    // Si no está verificado, redirigir a verificación
+    if (!verified) {
+      // Enviar OTP automáticamente
+      try {
+        await fetch("/api/auth/otp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, purpose: "verify_email", userId }),
+        });
+      } catch (err) {
+        console.error("[login] Error enviando OTP:", err);
+      }
+      
+      router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(email)}`);
+      return;
+    }
+
+    // Determinar redirección según rol y parámetro next
+    let redirectTo = "/mi-cuenta";
+    
+    // Verificar rol efectivo (considera SUPERADMIN_EMAILS del servidor)
+    let effectiveRole = role;
+    try {
+      const roleRes = await fetch("/api/auth/check-role");
+      if (roleRes.ok) {
+        const roleData = await roleRes.json();
+        effectiveRole = roleData.role || role;
+      }
+    } catch {
+      // Usar rol de DB si falla
+    }
+
+    if (nextUrl && nextUrl.startsWith("/")) {
+      // Si hay next explícito, usarlo
+      redirectTo = nextUrl;
+    } else if (effectiveRole === "admin" || effectiveRole === "superadmin") {
+      // Admin/superadmin va directo al panel
+      redirectTo = "/admin";
+    }
+
     router.push(redirectTo);
     router.refresh();
   }
@@ -44,6 +105,12 @@ function LoginContent() {
         <div className="card">
           <h1 className="title mb-2">Iniciar sesión</h1>
           <p className="subtitle mb-6">Accede a tu cuenta de voluntario</p>
+
+          {showVerifiedMsg && (
+            <div className="alert success mb-4">
+              ✓ Email verificado correctamente. Ahora inicia sesión.
+            </div>
+          )}
 
           {error && (
             <div className="alert error mb-4">{error}</div>

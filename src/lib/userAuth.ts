@@ -21,15 +21,8 @@ export interface UserProfile {
   updated_at: string | null;
 }
 
-export interface SignUpData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  birthdate: string;
-  rut?: string;
-  phone?: string;
-}
+// SignUpData se usa solo en /api/auth/register (server-side)
+// NO usar signUp del cliente para evitar emails automáticos de Supabase
 
 export interface AuthResult {
   success: boolean;
@@ -43,72 +36,10 @@ export interface AuthResult {
 // =========================================================================
 
 /**
- * Registrar nuevo usuario con email y contraseña
- * NOTA: El perfil se crea con verified=false, el usuario debe verificar via OTP
+ * IMPORTANTE: El registro de usuarios se hace SOLO via /api/auth/register
+ * Esto evita que Supabase envíe el email de "Confirm your signup"
+ * NO usar supabase.auth.signUp() del cliente para registro.
  */
-export async function signUpWithEmailPassword(data: SignUpData): Promise<AuthResult> {
-  const supabase = createSupabaseBrowser();
-  
-  try {
-    // 1. Crear usuario en auth.users (sin email de confirmación automático)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          first_name: data.firstName,
-          last_name: data.lastName,
-        },
-        // Deshabilitar email de confirmación de Supabase
-        emailRedirectTo: undefined,
-      },
-    });
-
-    if (authError) {
-      return {
-        success: false,
-        error: translateAuthError(authError),
-      };
-    }
-
-    if (!authData.user) {
-      return {
-        success: false,
-        error: "No se pudo crear el usuario",
-      };
-    }
-
-    // 2. Crear perfil en user_profiles (verified=false por defecto)
-    const { error: profileError } = await supabase
-      .from("user_profiles")
-      .upsert({
-        id: authData.user.id,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        birthdate: data.birthdate || null,
-        rut: data.rut || null,
-        phone: data.phone || null,
-        verified: false, // Requiere verificación OTP
-      });
-
-    if (profileError) {
-      console.error("[userAuth] Error creando perfil:", profileError);
-      // El usuario ya se creó, continuamos
-    }
-
-    return {
-      success: true,
-      user: authData.user,
-      session: authData.session ?? undefined,
-    };
-  } catch (err) {
-    console.error("[userAuth] signUp error:", err);
-    return {
-      success: false,
-      error: "Error inesperado al registrar",
-    };
-  }
-}
 
 /**
  * Iniciar sesión con email y contraseña
@@ -147,20 +78,27 @@ export async function signInWithEmailPassword(
 }
 
 /**
- * Cerrar sesión
+ * Cerrar sesión - limpia tanto Supabase Auth como cookies legacy
+ * Optimizado para ser RÁPIDO: no espera respuestas innecesarias
  */
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   const supabase = createSupabaseBrowser();
 
+  // Ejecutar ambos signOut en paralelo, sin esperar al legacy
+  const signOutPromise = supabase.auth.signOut({ scope: "local" });
+  
+  // Limpiar cookies legacy en background (no esperamos)
+  fetch("/api/auth/simple-logout", { method: "POST" }).catch(() => {});
+  
   try {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await signOutPromise;
     if (error) {
-      return { success: false, error: error.message };
+      console.error("[userAuth] signOut error:", error);
     }
     return { success: true };
   } catch (err) {
     console.error("[userAuth] signOut error:", err);
-    return { success: false, error: "Error al cerrar sesión" };
+    return { success: true }; // Retornar success aunque falle para permitir navegación
   }
 }
 
