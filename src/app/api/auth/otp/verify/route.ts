@@ -87,7 +87,8 @@ export async function POST(req: Request) {
       userRole = getEffectiveRole(userRole, email);
     }
 
-    return NextResponse.json({
+    // Crear respuesta con cookie de rol
+    const response = NextResponse.json({
       success: true,
       message: purpose === "verify_email" 
         ? "Email verificado correctamente" 
@@ -97,6 +98,17 @@ export async function POST(req: Request) {
       // Indicar a dónde redirigir
       redirectTo: userRole === "admin" || userRole === "superadmin" ? "/admin" : "/mi-cuenta",
     });
+
+    // Establecer cookie de rol para el middleware (permite acceso a /admin)
+    response.cookies.set("traesol-role", userRole, {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 8, // 8 horas
+    });
+
+    return response;
   } catch (err) {
     console.error("[otp/verify] Error:", err);
     return NextResponse.json(

@@ -85,6 +85,14 @@ function LoginContent() {
       // Usar rol de DB si falla
     }
 
+    // IMPORTANTE: Establecer cookie de rol para el middleware
+    // Esto permite acceso a /admin sin doble login
+    try {
+      await fetch(`/api/auth/set-role-cookie?role=${effectiveRole}`);
+    } catch {
+      // Si falla, el usuario tendrá que usar /login para admin
+    }
+
     if (nextUrl && nextUrl.startsWith("/")) {
       // Si hay next explícito, usarlo
       redirectTo = nextUrl;

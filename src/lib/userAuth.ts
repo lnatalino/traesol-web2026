@@ -255,6 +255,8 @@ function translateAuthError(error: AuthError): string {
     "Email rate limit exceeded": "Demasiados intentos. Intenta más tarde.",
     "For security purposes, you can only request this once every 60 seconds": 
       "Por seguridad, solo puedes solicitar esto cada 60 segundos",
+    "Email logins are disabled": "El acceso por email está deshabilitado en la configuración del sistema",
+    "Signups not allowed for this instance": "Los registros están deshabilitados temporalmente",
   };
 
   return messages[error.message] || error.message;
