@@ -1,14 +1,17 @@
 // src/app/mi-cuenta/login/page.tsx
 "use client";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailPassword } from "@/lib/userAuth";
 import BackButton from "@/components/BackButton";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next") || "/mi-cuenta";
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +30,9 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/mi-cuenta");
+    // Redirigir a la URL solicitada o a mi-cuenta
+    const redirectTo = nextUrl.startsWith("/") ? nextUrl : "/mi-cuenta";
+    router.push(redirectTo);
     router.refresh();
   }
 
@@ -101,5 +106,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <LoginContent />
+    </Suspense>
   );
 }

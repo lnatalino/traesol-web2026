@@ -91,8 +91,27 @@ export default function RegistroPage() {
       return;
     }
 
-    router.push("/mi-cuenta");
-    router.refresh();
+    // Enviar código OTP de verificación
+    try {
+      const otpRes = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          purpose: "verify_email",
+          userId: result.user?.id,
+        }),
+      });
+
+      if (!otpRes.ok) {
+        console.error("[registro] Error enviando OTP");
+      }
+    } catch (err) {
+      console.error("[registro] Error enviando OTP:", err);
+    }
+
+    // Redirigir a página de verificación
+    router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(form.email)}`);
   }
 
   return (

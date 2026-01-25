@@ -89,7 +89,12 @@ export default async function AdminHome() {
   const session = await getAdminSession();
   
   if (!session.allowed) {
-    redirect("/login?next=/admin");
+    // Si no hay sesión, ir a login de Mi Cuenta
+    if (!session.email) {
+      redirect("/mi-cuenta/login?next=/admin");
+    }
+    // Si hay sesión pero no es admin, mostrar error o ir a Mi Cuenta
+    redirect("/mi-cuenta?error=no_admin");
   }
 
   const { email, effectiveRole } = session;

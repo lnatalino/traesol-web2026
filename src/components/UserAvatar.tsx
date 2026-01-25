@@ -10,10 +10,12 @@ import { useRouter } from "next/navigation";
 
 export default function UserAvatar() {
   const router = useRouter();
-  const { user, profile, loading } = useUserSession();
+  const { user, profile, role, loading } = useUserSession();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const isAdmin = role === "admin" || role === "superadmin";
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -80,7 +82,14 @@ export default function UserAvatar() {
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
           {/* User info */}
           <div className="px-4 py-2 border-b border-slate-100">
-            <p className="font-medium text-slate-900 truncate">{displayName}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-slate-900 truncate">{displayName}</p>
+              {isAdmin && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 uppercase">
+                  {role === "superadmin" ? "Super" : "Admin"}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500 truncate">{user.email}</p>
           </div>
 
@@ -109,20 +118,22 @@ export default function UserAvatar() {
             </Link>
           </div>
 
-          {/* Admin link (siempre visible para quien conozca la ruta) */}
-          <div className="py-1 border-t border-slate-100">
-            <Link
-              href="/admin"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
-            >
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Panel Admin
-            </Link>
-          </div>
+          {/* Admin link - solo visible para admins */}
+          {isAdmin && (
+            <div className="py-1 border-t border-slate-100">
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Panel Admin
+              </Link>
+            </div>
+          )}
 
           {/* Logout */}
           <div className="py-1 border-t border-slate-100">

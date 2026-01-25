@@ -16,6 +16,7 @@ export interface UserProfile {
   last_name: string;
   birthdate: string | null;
   phone: string | null;
+  verified: boolean;
   created_at: string;
   updated_at: string | null;
 }
@@ -43,12 +44,13 @@ export interface AuthResult {
 
 /**
  * Registrar nuevo usuario con email y contraseña
+ * NOTA: El perfil se crea con verified=false, el usuario debe verificar via OTP
  */
 export async function signUpWithEmailPassword(data: SignUpData): Promise<AuthResult> {
   const supabase = createSupabaseBrowser();
   
   try {
-    // 1. Crear usuario en auth.users
+    // 1. Crear usuario en auth.users (sin email de confirmación automático)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -57,6 +59,8 @@ export async function signUpWithEmailPassword(data: SignUpData): Promise<AuthRes
           first_name: data.firstName,
           last_name: data.lastName,
         },
+        // Deshabilitar email de confirmación de Supabase
+        emailRedirectTo: undefined,
       },
     });
 
@@ -74,7 +78,7 @@ export async function signUpWithEmailPassword(data: SignUpData): Promise<AuthRes
       };
     }
 
-    // 2. Crear perfil en user_profiles
+    // 2. Crear perfil en user_profiles (verified=false por defecto)
     const { error: profileError } = await supabase
       .from("user_profiles")
       .upsert({
@@ -84,6 +88,7 @@ export async function signUpWithEmailPassword(data: SignUpData): Promise<AuthRes
         birthdate: data.birthdate || null,
         rut: data.rut || null,
         phone: data.phone || null,
+        verified: false, // Requiere verificación OTP
       });
 
     if (profileError) {

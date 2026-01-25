@@ -15,8 +15,14 @@ export default function MiCuentaPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/mi-cuenta/login");
+      return;
     }
-  }, [loading, user, router]);
+    
+    // Si el perfil existe pero no está verificado, redirigir a verificación
+    if (!loading && user && profile && !profile.verified) {
+      router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(user.email || "")}`);
+    }
+  }, [loading, user, profile, router]);
 
   async function handleLogout() {
     setLoggingOut(true);

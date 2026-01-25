@@ -8,10 +8,13 @@ import { createSupabaseBrowser } from "@/lib/supabase";
 import type { User, Session } from "@supabase/supabase-js";
 import type { UserProfile } from "@/lib/userAuth";
 
+export type UserRole = "volunteer" | "admin" | "superadmin";
+
 interface UseUserSessionReturn {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  role: UserRole;
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -20,18 +23,34 @@ export function useUserSession(): UseUserSessionReturn {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [role, setRole] = useState<UserRole>("volunteer");
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfileAndRole = useCallback(async (userId: string) => {
     const supabase = createSupabaseBrowser();
-    const { data } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
     
-    if (data) {
-      setProfile(data as UserProfile);
+    // Obtener perfil y rol en paralelo
+    const [profileResult, roleResult] = await Promise.all([
+      supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
+        .single(),
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single(),
+    ]);
+    
+    if (profileResult.data) {
+      setProfile(profileResult.data as UserProfile);
+    }
+    
+    if (roleResult.data?.role) {
+      setRole(roleResult.data.role as UserRole);
+    } else {
+      setRole("volunteer");
     }
   }, []);
 
@@ -44,13 +63,14 @@ export function useUserSession(): UseUserSessionReturn {
     setUser(currentSession?.user ?? null);
     
     if (currentSession?.user) {
-      await fetchProfile(currentSession.user.id);
+      await fetchProfileAndRole(currentSession.user.id);
     } else {
       setProfile(null);
+      setRole("volunteer");
     }
     
     setLoading(false);
-  }, [fetchProfile]);
+  }, [fetchProfileAndRole]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowser();
@@ -65,9 +85,10 @@ export function useUserSession(): UseUserSessionReturn {
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
-          await fetchProfile(newSession.user.id);
+          await fetchProfileAndRole(newSession.user.id);
         } else {
           setProfile(null);
+          setRole("volunteer");
         }
         
         setLoading(false);
@@ -77,7 +98,7 @@ export function useUserSession(): UseUserSessionReturn {
     return () => {
       subscription.unsubscribe();
     };
-  }, [refresh, fetchProfile]);
+  }, [refresh, fetchProfileAndRole]);
 
-  return { user, session, profile, loading, refresh };
+  return { user, session, profile, role, loading, refresh };
 }

@@ -70,3 +70,23 @@ export function createSupabaseRoute() {
     cookies: createRouteCookieAdapter(),
   });
 }
+
+/**
+ * Cliente Supabase con service role key.
+ * USAR SOLO EN SERVIDOR para operaciones que requieren bypass de RLS.
+ * Nunca exponer al cliente.
+ */
+export function createSupabaseServiceRole() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY not configured");
+  }
+  
+  return createServerClient(url, serviceKey, {
+    cookies: createRouteCookieAdapter(),
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}

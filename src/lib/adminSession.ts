@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getEffectiveRole, isSuperAdmin, ADMIN_ROLES, type AdminRole } from "./adminAuth";
+import { getUnifiedSession } from "./unifiedAuth";
 
 export type AdminSession = {
   role: string;
@@ -7,11 +8,42 @@ export type AdminSession = {
   allowed: boolean;
   isSuperAdmin: boolean;
   effectiveRole: AdminRole | string;
+  // Nuevos campos para sesión unificada
+  userId: string | null;
+  verified: boolean;
+  authSource: "supabase" | "legacy_cookie";
 };
 
 const ALLOWED_ROLES = new Set(["superadmin", "admin", "editor"]);
 
 export async function getAdminSession(): Promise<AdminSession> {
+  // 1. Primero intentar con Supabase Auth (sesión unificada)
+  try {
+    const unifiedSession = await getUnifiedSession();
+    
+    if (unifiedSession.authenticated && unifiedSession.email) {
+      const effectiveRole = getEffectiveRole(unifiedSession.role, unifiedSession.email);
+      const superAdmin = isSuperAdmin(unifiedSession.role, unifiedSession.email);
+      
+      // Verificar si tiene acceso admin
+      const allowed = (ALLOWED_ROLES.has(effectiveRole) || superAdmin) && unifiedSession.verified;
+      
+      return {
+        role: unifiedSession.role,
+        email: unifiedSession.email,
+        allowed,
+        isSuperAdmin: superAdmin,
+        effectiveRole,
+        userId: unifiedSession.userId,
+        verified: unifiedSession.verified,
+        authSource: "supabase",
+      };
+    }
+  } catch (err) {
+    console.error("[adminSession] Error getting unified session:", err);
+  }
+
+  // 2. Fallback: Cookies legacy (para compatibilidad con admin_users existente)
   const store = await cookies();
   const role = store.get("traesol-role")?.value ?? "";
   const email = store.get("traesol-email")?.value ?? "";
@@ -29,6 +61,9 @@ export async function getAdminSession(): Promise<AdminSession> {
     allowed,
     isSuperAdmin: superAdmin,
     effectiveRole,
+    userId: null,
+    verified: true, // Legacy siempre se considera verificado
+    authSource: "legacy_cookie",
   };
 }
 
