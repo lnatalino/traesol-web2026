@@ -87,8 +87,11 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
   // Ejecutar ambos signOut en paralelo, sin esperar al legacy
   const signOutPromise = supabase.auth.signOut({ scope: "local" });
   
-  // Limpiar cookies legacy en background (no esperamos)
-  fetch("/api/auth/simple-logout", { method: "POST" }).catch(() => {});
+  // Limpiar cookies legacy en background (no esperamos, pero enviamos headers JSON)
+  fetch("/api/auth/simple-logout", { 
+    method: "POST",
+    headers: { "Accept": "application/json" },
+  }).catch(() => {});
   
   try {
     const { error } = await signOutPromise;

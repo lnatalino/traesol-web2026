@@ -51,10 +51,27 @@ function LoginContent() {
     ]);
 
     const verified = profileResult.data?.verified ?? false;
-    const role = roleResult.data?.role || "volunteer";
+    const dbRole = roleResult.data?.role || "volunteer";
 
-    // Si no está verificado, redirigir a verificación
-    if (!verified) {
+    // Verificar rol efectivo PRIMERO (considera SUPERADMIN_EMAILS del servidor)
+    let effectiveRole = dbRole;
+    try {
+      const roleRes = await fetch("/api/auth/check-role");
+      if (roleRes.ok) {
+        const roleData = await roleRes.json();
+        effectiveRole = roleData.role || dbRole;
+      }
+    } catch {
+      // Usar rol de DB si falla
+    }
+
+    // REGLA DE NEGOCIO CRÍTICA:
+    // Admin y superadmin NO requieren verificación OTP
+    // Solo voluntarios necesitan verificar email
+    const isAdmin = effectiveRole === "admin" || effectiveRole === "superadmin";
+    
+    // Si es voluntario no verificado, redirigir a verificación
+    if (!isAdmin && !verified) {
       // Enviar OTP automáticamente
       try {
         await fetch("/api/auth/otp/send", {
@@ -70,21 +87,6 @@ function LoginContent() {
       return;
     }
 
-    // Determinar redirección según rol y parámetro next
-    let redirectTo = "/mi-cuenta";
-    
-    // Verificar rol efectivo (considera SUPERADMIN_EMAILS del servidor)
-    let effectiveRole = role;
-    try {
-      const roleRes = await fetch("/api/auth/check-role");
-      if (roleRes.ok) {
-        const roleData = await roleRes.json();
-        effectiveRole = roleData.role || role;
-      }
-    } catch {
-      // Usar rol de DB si falla
-    }
-
     // IMPORTANTE: Establecer cookie de rol para el middleware
     // Esto permite acceso a /admin sin doble login
     try {
@@ -92,6 +94,9 @@ function LoginContent() {
     } catch {
       // Si falla, el usuario tendrá que usar /login para admin
     }
+
+    // Determinar redirección según rol y parámetro next
+    let redirectTo = "/mi-cuenta";
 
     if (nextUrl && nextUrl.startsWith("/")) {
       // Si hay next explícito, usarlo

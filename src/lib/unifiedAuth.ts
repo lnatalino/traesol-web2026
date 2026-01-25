@@ -98,6 +98,8 @@ export async function getUnifiedSession(): Promise<UnifiedSession> {
 /**
  * Verifica acceso al panel de administración
  * Retorna si está permitido y razón si no
+ * 
+ * REGLA DE NEGOCIO: Admin/Superadmin NO requieren verificación OTP
  */
 export async function checkAdminAccess(): Promise<AdminGateResult> {
   const session = await getUnifiedSession();
@@ -112,18 +114,11 @@ export async function checkAdminAccess(): Promise<AdminGateResult> {
     };
   }
   
-  // No verificado
-  if (!session.verified) {
-    return {
-      allowed: false,
-      reason: "not_verified",
-      session,
-      redirectTo: `/mi-cuenta/verificar?email=${encodeURIComponent(session.email || "")}`,
-    };
-  }
+  // Verificar si es admin/superadmin PRIMERO (no requieren verificación)
+  const isAdmin = session.role === "admin" || session.role === "superadmin";
   
-  // No es admin
-  if (session.role !== "admin" && session.role !== "superadmin") {
+  // No es admin - rechazar
+  if (!isAdmin) {
     return {
       allowed: false,
       reason: "not_admin",
@@ -139,6 +134,9 @@ export async function checkAdminAccess(): Promise<AdminGateResult> {
 
 /**
  * Verifica acceso a rutas protegidas de usuario (Mi Cuenta)
+ * 
+ * REGLA DE NEGOCIO: Admin/Superadmin NO requieren verificación OTP
+ * Solo voluntarios necesitan verificar email
  */
 export async function checkUserAccess(): Promise<{
   allowed: boolean;
@@ -157,7 +155,10 @@ export async function checkUserAccess(): Promise<{
     };
   }
   
-  if (!session.verified) {
+  // Admin/Superadmin siempre tienen acceso (sin verificación OTP)
+  const isAdmin = session.role === "admin" || session.role === "superadmin";
+  
+  if (!isAdmin && !session.verified) {
     return {
       allowed: false,
       needsVerification: true,
