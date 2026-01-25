@@ -367,3 +367,44 @@ export function isValidRutFormat(rut: string): boolean {
   // 7-9 dígitos + dígito verificador (0-9 o K)
   return /^[0-9]{7,9}[0-9Kk]$/.test(clean);
 }
+
+// =========================================================================
+// VALIDACIÓN DE PERFIL PARA POSTULACIÓN
+// =========================================================================
+
+export interface VolunteerProfileStatus {
+  isComplete: boolean;
+  missingFields: string[];
+}
+
+/**
+ * Verifica si el perfil del usuario tiene los campos mínimos requeridos
+ * para postular a un operativo usando su cuenta.
+ */
+export function isVolunteerProfileComplete(profile: UserProfile | null): VolunteerProfileStatus {
+  if (!profile) {
+    return {
+      isComplete: false,
+      missingFields: ["Perfil no encontrado"],
+    };
+  }
+
+  const missing: string[] = [];
+
+  // Campos requeridos para postular
+  if (!profile.first_name?.trim()) {
+    missing.push("Nombre");
+  }
+  if (!profile.last_name?.trim()) {
+    missing.push("Apellido");
+  }
+  if (!profile.rut?.trim()) {
+    missing.push("RUT");
+  }
+
+  return {
+    isComplete: missing.length === 0,
+    missingFields: missing,
+  };
+}
+

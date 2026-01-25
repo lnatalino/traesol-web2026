@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import PostularButtons from "@/components/PostularButtons";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import { 
   getComputedEstado, 
@@ -187,48 +188,12 @@ export default async function OperativoPage({
 
         <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-slate-900">¿Quieres participar?</h2>
-          {puedePostular ? (
-            <>
-              <p className="mt-2 text-sm text-slate-600">
-                Postula para sumarte a este operativo o vuelve al inicio para conocer más iniciativas de Traesol.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link
-                  href={`/postular?operativo=${encodeURIComponent(op.slug)}`}
-                  className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
-                >
-                  Postular aquí
-                </Link>
-                <Link
-                  href="/"
-                  className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
-                >
-                  Volver al inicio
-                </Link>
-              </div>
-              <p className="mt-3 text-xs text-blue-700/70">* La postulación requiere aprobación manual.</p>
-            </>
-          ) : (
-            <>
-              <p className="mt-2 text-sm text-slate-600">
-                Este operativo ya no está aceptando postulaciones. Visita nuestra página de operativos para ver las próximas oportunidades.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link
-                  href="/operativos"
-                  className="inline-flex items-center rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
-                >
-                  Ver próximos operativos
-                </Link>
-                <Link
-                  href="/"
-                  className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
-                >
-                  Volver al inicio
-                </Link>
-              </div>
-            </>
-          )}
+          <PostularButtons
+            operativoId={op.id}
+            operativoSlug={op.slug}
+            operativoTitulo={op.titulo || "Operativo Traesol"}
+            puedePostular={puedePostular}
+          />
         </section>
       </div>
     </main>

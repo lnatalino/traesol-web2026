@@ -1,14 +1,16 @@
 // src/app/mi-cuenta/perfil/page.tsx
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUserSession } from "@/lib/hooks/useUserSession";
 import { updateUserProfile, formatRut, isValidRutFormat } from "@/lib/userAuth";
 import BackButton from "@/components/BackButton";
 
-export default function PerfilPage() {
+function PerfilContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const { user, profile, loading, refresh } = useUserSession();
   
   const [form, setForm] = useState({
@@ -86,13 +88,19 @@ export default function PerfilPage() {
       return;
     }
 
-    setSuccess("Perfil actualizado correctamente");
     setSaving(false);
     await refresh();
 
     // Si se guardó RUT, bloquearlo
     if (!rutLocked && form.rut) {
       setRutLocked(true);
+    }
+
+    // Si hay returnTo, redirigir después de guardar
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      setSuccess("Perfil actualizado correctamente");
     }
   }
 
@@ -221,5 +229,13 @@ export default function PerfilPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function PerfilPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <PerfilContent />
+    </Suspense>
   );
 }

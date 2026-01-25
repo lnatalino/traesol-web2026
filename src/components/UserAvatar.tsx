@@ -28,10 +28,14 @@ export default function UserAvatar() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    await signOut();
-    setOpen(false);
-    router.push("/");
-    router.refresh();
+    setOpen(false); // Cerrar dropdown inmediatamente
+    try {
+      await signOut();
+    } finally {
+      // Forzar navegación y refresh aunque falle el signOut
+      router.replace("/");
+      router.refresh();
+    }
   }
 
   if (loading) {

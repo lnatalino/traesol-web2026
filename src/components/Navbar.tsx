@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
+import NavbarCTA from "@/components/NavbarCTA";
 
 // Links públicos del navbar (sin Admin, ahora está en el dropdown de usuario)
 const navLinks = [
@@ -57,9 +58,7 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
-          <Link href="/postular" className="btn-primary text-sm">
-            Hazte voluntario
-          </Link>
+          <NavbarCTA />
           <UserAvatar />
         </div>
 
@@ -88,13 +87,7 @@ export default function Navbar() {
                   {l.label}
                 </Link>
               ))}
-              <Link
-                href="/postular"
-                className="btn-primary w-fit text-sm"
-                onClick={() => setOpen(false)}
-              >
-                Hazte voluntario
-              </Link>
+              <NavbarCTA className="w-fit" onClick={() => setOpen(false)} />
               {/* UserAvatar para móvil */}
               <div className="pt-2 border-t border-slate-100">
                 <UserAvatar />

@@ -20,9 +20,13 @@ export default function MiCuentaPage() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    await signOut();
-    router.push("/");
-    router.refresh();
+    try {
+      await signOut();
+    } finally {
+      // Forzar navegación y refresh aunque falle el signOut
+      router.replace("/");
+      router.refresh();
+    }
   }
 
   if (loading) {
