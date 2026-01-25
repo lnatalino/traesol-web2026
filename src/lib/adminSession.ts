@@ -25,8 +25,10 @@ export async function getAdminSession(): Promise<AdminSession> {
       const effectiveRole = getEffectiveRole(unifiedSession.role, unifiedSession.email);
       const superAdmin = isSuperAdmin(unifiedSession.role, unifiedSession.email);
       
-      // Verificar si tiene acceso admin
-      const allowed = (ALLOWED_ROLES.has(effectiveRole) || superAdmin) && unifiedSession.verified;
+      // REGLA DE NEGOCIO: Admin/Superadmin NO requiere verified
+      // Solo voluntarios necesitan verificar email
+      const isAdminRole = ALLOWED_ROLES.has(effectiveRole) || superAdmin;
+      const allowed = isAdminRole; // Admin siempre tiene acceso si está autenticado
       
       return {
         role: unifiedSession.role,

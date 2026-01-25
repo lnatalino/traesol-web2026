@@ -1,4 +1,5 @@
 // middleware.ts
+// SISTEMA UNIFICADO: Todo pasa por /mi-cuenta/login
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -11,7 +12,8 @@ export function middleware(req: NextRequest) {
   
   // Verificar si el rol está permitido
   if (!ALLOWED_ROLES.has(role)) {
-    const url = new URL("/login", req.url);
+    // SIEMPRE redirigir al login unificado, NO al viejo /login
+    const url = new URL("/mi-cuenta/login", req.url);
     url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
     return NextResponse.redirect(url);
   }
