@@ -36,14 +36,14 @@ const emptyCookies: EmptyCookieAdapter = {
 };
 
 /**
- * Cliente Supabase para Server Components (RSC).
- *
- * Importante:
- * - NO usamos cookies reales aquí.
- * - Solo necesitamos leer datos públicos con la anon key.
- * - Todas las operaciones de cookies son "no-op" (no hacen nada).
- *
- * Esto evita por completo los problemas de Next 16 con cookies() en RSC.
+ * Cliente Supabase para Server Components (RSC) - Modo público.
+ * 
+ * IMPORTANTE: Esta versión NO lee sesión de usuario.
+ * Solo para queries públicas sin autenticación.
+ * 
+ * Para operaciones que requieren sesión del usuario, usa:
+ * - createSupabaseRoute() en Route Handlers/API
+ * - El middleware ya refresca la sesión automáticamente
  */
 export function createSupabaseServer() {
   return createServerClient(url, anon, {

@@ -97,15 +97,22 @@ export function useUserSession(): UseUserSessionReturn {
     try {
       const supabase = createSupabaseBrowser();
       
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      // IMPORTANTE: Usar getUser() que valida el token con el server
+      // getSession() solo lee de localStorage y puede estar desincronizado
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
       
-      if (currentSession?.user) {
-        await fetchProfileAndRole(currentSession.user.id, currentSession.user.email);
-      } else {
+      if (error || !currentUser) {
+        // No hay sesión válida
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setRole("volunteer");
+      } else {
+        // Obtener session para tener access_token si se necesita
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentUser);
+        await fetchProfileAndRole(currentUser.id, currentUser.email);
       }
     } catch (err) {
       console.error("[useUserSession] refresh error:", err);
