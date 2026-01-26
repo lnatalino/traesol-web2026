@@ -98,9 +98,20 @@ export async function middleware(req: NextRequest) {
   return response;
 }
 
+// Matcher: solo rutas que requieren auth o refresh de cookies
+// Excluye assets estáticos, api routes públicas, etc.
 export const config = { 
   matcher: [
-    // Incluir todas las rutas excepto assets estáticos
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Proteger rutas admin y mi-cuenta
+    "/admin/:path*",
+    "/mi-cuenta/:path*",
+    // Refresh de cookies en rutas públicas principales (sin bloquear)
+    "/",
+    "/operativos/:path*",
+    "/novedades/:path*",
+    "/empresas/:path*",
+    "/quirurgico/:path*",
+    "/postular/:path*",
+    "/encuesta/:path*",
   ] 
 };

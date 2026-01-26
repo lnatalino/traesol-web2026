@@ -235,12 +235,14 @@ CREATE INDEX IF NOT EXISTS idx_operativo_participantes_status ON operativo_parti
 ALTER TABLE operativo_participantes ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Usuarios pueden ver sus propias participaciones
-CREATE POLICY IF NOT EXISTS operativo_participantes_select_own ON operativo_participantes
+DROP POLICY IF EXISTS operativo_participantes_select_own ON operativo_participantes;
+CREATE POLICY operativo_participantes_select_own ON operativo_participantes
     FOR SELECT
     USING (auth.uid() = user_id);
 
 -- Policy: Service role tiene acceso total
-CREATE POLICY IF NOT EXISTS operativo_participantes_service_all ON operativo_participantes
+DROP POLICY IF EXISTS operativo_participantes_service_all ON operativo_participantes;
+CREATE POLICY operativo_participantes_service_all ON operativo_participantes
     FOR ALL
     USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');

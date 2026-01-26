@@ -17,6 +17,7 @@ import {
 import { AdminSectionCard } from "@/components/admin/operativos/AdminSectionCard";
 import { OperativoSummaryCard } from "@/components/admin/operativos/OperativoSummaryCard";
 import { OperativoInventoryMassive } from "@/components/admin/OperativoInventoryMassive";
+import { StaffManager } from "@/components/admin/operativos/StaffManager";
 import InviteVolunteers from "./InviteVolunteers";
 import {
   buildProfesionOptions,
@@ -378,6 +379,11 @@ export default async function OperativoDetailPage({
           total: inscripciones.length,
         }}
       />
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+         A.1) STAFF / EQUIPO TRAESOL
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <StaffManager operativoId={operativo.id} />
 
       {/* ═══════════════════════════════════════════════════════════════════════
          B) CONFIRMADOS - Lo más importante
