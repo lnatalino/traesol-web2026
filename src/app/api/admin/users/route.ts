@@ -11,7 +11,7 @@ import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
 import * as React from "react";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <noreply@fundaciontraesol.cl>";
+const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
 
 // =========================================================================
 // GET - Listar usuarios
@@ -200,12 +200,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // REGLA DE NEGOCIO: Solo permitir crear rol "admin"
-    // Superadmin solo puede ser creado por script/migración, NUNCA desde UI
+    // SEGURIDAD: Solo permitir rol admin desde UI
+    // Superadmin SOLO puede crearse por script de servidor
     if (role !== "admin") {
       return NextResponse.json(
-        { success: false, error: "Solo se pueden crear administradores desde el panel" },
-        { status: 400 }
+        { success: false, error: "Solo se puede crear rol admin desde la UI. Superadmin requiere script de servidor." },
+        { status: 403 }
       );
     }
 

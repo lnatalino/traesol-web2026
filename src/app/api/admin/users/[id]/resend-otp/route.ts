@@ -10,7 +10,7 @@ import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
 import * as React from "react";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <noreply@fundaciontraesol.cl>";
+const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

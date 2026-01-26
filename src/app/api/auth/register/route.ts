@@ -9,10 +9,8 @@ import { Resend } from "resend";
 import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
 import * as React from "react";
 
-// Validar que RESEND_API_KEY esté configurado
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
-const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <noreply@fundaciontraesol.cl>";
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
 
 interface RegisterBody {
   email: string;
@@ -120,13 +118,10 @@ export async function POST(req: Request) {
     if (!otpResult.success || !otpResult.code) {
       console.error("[register] Error generando OTP:", otpResult.error);
       // No fallar el registro, el usuario puede pedir reenvío
-    } else if (!resend) {
-      console.error("[register] RESEND_API_KEY no configurado, no se puede enviar OTP");
     } else {
       // Enviar email con el código
       try {
-        console.log(`[register] Enviando OTP a ${email}...`);
-        const { data, error: emailError } = await resend.emails.send({
+        const { error: emailError } = await resend.emails.send({
           from: FROM_EMAIL,
           to: email.toLowerCase(),
           subject: "Código de verificación - Fundación Traesol",
@@ -138,9 +133,9 @@ export async function POST(req: Request) {
         });
 
         if (emailError) {
-          console.error("[register] Error enviando email:", JSON.stringify(emailError, null, 2));
+          console.error("[register] Error enviando email:", emailError);
         } else {
-          console.log(`[register] ✓ OTP enviado a ${email} - Resend ID: ${data?.id}`);
+          console.log(`[register] OTP enviado a ${email}`);
         }
       } catch (emailErr) {
         console.error("[register] Error enviando email:", emailErr);

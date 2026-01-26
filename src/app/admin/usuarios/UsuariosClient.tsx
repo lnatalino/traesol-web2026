@@ -78,7 +78,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
   const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRut, setNewRut] = useState("");
-  const [newRole, setNewRole] = useState<"admin">("admin");
+  const [newRole] = useState<"admin">("admin"); // Solo admin desde UI
   const [creating, setCreating] = useState(false);
 
   // Modal editar usuario
@@ -163,7 +163,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
         setNewFirstName("");
         setNewLastName("");
         setNewRut("");
-        setNewRole("admin");
+        // newRole es constante "admin", no necesita reset
         setSuccess(`Administrador creado. Se envió un código a ${newEmail} para establecer contraseña.`);
         fetchUsers();
         setTimeout(() => setSuccess(""), 8000);
@@ -390,7 +390,9 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                     const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
                     const RoleIcon = ROLE_ICONS[user.role] || User;
                     const canEdit = isSuperAdmin || user.role === "volunteer";
-                    const canDelete = (isSuperAdmin && user.role !== "superadmin") || (!isSuperAdmin && user.role === "volunteer");
+                    // Superadmin puede eliminar cualquiera (el API protege el último superadmin)
+                    // Admin normal solo puede eliminar voluntarios
+                    const canDelete = isSuperAdmin || (!isSuperAdmin && user.role === "volunteer");
                     
                     return (
                       <tr key={user.id} className="hover:bg-slate-50">
@@ -567,16 +569,13 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                 <label className="text-sm font-medium">Rol</label>
                 <select
                   value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as "admin")}
-                  className="inp w-full"
+                  className="inp w-full bg-gray-100"
                   disabled
                 >
                   <option value="admin">Administrador</option>
-                  {/* Superadmin solo puede ser creado por script, no desde UI */}
+                  {/* Superadmin solo puede crearse por script de servidor */}
                 </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Solo se pueden crear administradores desde el panel.
-                </p>
+                <p className="text-xs text-gray-500">Superadmin solo puede crearse por script de servidor</p>
               </div>
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
                 <div className="flex items-start gap-2 text-blue-700">

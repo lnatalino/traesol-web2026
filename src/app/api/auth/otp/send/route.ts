@@ -7,22 +7,11 @@ import { generateOtp, checkOtpRateLimit, type OtpPurpose } from "@/lib/otpServic
 import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
 import * as React from "react";
 
-// Validar que RESEND_API_KEY esté configurado
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
-const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <noreply@fundaciontraesol.cl>";
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
 
 export async function POST(req: Request) {
   try {
-    // Validar configuración de Resend PRIMERO
-    if (!resend || !RESEND_API_KEY) {
-      console.error("[otp/send] RESEND_API_KEY no está configurado en las variables de entorno");
-      return NextResponse.json(
-        { success: false, error: "Servicio de email no configurado. Contacta al administrador." },
-        { status: 503 }
-      );
-    }
-
     const body = await req.json();
     const { email, purpose = "verify_email", userId, skipRateLimit = false } = body as {
       email: string;
@@ -38,8 +27,6 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(`[otp/send] Solicitud para ${email} (${purpose})`);
-
     // Validar propósito
     if (purpose !== "verify_email" && purpose !== "reset_password") {
       return NextResponse.json(
@@ -52,7 +39,6 @@ export async function POST(req: Request) {
     if (!skipRateLimit) {
       const rateLimitError = await checkOtpRateLimit(email, purpose);
       if (rateLimitError) {
-        console.log(`[otp/send] Rate limit alcanzado para ${email}`);
         return NextResponse.json(
           { success: false, error: rateLimitError, rateLimited: true },
           { status: 429 }
@@ -64,14 +50,11 @@ export async function POST(req: Request) {
     const otpResult = await generateOtp(email, purpose, userId, true);
 
     if (!otpResult.success || !otpResult.code) {
-      console.error(`[otp/send] Error generando OTP para ${email}:`, otpResult.error);
       return NextResponse.json(
         { success: false, error: otpResult.error || "Error al generar código" },
         { status: 500 }
       );
     }
-
-    console.log(`[otp/send] OTP generado para ${email}, enviando email...`);
 
     // Enviar email con Resend
     const subject = purpose === "verify_email"
@@ -90,24 +73,23 @@ export async function POST(req: Request) {
     });
 
     if (emailError) {
-      console.error("[otp/send] Resend error:", JSON.stringify(emailError, null, 2));
-      console.error("[otp/send] FROM_EMAIL usado:", FROM_EMAIL);
+      console.error("[otp/send] Resend error:", emailError);
       return NextResponse.json(
-        { success: false, error: `Error al enviar email: ${emailError.message || "Error desconocido"}` },
+        { success: false, error: "Error al enviar email" },
         { status: 500 }
       );
     }
 
-    console.log(`[otp/send] ✓ OTP enviado exitosamente a ${email} - Resend ID: ${data?.id}`);
+    console.log(`[otp/send] OTP enviado a ${email} (${purpose}) - Resend ID: ${data?.id}`);
 
     return NextResponse.json({
       success: true,
       message: "Código enviado",
     });
   } catch (err) {
-    console.error("[otp/send] Error inesperado:", err);
+    console.error("[otp/send] Error:", err);
     return NextResponse.json(
-      { success: false, error: "Error inesperado al enviar código" },
+      { success: false, error: "Error inesperado" },
       { status: 500 }
     );
   }
