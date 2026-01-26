@@ -273,12 +273,75 @@ async function handleUserAccountPostulation(
       });
     }
 
+    // Si fue rechazado, PERMITIR repostulación reactivando la inscripción existente
     if (isRejectedEstado(estado)) {
+      // Reactivar la inscripción existente cambiando estado a pendiente
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: reactivateError } = await (supabaseService as any)
+        .from("inscripciones")
+        .update({
+          estado: INSCRIPCION_ESTADO.PENDIENTE,
+          origen: INSCRIPCION_ORIGEN.POSTULACION,
+          // updated_at se actualiza automáticamente por Supabase
+        })
+        .eq("id", existingInsc.id);
+
+      if (reactivateError) {
+        console.error("[postulaciones/registrar] Error reactivando inscripción:", reactivateError);
+        return statusResponse({
+          ok: false,
+          code: "ALREADY_REVIEWED",
+          message: "No se pudo procesar tu nueva postulación. Por favor intenta más tarde.",
+          extra: { origin },
+        });
+      }
+
+      // Enviar email de confirmación de repostulación
+      try {
+        await sendPostulacionRecibidaEmail({
+          to: email,
+          nombre: [nombres, apellidos].filter(Boolean).join(" ") || nombres,
+          operativoTitulo: operativo.titulo || "Operativo Traesol",
+          operativoFecha: operativo.fecha_inicio,
+          operativoLugar: operativo.lugar,
+          operativoSlug: operativo.slug,
+        });
+      } catch (mailError) {
+        console.error("sendPostulacionRecibidaEmail error (repostulación)", mailError);
+      }
+
+      // Email al admin
+      try {
+        await sendPostulacionAdminEmail({
+          inscripcionId: existingInsc.id,
+          voluntario: {
+            nombres,
+            apellidos,
+            email,
+            telefono,
+            rut,
+            id_nacional: null,
+            profesion,
+            talla_polera: tallaPolera,
+            restricciones_alimentarias: restricciones,
+          },
+          operativo: {
+            titulo: operativo.titulo,
+            fecha_inicio: operativo.fecha_inicio,
+            lugar: operativo.lugar,
+            link: buildOperativoLink(operativo),
+          },
+          isReapplication: true,
+        });
+      } catch (adminMailError) {
+        console.error("sendPostulacionAdminEmail error (repostulación)", adminMailError);
+      }
+
       return statusResponse({
-        ok: false,
-        code: "ALREADY_REVIEWED",
-        message: "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@fundaciontraesol.cl.",
-        extra: { origin },
+        ok: true,
+        code: "OK",
+        message: "¡Hemos recibido tu nueva postulación! Te contactaremos pronto.",
+        extra: { reapplication: true, inscripcionId: existingInsc.id },
       });
     }
   }

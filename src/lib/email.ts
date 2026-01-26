@@ -951,11 +951,12 @@ export type PostulacionAdminEmailPayload = {
     restricciones_alimentarias: string | null;
   };
   operativo: {
-    id: string;
+    id?: string;
     titulo: string | null;
-    slug: string | null;
+    slug?: string | null;
     fecha_inicio: string | null;
     lugar: string | null;
+    link?: string | null;
   };
   /** Si fue postulado por otro usuario (ej: amigo, familiar) */
   postuladoPor?: {
@@ -964,10 +965,12 @@ export type PostulacionAdminEmailPayload = {
   } | null;
   /** Si es postulación de usuario con cuenta (vs voluntario anónimo) */
   isUserAccount?: boolean;
+  /** Si es repostulación (usuario fue rechazado y volvió a postular) */
+  isReapplication?: boolean;
 };
 
 function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
-  const { inscripcionId, voluntario, operativo, postuladoPor, isUserAccount } = payload;
+  const { inscripcionId, voluntario, operativo, postuladoPor, isUserAccount, isReapplication } = payload;
   const siteUrl = SITE_URL || "https://fundaciontraesol.cl";
   
   // Para usuarios con cuenta, los botones de acción requieren diferentes endpoints
@@ -977,7 +980,7 @@ function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
     ? generateApprovalUrls(inscripcionId, siteUrl)
     : { acceptUrl: "", rejectUrl: "" };
   const adminUrl = isUserAccount
-    ? `${siteUrl}/admin/operativos/${operativo.id}/inscripciones`
+    ? `${siteUrl}/admin/operativos/${operativo.id || ""}/inscripciones`
     : `${siteUrl}/admin/inscripciones`;
   
   const nombreCompleto = [voluntario.nombres, voluntario.apellidos].filter(Boolean).join(" ") || "Sin nombre";
@@ -1047,9 +1050,17 @@ function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
         </a>
   `;
 
+  const reapplicationHtml = isReapplication
+    ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin:0 0 16px;">
+        <strong style="color:#92400e;">⚠️ Repostulación:</strong>
+        <span style="color:#78350f;"> Esta persona fue rechazada anteriormente y ha vuelto a postular.</span>
+      </div>`
+    : "";
+
   return shell({
-    title: `Nueva postulación: ${escapeHtml(nombreCompleto)}`,
+    title: `${isReapplication ? "[Repostulación] " : ""}Nueva postulación: ${escapeHtml(nombreCompleto)}`,
     body: `
+      ${reapplicationHtml}
       <p style="margin:0 0 16px;font-size:16px;">
         <strong>${escapeHtml(nombreCompleto)}</strong> ha postulado al operativo 
         <strong>${escapeHtml(operativo.titulo || "")}</strong>.

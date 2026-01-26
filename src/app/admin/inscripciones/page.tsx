@@ -11,8 +11,8 @@ import {
 } from "@/lib/inscripciones";
 import { getErrorMessage } from "@/lib/errors";
 import { supabaseService } from "@/lib/supabaseService";
-import { isOperativoAbierto } from "@/lib/operativosShared";
-import { ClipboardCheck, Clock, Send, UserPlus } from "lucide-react";
+import { getComputedEstado } from "@/lib/operativosShared";
+import { ClipboardCheck, Clock, Send, UserPlus, AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -183,6 +183,7 @@ export default async function AdminInscripcionesPage({
           estadoLabel: string;
         }
       >;
+      isPastOperativo?: boolean;
     }
   >();
 
@@ -190,12 +191,17 @@ export default async function AdminInscripcionesPage({
   for (const row of filteredRows) {
     const operativoId = row.operativo_id as string;
     const operativo = operativoMap.get(operativoId);
-    if (!isOperativoAbierto(operativo, referenceDate)) continue;
+    // Incluir TODOS los operativos con pendientes (futuros, en curso, pasados)
+    // Admin debe poder ver y procesar inscripciones pendientes sin importar fecha
+    // Solo excluimos borradores (estado !== 'publicado' y !== 'finalizado')
+    const computedEstado = operativo ? getComputedEstado(operativo, referenceDate) : null;
+    if (computedEstado && computedEstado !== "publicado" && computedEstado !== "finalizado") continue;
     const voluntario = row.voluntario_id ? voluntarioMap.get(row.voluntario_id) : undefined;
     const origin = inferInscripcionOrigen(row.tipo, row.origen);
     const bucket = grouped.get(operativoId) ?? {
       operativo,
       entries: [],
+      isPastOperativo: computedEstado === "finalizado",
     };
     bucket.entries.push({
       ...row,
@@ -229,6 +235,7 @@ export default async function AdminInscripcionesPage({
       lugar: operativo?.lugar || "—",
       count: info.entries.length,
       fechaInicioValue: operativo?.fecha_inicio ? new Date(operativo.fecha_inicio).getTime() : 0,
+      isPastOperativo: info.isPastOperativo ?? false,
     };
   });
 
@@ -296,11 +303,23 @@ export default async function AdminInscripcionesPage({
           {groupedList.map((group) => (
             <section
               key={group.operativoId}
-              className="space-y-4 rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-xl shadow-blue-900/5"
+              className={`space-y-4 rounded-[32px] border p-6 shadow-xl shadow-blue-900/5 ${
+                group.isPastOperativo
+                  ? "border-amber-200 bg-amber-50/50"
+                  : "border-slate-100 bg-white/95"
+              }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold text-slate-900">{group.titulo}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-semibold text-slate-900">{group.titulo}</h2>
+                    {group.isPastOperativo && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                        <AlertTriangle className="h-3 w-3" />
+                        Finalizado
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate-500">
                     {group.fechas} · {group.lugar}
                   </p>
@@ -312,6 +331,11 @@ export default async function AdminInscripcionesPage({
                   Ver operativo
                 </Link>
               </div>
+              {group.isPastOperativo && (
+                <div className="rounded-xl border border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-800">
+                  <strong>⚠️ Este operativo ya finalizó.</strong> Hay inscripciones pendientes que no fueron procesadas.
+                </div>
+              )}
               <div className="inline-flex items-center rounded-full bg-amber-100/80 px-4 py-1.5 text-sm font-semibold text-amber-700">
                 {group.count} inscripciones pendientes
               </div>
