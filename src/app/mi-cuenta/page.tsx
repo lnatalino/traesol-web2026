@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/components/providers/SessionProvider";
 import { signOut } from "@/lib/userAuth";
+import { Calendar, MapPin, Users, Clock, ExternalLink, MessageCircle, CalendarPlus, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 interface VoluntarioData {
   id: string;
@@ -17,19 +18,22 @@ interface VoluntarioData {
   profesion: string | null;
 }
 
+interface OperativoData {
+  id: string;
+  titulo: string;
+  slug: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  lugar: string | null;
+  estado: string;
+  whatsapp_grupo_url?: string | null;
+}
+
 interface InscripcionData {
   id: string;
   estado: string;
   created_at: string;
-  operativo: {
-    id: string;
-    titulo: string;
-    slug: string;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    lugar: string | null;
-    estado: string;
-  } | null;
+  operativo: OperativoData | null;
 }
 
 export default function MiCuentaPage() {
@@ -38,7 +42,9 @@ export default function MiCuentaPage() {
   
   const [loggingOut, setLoggingOut] = useState(false);
   const [voluntarioData, setVoluntarioData] = useState<VoluntarioData | null>(null);
-  const [inscripciones, setInscripciones] = useState<InscripcionData[]>([]);
+  const [porAsistir, setPorAsistir] = useState<InscripcionData[]>([]);
+  const [finalizados, setFinalizados] = useState<InscripcionData[]>([]);
+  const [pendientes, setPendientes] = useState<InscripcionData[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // Redirecciones según rol (middleware ya valida autenticación)
@@ -72,15 +78,21 @@ export default function MiCuentaPage() {
         if (res.ok) {
           const data = await res.json();
           setVoluntarioData(data.voluntario || null);
-          setInscripciones(data.inscripciones || []);
+          setPorAsistir(data.porAsistir || []);
+          setFinalizados(data.finalizados || []);
+          setPendientes(data.pendientes || []);
         } else {
           setVoluntarioData(null);
-          setInscripciones([]);
+          setPorAsistir([]);
+          setFinalizados([]);
+          setPendientes([]);
         }
       } catch (err) {
         console.error("[mi-cuenta] Error cargando datos:", err);
         setVoluntarioData(null);
-        setInscripciones([]);
+        setPorAsistir([]);
+        setFinalizados([]);
+        setPendientes([]);
       } finally {
         setLoadingData(false);
       }
@@ -166,23 +178,40 @@ export default function MiCuentaPage() {
     ? `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase()
     : user.email?.[0]?.toUpperCase() || "U";
 
-  // Separar inscripciones por estado
-  const ahora = new Date();
-  const operativosFuturos = inscripciones.filter(i => {
-    if (!i.operativo?.fecha_inicio) return false;
-    const fechaInicio = new Date(i.operativo.fecha_inicio);
-    return fechaInicio > ahora && (i.estado === "confirmado" || i.estado === "aprobado");
-  });
-  
-  const operativosFinalizados = inscripciones.filter(i => {
-    if (!i.operativo?.fecha_fin) return false;
-    const fechaFin = new Date(i.operativo.fecha_fin);
-    return fechaFin < ahora && (i.estado === "confirmado" || i.estado === "aprobado");
-  });
-  
-  const postulacionesPendientes = inscripciones.filter(i => 
-    i.estado === "pendiente"
-  );
+  // Helpers para fechas y Google Calendar
+  function formatFechaMes(fecha: string | null): { dia: string; mes: string } {
+    if (!fecha) return { dia: "--", mes: "---" };
+    const d = new Date(fecha);
+    return {
+      dia: d.getDate().toString().padStart(2, "0"),
+      mes: d.toLocaleDateString("es-CL", { month: "short" }).replace(".", ""),
+    };
+  }
+
+  function formatFechaCompleta(fecha: string | null): string {
+    if (!fecha) return "Fecha por confirmar";
+    return new Date(fecha).toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function createGoogleCalendarUrl(op: OperativoData | null): string {
+    if (!op?.fecha_inicio) return "#";
+    const start = op.fecha_inicio.replace(/-/g, "").slice(0, 8);
+    const end = op.fecha_fin 
+      ? op.fecha_fin.replace(/-/g, "").slice(0, 8)
+      : start;
+    const title = encodeURIComponent(op.titulo || "Operativo Traesol");
+    const location = encodeURIComponent(op.lugar || "");
+    const details = encodeURIComponent(`Operativo de Fundación Traesol\nhttps://www.traesol.cl/operativos/${op.slug || op.id}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${location}&details=${details}`;
+  }
+
+  // Verificar si el perfil está completo (campos críticos)
+  const isProfileIncomplete = !voluntarioData?.rut || !voluntarioData?.profesion;
 
   return (
     <main className="container">
@@ -271,12 +300,32 @@ export default function MiCuentaPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Mis datos */}
           <div className="card">
-            <div className="flex items-center gap-2 mb-4">
-              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <h2 className="text-lg font-semibold text-slate-900">Mis datos</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-slate-400" />
+                <h2 className="text-lg font-semibold text-slate-900">Mis datos</h2>
+              </div>
+              {isProfileIncomplete && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                  <AlertTriangle className="w-3 h-3" />
+                  Incompleto
+                </span>
+              )}
             </div>
+            
+            {isProfileIncomplete && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  Completa tu perfil para poder postular a operativos.
+                </p>
+                <Link 
+                  href="/mi-cuenta/perfil" 
+                  className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-amber-700 hover:text-amber-900"
+                >
+                  Completar ahora →
+                </Link>
+              </div>
+            )}
             
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b border-slate-100">
@@ -294,72 +343,159 @@ export default function MiCuentaPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-500">RUT</span>
-                <span className="font-medium text-slate-900">
-                  {voluntarioData?.rut || "No registrado"}
+                <span className={`font-medium ${voluntarioData?.rut ? "text-slate-900" : "text-amber-600"}`}>
+                  {voluntarioData?.rut || "Sin registrar"}
                 </span>
               </div>
-              {voluntarioData?.profesion && (
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-500">Profesión</span>
-                  <span className="font-medium text-slate-900">{voluntarioData.profesion}</span>
-                </div>
-              )}
+              <div className="flex justify-between py-2">
+                <span className="text-slate-500">Profesión</span>
+                <span className={`font-medium ${voluntarioData?.profesion ? "text-slate-900" : "text-amber-600"}`}>
+                  {voluntarioData?.profesion || "Sin registrar"}
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <Link 
+                href="/mi-cuenta/perfil" 
+                className="btn-primary w-full justify-center text-sm"
+              >
+                Editar perfil completo
+              </Link>
             </div>
           </div>
 
-          {/* Operativos por asistir */}
-          <div className="card">
+          {/* POR ASISTIR - Sección principal mejorada */}
+          <div className="card lg:row-span-2">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Calendar className="w-5 h-5 text-blue-500" />
                 <h2 className="text-lg font-semibold text-slate-900">Por asistir</h2>
               </div>
-              <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                {operativosFuturos.length}
+              <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                {porAsistir.length}
               </span>
             </div>
             
             {loadingData ? (
-              <div className="animate-pulse space-y-3">
-                <div className="h-16 bg-slate-100 rounded-lg" />
-                <div className="h-16 bg-slate-100 rounded-lg" />
+              <div className="animate-pulse space-y-4">
+                <div className="h-24 bg-slate-100 rounded-xl" />
+                <div className="h-24 bg-slate-100 rounded-xl" />
               </div>
-            ) : operativosFuturos.length > 0 ? (
-              <div className="space-y-3">
-                {operativosFuturos.slice(0, 3).map(insc => (
-                  <Link 
-                    key={insc.id} 
-                    href={`/operativos/${insc.operativo?.slug || insc.operativo?.id}`}
-                    className="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-slate-900">{insc.operativo?.titulo}</p>
-                        <p className="text-sm text-slate-500">
-                          {insc.operativo?.fecha_inicio 
-                            ? new Date(insc.operativo.fecha_inicio).toLocaleDateString("es-CL", {
-                                day: "numeric", month: "long", year: "numeric"
-                              })
-                            : "Fecha por confirmar"
-                          }
-                        </p>
+            ) : porAsistir.length > 0 ? (
+              <div className="space-y-4">
+                {/* Cards de operativos */}
+                {porAsistir.slice(0, 3).map(insc => {
+                  const { dia, mes } = formatFechaMes(insc.operativo?.fecha_inicio || null);
+                  const op = insc.operativo;
+                  return (
+                    <div 
+                      key={insc.id}
+                      className="relative bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl border border-blue-200 overflow-hidden"
+                    >
+                      <div className="flex">
+                        {/* Fecha destacada */}
+                        <div className="flex-shrink-0 w-20 py-4 flex flex-col items-center justify-center border-r border-blue-200 bg-white/50">
+                          <span className="text-2xl font-bold text-blue-700">{dia}</span>
+                          <span className="text-xs font-medium text-blue-600 uppercase">{mes}</span>
+                        </div>
+                        
+                        {/* Contenido */}
+                        <div className="flex-1 p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="font-semibold text-slate-900 text-sm leading-tight">
+                              {op?.titulo || "Operativo"}
+                            </h3>
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Confirmado
+                            </span>
+                          </div>
+                          
+                          {op?.lugar && (
+                            <div className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+                              <MapPin className="w-3 h-3" />
+                              <span>{op.lugar}</span>
+                            </div>
+                          )}
+                          
+                          {/* Botones de acción */}
+                          <div className="flex flex-wrap gap-2">
+                            <Link
+                              href={`/operativos/${op?.slug || op?.id}`}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-white px-2 py-1 rounded-md border border-blue-200 hover:border-blue-300 transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Ver detalle
+                            </Link>
+                            
+                            <a
+                              href={createGoogleCalendarUrl(op)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-800 bg-white px-2 py-1 rounded-md border border-slate-200 hover:border-slate-300 transition-colors"
+                            >
+                              <CalendarPlus className="w-3 h-3" />
+                              Agregar a calendario
+                            </a>
+                            
+                            {op?.whatsapp_grupo_url && (
+                              <a
+                                href={op.whatsapp_grupo_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-800 bg-white px-2 py-1 rounded-md border border-green-200 hover:border-green-300 transition-colors"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
                     </div>
-                  </Link>
-                ))}
+                  );
+                })}
+                
+                {porAsistir.length > 3 && (
+                  <p className="text-center text-sm text-slate-500 pt-2">
+                    y {porAsistir.length - 3} operativo{porAsistir.length - 3 > 1 ? "s" : ""} más...
+                  </p>
+                )}
+                
+                {/* Timeline de próximas fechas */}
+                {porAsistir.length > 1 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <p className="text-xs font-medium text-slate-500 mb-3">Próximas fechas</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {porAsistir.slice(0, 6).map(insc => {
+                        const { dia, mes } = formatFechaMes(insc.operativo?.fecha_inicio || null);
+                        return (
+                          <div 
+                            key={insc.id}
+                            className="flex-shrink-0 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-center min-w-[60px]"
+                            title={insc.operativo?.titulo}
+                          >
+                            <span className="block text-sm font-bold text-blue-700">{dia}</span>
+                            <span className="block text-[10px] font-medium text-blue-500 uppercase">{mes}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-center py-6">
-                <svg className="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <p className="text-slate-500 text-sm">No tienes operativos próximos</p>
-                <Link href="/operativos" className="text-blue-600 text-sm hover:underline mt-1 inline-block">
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-600 font-medium mb-1">No tienes operativos próximos</p>
+                <p className="text-slate-500 text-sm mb-4">Explora los operativos disponibles y postula</p>
+                <Link 
+                  href="/operativos" 
+                  className="btn-primary inline-flex items-center gap-2 text-sm"
+                >
                   Ver operativos disponibles
                 </Link>
               </div>
@@ -370,13 +506,11 @@ export default function MiCuentaPage() {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <Clock className="w-5 h-5 text-amber-500" />
                 <h2 className="text-lg font-semibold text-slate-900">Mis postulaciones</h2>
               </div>
               <span className="text-sm font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                {postulacionesPendientes.length} pendientes
+                {pendientes.length} pendientes
               </span>
             </div>
             
@@ -384,12 +518,12 @@ export default function MiCuentaPage() {
               <div className="animate-pulse space-y-3">
                 <div className="h-16 bg-slate-100 rounded-lg" />
               </div>
-            ) : postulacionesPendientes.length > 0 ? (
+            ) : pendientes.length > 0 ? (
               <div className="space-y-3">
-                {postulacionesPendientes.map(insc => (
+                {pendientes.map(insc => (
                   <div 
                     key={insc.id}
-                    className="p-3 bg-amber-50 rounded-lg"
+                    className="p-3 bg-amber-50 rounded-lg border border-amber-200"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -405,9 +539,7 @@ export default function MiCuentaPage() {
               </div>
             ) : (
               <div className="text-center py-6">
-                <svg className="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-slate-500 text-sm">No tienes postulaciones pendientes</p>
               </div>
             )}
@@ -417,13 +549,11 @@ export default function MiCuentaPage() {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
                 <h2 className="text-lg font-semibold text-slate-900">Finalizados</h2>
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                {operativosFinalizados.length}
+                {finalizados.length}
               </span>
             </div>
             
@@ -431,12 +561,12 @@ export default function MiCuentaPage() {
               <div className="animate-pulse space-y-3">
                 <div className="h-16 bg-slate-100 rounded-lg" />
               </div>
-            ) : operativosFinalizados.length > 0 ? (
+            ) : finalizados.length > 0 ? (
               <div className="space-y-3">
-                {operativosFinalizados.slice(0, 3).map(insc => (
+                {finalizados.slice(0, 3).map(insc => (
                   <div 
                     key={insc.id}
-                    className="p-3 bg-green-50 rounded-lg"
+                    className="p-3 bg-green-50 rounded-lg border border-green-200"
                   >
                     <p className="font-medium text-slate-900">{insc.operativo?.titulo}</p>
                     <p className="text-sm text-slate-500">
@@ -449,17 +579,15 @@ export default function MiCuentaPage() {
                     </p>
                   </div>
                 ))}
-                {operativosFinalizados.length > 3 && (
+                {finalizados.length > 3 && (
                   <p className="text-center text-sm text-slate-500">
-                    y {operativosFinalizados.length - 3} más...
+                    y {finalizados.length - 3} más...
                   </p>
                 )}
               </div>
             ) : (
               <div className="text-center py-6">
-                <svg className="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <CheckCircle2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-slate-500 text-sm">Aún no has participado en operativos</p>
               </div>
             )}
