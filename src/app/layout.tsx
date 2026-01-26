@@ -7,6 +7,11 @@ import Footer from "@/components/Footer";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { getServerSession } from "@/lib/serverSession";
 
+// Forzar rendering dinámico porque usamos cookies (Supabase SSR session)
+// Esto evita el error "Dynamic server usage: couldn't be rendered statically"
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

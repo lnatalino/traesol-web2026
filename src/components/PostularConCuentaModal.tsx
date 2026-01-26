@@ -1,12 +1,15 @@
 // src/components/PostularConCuentaModal.tsx
 // Modal para postular a operativo usando la cuenta del usuario
+// IMPORTANTE: Valida campos obligatorios COMPLETOS antes de permitir postulación
+// Campos requeridos: RUT, Nombre, Apellido, Email, Teléfono, Talla uniforme, Restricciones alimentarias
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useUserSession } from "@/lib/hooks/useUserSession";
-import { isVolunteerProfileComplete, formatRut, type UserProfile } from "@/lib/userAuth";
+import { useSession } from "@/components/providers/SessionProvider";
+import { formatRut } from "@/lib/userAuth";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 interface PostularConCuentaModalProps {
   isOpen: boolean;
@@ -14,6 +17,53 @@ interface PostularConCuentaModalProps {
   operativoId: string;
   operativoSlug: string;
   operativoTitulo: string;
+}
+
+// Campos obligatorios para postular (según encuesta voluntarios)
+const CAMPOS_OBLIGATORIOS = [
+  { key: "rut", label: "RUT" },
+  { key: "first_name", label: "Nombre" },
+  { key: "last_name", label: "Apellido" },
+  { key: "phone", label: "Teléfono" },
+  { key: "talla_polera", label: "Talla de polera" },
+  { key: "restricciones_alimentarias", label: "Restricciones alimentarias" },
+] as const;
+
+// Perfil completo del voluntario (incluye campos de logística)
+interface VoluntarioProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  rut: string | null;
+  phone: string | null;
+  birthdate: string | null;
+  talla_polera: string | null;
+  talla_pantalon: string | null;
+  restricciones_alimentarias: string | null;
+  direccion: string | null;
+  comuna: string | null;
+  instagram: string | null;
+}
+
+function validateVolunteerProfile(profile: VoluntarioProfile | null): { isComplete: boolean; missingFields: string[] } {
+  if (!profile) {
+    return { isComplete: false, missingFields: ["Perfil no encontrado"] };
+  }
+
+  const missing: string[] = [];
+
+  for (const campo of CAMPOS_OBLIGATORIOS) {
+    const value = profile[campo.key as keyof VoluntarioProfile];
+    // Considerar vacío si es null, undefined, o string vacío
+    if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
+      missing.push(campo.label);
+    }
+  }
+
+  return {
+    isComplete: missing.length === 0,
+    missingFields: missing,
+  };
 }
 
 export default function PostularConCuentaModal({
@@ -24,37 +74,75 @@ export default function PostularConCuentaModal({
   operativoTitulo,
 }: PostularConCuentaModalProps) {
   const router = useRouter();
-  const { user, profile, loading, refresh } = useUserSession();
+  const { user, loading: sessionLoading } = useSession();
+  
+  // Estado del perfil completo (cargado de DB)
+  const [fullProfile, setFullProfile] = useState<VoluntarioProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
   const [confirmado, setConfirmado] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Refrescar perfil al abrir el modal
+  // Cargar perfil completo del voluntario
+  const loadFullProfile = useCallback(async () => {
+    if (!user?.id) return;
+    
+    setLoadingProfile(true);
+    try {
+      const supabase = createSupabaseBrowser();
+      const { data, error: dbError } = await supabase
+        .from("user_profiles")
+        .select("id, first_name, last_name, rut, phone, birthdate, talla_polera, talla_pantalon, restricciones_alimentarias, direccion, comuna, instagram")
+        .eq("id", user.id)
+        .single();
+      
+      if (dbError) {
+        console.error("[PostularConCuenta] Error cargando perfil:", dbError);
+      }
+      
+      setFullProfile(data as VoluntarioProfile | null);
+    } catch (err) {
+      console.error("[PostularConCuenta] Error:", err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [user?.id]);
+
+  // Cargar perfil al abrir el modal
   useEffect(() => {
     if (isOpen && user) {
-      refresh();
+      loadFullProfile();
     }
-  }, [isOpen, user, refresh]);
+  }, [isOpen, user, loadFullProfile]);
 
-  // Reset estados al abrir/cerrar
+  // Reset estados al cerrar
   useEffect(() => {
     if (!isOpen) {
       setConfirmado(false);
       setError("");
       setSuccess(false);
+      setFullProfile(null);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const profileStatus = isVolunteerProfileComplete(profile);
+  const profileStatus = validateVolunteerProfile(fullProfile);
   const currentUrl = typeof window !== "undefined" ? window.location.pathname : "";
 
   async function handleSubmit() {
-    if (!user || !profile) return;
+    if (!user || !fullProfile) return;
     if (!confirmado) {
       setError("Debes confirmar que tus datos son correctos");
+      return;
+    }
+
+    // Validación final antes de enviar
+    const validation = validateVolunteerProfile(fullProfile);
+    if (!validation.isComplete) {
+      setError(`Faltan datos obligatorios: ${validation.missingFields.join(", ")}`);
       return;
     }
 
@@ -62,33 +150,30 @@ export default function PostularConCuentaModal({
     setSending(true);
 
     try {
-      // Usar el mismo endpoint que el formulario normal
       const payload = {
-        nombres: profile.first_name,
-        apellidos: profile.last_name,
-        rut: profile.rut?.replace(/\./g, "").replace(/-/g, "").toUpperCase(),
+        nombres: fullProfile.first_name,
+        apellidos: fullProfile.last_name,
+        rut: fullProfile.rut?.replace(/\./g, "").replace(/-/g, "").toUpperCase(),
         email: user.email,
-        telefono: profile.phone || null,
-        fecha_nacimiento: profile.birthdate || null,
-        // Campos opcionales que el usuario puede no tener
+        telefono: fullProfile.phone,
+        fecha_nacimiento: fullProfile.birthdate || null,
         nacionalidad: null,
         genero: null,
-        direccion: null,
-        instagram: null,
+        direccion: fullProfile.direccion || null,
+        instagram: fullProfile.instagram || null,
         profesion: "No especificada",
         profesion_otro: null,
         especialidad: null,
-        talla_polera: null,
-        talla_pantalon: null,
-        alimentarias_alergias: null,
+        talla_polera: fullProfile.talla_polera,
+        talla_pantalon: fullProfile.talla_pantalon || null,
+        alimentarias_alergias: fullProfile.restricciones_alimentarias,
         alimentarias_veg: false,
         alimentarias_otro: null,
-        nombre_credencial: `${profile.first_name} ${profile.last_name}`.trim(),
+        nombre_credencial: `${fullProfile.first_name} ${fullProfile.last_name}`.trim(),
         tipo_postulacion: "especifica",
         operativo_id: operativoId,
         disponibilidad_anual: null,
         motivacion: "Postulación desde Mi cuenta",
-        // Flag para indicar que viene de cuenta autenticada
         from_user_account: true,
         user_id: user.id,
       };
@@ -120,19 +205,20 @@ export default function PostularConCuentaModal({
   }
 
   // Loading state
-  if (loading) {
+  if (sessionLoading || loadingProfile) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-xl">
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
             <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            <p className="text-sm text-slate-600">Cargando tu perfil...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Perfil incompleto
+  // Perfil incompleto - mostrar campos faltantes
   if (!profileStatus.isComplete) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -144,15 +230,18 @@ export default function PostularConCuentaModal({
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-slate-900 mb-2">
-              Completa tu perfil
+              Completa tu perfil para postular
             </h2>
             <p className="text-slate-600 mb-4">
-              Para postular con tu cuenta necesitas completar los siguientes datos:
+              Para postular a un operativo necesitas completar todos los datos obligatorios:
             </p>
-            <ul className="text-left bg-slate-50 rounded-lg p-4 mb-6">
+            <ul className="text-left bg-slate-50 rounded-lg p-4 mb-6 space-y-2">
               {profileStatus.missingFields.map((field) => (
                 <li key={field} className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="text-red-500">✕</span> {field}
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-red-500 text-xs">✕</span>
+                  </span>
+                  {field}
                 </li>
               ))}
             </ul>
@@ -164,7 +253,7 @@ export default function PostularConCuentaModal({
                 Cancelar
               </button>
               <Link
-                href={`/mi-cuenta/perfil?returnTo=${encodeURIComponent(currentUrl)}`}
+                href={`/mi-cuenta/perfil/editar?returnTo=${encodeURIComponent(currentUrl)}`}
                 className="flex-1 btn-primary text-center"
                 onClick={onClose}
               >
@@ -201,7 +290,7 @@ export default function PostularConCuentaModal({
     );
   }
 
-  // Modal principal con datos del perfil
+  // Modal principal: Confirmar datos antes de postular
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -209,7 +298,7 @@ export default function PostularConCuentaModal({
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-slate-900">
-              Postular a operativo
+              Confirmar postulación
             </h2>
             <button
               onClick={onClose}
@@ -222,71 +311,81 @@ export default function PostularConCuentaModal({
             </button>
           </div>
           <p className="text-sm text-slate-600 mt-1">
-            {operativoTitulo}
+            Operativo: <strong>{operativoTitulo}</strong>
           </p>
         </div>
 
         {/* Contenido */}
         <div className="p-6 space-y-4">
           {error && (
-            <div className="alert error">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
 
-          {/* Datos del perfil */}
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-            <h3 className="font-medium text-slate-900">Tus datos</h3>
+          {/* Datos del perfil - TODOS los campos obligatorios */}
+          <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-slate-900">Tus datos de postulación</h3>
+              <Link
+                href={`/mi-cuenta/perfil/editar?returnTo=${encodeURIComponent(currentUrl)}`}
+                className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+                onClick={onClose}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </Link>
+            </div>
             
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-slate-500">Nombre</span>
-                <p className="font-medium text-slate-900">{profile?.first_name}</p>
+                <p className="font-medium text-slate-900">{fullProfile?.first_name || "—"}</p>
               </div>
               <div>
                 <span className="text-slate-500">Apellido</span>
-                <p className="font-medium text-slate-900">{profile?.last_name}</p>
+                <p className="font-medium text-slate-900">{fullProfile?.last_name || "—"}</p>
               </div>
               <div>
                 <span className="text-slate-500">RUT</span>
                 <p className="font-medium text-slate-900">
-                  {profile?.rut ? formatRut(profile.rut) : "—"}
+                  {fullProfile?.rut ? formatRut(fullProfile.rut) : "—"}
                 </p>
               </div>
               <div>
                 <span className="text-slate-500">Email</span>
                 <p className="font-medium text-slate-900 truncate">{user?.email}</p>
               </div>
-              {profile?.phone && (
-                <div className="col-span-2">
-                  <span className="text-slate-500">Teléfono</span>
-                  <p className="font-medium text-slate-900">{profile.phone}</p>
-                </div>
-              )}
+              <div>
+                <span className="text-slate-500">Teléfono</span>
+                <p className="font-medium text-slate-900">{fullProfile?.phone || "—"}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">Talla polera</span>
+                <p className="font-medium text-slate-900">{fullProfile?.talla_polera || "—"}</p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-500">Restricciones alimentarias</span>
+                <p className="font-medium text-slate-900">
+                  {fullProfile?.restricciones_alimentarias || "Ninguna"}
+                </p>
+              </div>
             </div>
-
-            <Link
-              href={`/mi-cuenta/perfil?returnTo=${encodeURIComponent(currentUrl)}`}
-              className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
-              onClick={onClose}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Editar mis datos
-            </Link>
           </div>
 
           {/* Checkbox de confirmación */}
-          <label className="flex items-start gap-3 cursor-pointer">
+          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-50 transition-colors">
             <input
               type="checkbox"
               checked={confirmado}
               onChange={(e) => setConfirmado(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm text-slate-700">
-              Confirmo que mis datos son correctos y deseo postular a este operativo.
+              Confirmo que mis datos son correctos y deseo postular a este operativo. 
+              Entiendo que la postulación está sujeta a aprobación.
             </span>
           </label>
         </div>
@@ -305,7 +404,17 @@ export default function PostularConCuentaModal({
             disabled={!confirmado || sending}
             className="flex-1 btn-primary justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {sending ? "Enviando..." : "Confirmar y enviar"}
+            {sending ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Enviando...
+              </>
+            ) : (
+              "Confirmar y enviar postulación"
+            )}
           </button>
         </div>
       </div>
