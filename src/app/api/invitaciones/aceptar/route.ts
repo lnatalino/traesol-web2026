@@ -3,6 +3,41 @@ import { supabaseService } from "@/lib/supabaseService";
 import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
 import { sendInvitacionAceptadaEmail } from "@/lib/invitaciones/emails";
 
+// Campos obligatorios para considerar un perfil "completo"
+const REQUIRED_PROFILE_FIELDS = [
+  "first_name",
+  "last_name", 
+  "phone",
+  "rut",
+  "talla_polera",
+  "restricciones_alimentarias",
+] as const;
+
+type UserProfileRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  rut: string | null;
+  talla_polera: string | null;
+  restricciones_alimentarias: string | null;
+};
+
+/**
+ * Verifica si el perfil del usuario tiene todos los campos obligatorios
+ */
+function isUserProfileComplete(profile: UserProfileRow | null): boolean {
+  if (!profile) return false;
+  
+  for (const field of REQUIRED_PROFILE_FIELDS) {
+    const value = profile[field];
+    if (!value || (typeof value === "string" && !value.trim())) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * POST /api/invitaciones/aceptar
  * 
@@ -128,6 +163,61 @@ export async function POST(req: Request) {
       });
     }
 
+    // Obtener datos del voluntario para verificar si tiene cuenta
+    type VoluntarioResult = { 
+      id: string; 
+      nombres: string | null; 
+      apellidos: string | null; 
+      email: string | null;
+    };
+    
+    const { data: voluntario } = inscripcion.voluntario_id 
+      ? await supabaseService
+          .from("voluntarios")
+          .select("id, nombres, apellidos, email")
+          .eq("id", inscripcion.voluntario_id)
+          .maybeSingle<VoluntarioResult>()
+      : { data: null };
+
+    // Si el voluntario tiene email, verificar si tiene cuenta de usuario
+    // y si su perfil está completo
+    if (voluntario?.email) {
+      // Buscar si existe usuario con ese email
+      const { data: authUsers } = await supabaseService.auth.admin.listUsers();
+      const matchingUser = authUsers?.users?.find(
+        u => u.email?.toLowerCase() === voluntario.email?.toLowerCase()
+      );
+
+      if (matchingUser) {
+        // El voluntario tiene cuenta - verificar si perfil está completo
+        const { data: userProfile } = await supabaseService
+          .from("user_profiles")
+          .select("id, first_name, last_name, phone, rut, talla_polera, restricciones_alimentarias")
+          .eq("id", matchingUser.id)
+          .maybeSingle<UserProfileRow>();
+
+        if (!isUserProfileComplete(userProfile)) {
+          // Perfil incompleto - retornar flag para que frontend redirija
+          const { data: operativo } = await supabaseService
+            .from("operativos")
+            .select("id, slug, titulo")
+            .eq("id", operativoId)
+            .maybeSingle<OperativoResult>();
+
+          return NextResponse.json({
+            ok: false,
+            requires_profile_completion: true,
+            token: token, // Devolver token para re-intentar después
+            user_id: matchingUser.id,
+            operativo_id: operativo?.id || operativoId,
+            operativo_slug: operativo?.slug || null,
+            operativo_titulo: operativo?.titulo || null,
+            message: "Debes completar tu perfil antes de aceptar la invitación.",
+          });
+        }
+      }
+    }
+
     // Actualizar estado a "confirmado"
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateError } = await (supabaseService as any)
@@ -153,15 +243,7 @@ export async function POST(req: Request) {
       .eq("id", operativoId)
       .maybeSingle<OperativoResult>();
 
-    // Obtener datos del voluntario para enviar email
-    type VoluntarioResult = { id: string; nombres: string | null; apellidos: string | null; email: string | null };
-    const { data: voluntario } = inscripcion.voluntario_id 
-      ? await supabaseService
-          .from("voluntarios")
-          .select("id, nombres, apellidos, email")
-          .eq("id", inscripcion.voluntario_id)
-          .maybeSingle<VoluntarioResult>()
-      : { data: null };
+    // Nota: datos del voluntario ya fueron obtenidos arriba para verificación de perfil
 
     // Enviar email de confirmación al voluntario
     if (voluntario?.email) {

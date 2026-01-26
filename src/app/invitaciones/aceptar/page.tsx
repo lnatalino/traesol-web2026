@@ -13,6 +13,8 @@ type ApiResponse = {
   operativo_id?: string;
   operativo_slug?: string;
   operativo_titulo?: string;
+  requires_profile_completion?: boolean;
+  token?: string;
 };
 
 function AceptarInvitacionContent() {
@@ -20,11 +22,12 @@ function AceptarInvitacionContent() {
   const router = useRouter();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error" | "requires_profile">("loading");
   const [message, setMessage] = useState("");
   const [operativoTitulo, setOperativoTitulo] = useState<string | null>(null);
   const [operativoSlug, setOperativoSlug] = useState<string | null>(null);
   const [alreadyResponded, setAlreadyResponded] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -42,6 +45,15 @@ function AceptarInvitacionContent() {
         });
 
         const data: ApiResponse = await res.json();
+
+        if (data.requires_profile_completion) {
+          // El usuario tiene cuenta pero perfil incompleto
+          setStatus("requires_profile");
+          setMessage(data.message || "Debes completar tu perfil antes de aceptar la invitación.");
+          setOperativoTitulo(data.operativo_titulo || null);
+          setPendingToken(data.token || token);
+          return;
+        }
 
         if (data.ok) {
           setStatus("success");
@@ -127,6 +139,44 @@ function AceptarInvitacionContent() {
                 className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
               >
                 Ir ahora →
+              </a>
+            </>
+          )}
+
+          {/* Estado: Requiere completar perfil */}
+          {status === "requires_profile" && (
+            <>
+              <div className="flex justify-center mb-4">
+                <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center">
+                  <svg className="h-10 w-10 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                Completa tu perfil
+              </h1>
+              <p className="text-slate-600 mb-4">{message}</p>
+              
+              {operativoTitulo && (
+                <div className="bg-blue-50 rounded-2xl p-4 mb-4 border border-blue-100">
+                  <p className="text-sm text-blue-600 font-medium mb-1">Invitación pendiente para:</p>
+                  <p className="text-lg font-semibold text-slate-900">{operativoTitulo}</p>
+                </div>
+              )}
+
+              <div className="bg-amber-50 rounded-2xl p-4 mb-6 border border-amber-200">
+                <p className="text-sm text-amber-800">
+                  Para confirmar tu participación, necesitas completar los datos obligatorios de tu perfil: 
+                  nombre, teléfono, RUT, talla de polera y restricciones alimentarias.
+                </p>
+              </div>
+              
+              <a
+                href={`/mi-cuenta/perfil?redirect=/invitaciones/aceptar?token=${encodeURIComponent(pendingToken || "")}`}
+                className="block w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-2xl hover:bg-blue-700 transition"
+              >
+                Completar mi perfil
               </a>
             </>
           )}

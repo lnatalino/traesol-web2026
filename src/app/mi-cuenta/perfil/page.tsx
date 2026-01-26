@@ -15,15 +15,17 @@ function PerfilContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const redirect = searchParams.get("redirect"); // Para invitaciones
   const { user, loading: sessionLoading, refresh } = useSession();
 
   const handleSave = async (_data: ProfileFormData) => {
     // Refrescar sesión para que otros componentes vean los cambios
     await refresh();
     
-    // Si hay returnTo, redirigir ahí (ej: después de postular)
-    if (returnTo) {
-      router.push(returnTo);
+    // Si hay redirect (invitaciones) o returnTo, redirigir ahí
+    const destination = redirect || returnTo;
+    if (destination) {
+      router.push(destination);
     }
   };
 
@@ -75,20 +77,38 @@ function PerfilContent() {
         <BackButton fallback="/mi-cuenta" />
         
         {/* Banner de advertencia */}
-        <div className="mt-6 mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className={`mt-6 mb-6 ${redirect ? "bg-blue-50 border-blue-200" : "bg-amber-50 border-amber-200"} border rounded-xl p-4`}>
           <div className="flex gap-3">
             <div className="flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              {redirect ? (
+                <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              )}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-amber-900">
-                Es importante completar todos tus datos
-              </h3>
-              <p className="text-sm text-amber-800 mt-1">
-                Para postular a operativos, necesitas tener tu perfil completo. Si faltan 
-                datos obligatorios, <strong>no podrás postular ni ser convocado/a</strong> a 
-                participar en nuestras actividades.
-              </p>
+              {redirect ? (
+                <>
+                  <h3 className="text-sm font-semibold text-blue-900">
+                    Completa tu perfil para aceptar la invitación
+                  </h3>
+                  <p className="text-sm text-blue-800 mt-1">
+                    Tienes una invitación pendiente. Una vez que completes los datos obligatorios, 
+                    serás redirigido automáticamente para confirmar tu participación.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-sm font-semibold text-amber-900">
+                    Es importante completar todos tus datos
+                  </h3>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Para postular a operativos, necesitas tener tu perfil completo. Si faltan 
+                    datos obligatorios, <strong>no podrás postular ni ser convocado/a</strong> a 
+                    participar en nuestras actividades.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
