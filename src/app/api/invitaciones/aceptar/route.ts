@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       ubicacion: string | null;
       fecha_inicio: string | null;
       fecha_fin: string | null;
-      whatsapp_link: string | null;
+      whatsapp_grupo_url: string | null;
     };
 
     // Verificar si ya fue respondida
@@ -149,16 +149,16 @@ export async function POST(req: Request) {
     // Obtener datos del operativo para la redirección y email
     const { data: operativo } = await supabaseService
       .from("operativos")
-      .select("id, slug, titulo, ubicacion, fecha_inicio, fecha_fin, whatsapp_link")
+      .select("id, slug, titulo, ubicacion, fecha_inicio, fecha_fin, whatsapp_grupo_url")
       .eq("id", operativoId)
       .maybeSingle<OperativoResult>();
 
     // Obtener datos del voluntario para enviar email
-    type VoluntarioResult = { id: string; nombre: string; apellido: string; email: string | null };
+    type VoluntarioResult = { id: string; nombres: string | null; apellidos: string | null; email: string | null };
     const { data: voluntario } = inscripcion.voluntario_id 
       ? await supabaseService
           .from("voluntarios")
-          .select("id, nombre, apellido, email")
+          .select("id, nombres, apellidos, email")
           .eq("id", inscripcion.voluntario_id)
           .maybeSingle<VoluntarioResult>()
       : { data: null };
@@ -168,8 +168,8 @@ export async function POST(req: Request) {
       try {
         const emailResult = await sendInvitacionAceptadaEmail(
           {
-            nombre: voluntario.nombre,
-            apellido: voluntario.apellido,
+            nombre: voluntario.nombres || "",
+            apellido: voluntario.apellidos || "",
             email: voluntario.email,
           },
           {
@@ -177,7 +177,7 @@ export async function POST(req: Request) {
             ubicacion: operativo?.ubicacion,
             fecha_inicio: operativo?.fecha_inicio,
             fecha_fin: operativo?.fecha_fin,
-            whatsapp_link: operativo?.whatsapp_link,
+            whatsapp_link: operativo?.whatsapp_grupo_url,
           }
         );
         if (emailResult.success) {
