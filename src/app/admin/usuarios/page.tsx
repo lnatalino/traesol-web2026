@@ -12,20 +12,20 @@ export default async function UsuariosPage() {
     redirect("/mi-cuenta/login?next=/admin/usuarios");
   }
 
-  // Admin puede ver voluntarios, superadmin puede ver todos
-  // La lógica de filtrado está en el cliente y en los endpoints
+  // Solo superadmin puede acceder a este módulo
+  if (!session.isSuperAdmin) {
+    redirect("/admin");
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
         <p className="text-slate-600">
-          {session.isSuperAdmin 
-            ? "Administra voluntarios y administradores del sistema." 
-            : "Administra los voluntarios registrados."}
+          Administra voluntarios y administradores del sistema.
         </p>
       </div>
-      <UsuariosClient isSuperAdmin={session.isSuperAdmin} />
+      <UsuariosClient isSuperAdmin={true} />
     </div>
   );
 }

@@ -1,14 +1,16 @@
 // src/app/mi-cuenta/olvido-contrasena/page.tsx
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, ArrowRight, RefreshCw, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import BackButton from "@/components/BackButton";
 
 type Step = "email" | "code" | "password" | "success";
 
-export default function OlvidoContrasenaPage() {
+function OlvidoContrasenaContent() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>("email");
   
   // Formulario
@@ -24,6 +26,14 @@ export default function OlvidoContrasenaPage() {
   const [resending, setResending] = useState(false);
   const [canResend, setCanResend] = useState(true);
   const [resendTimer, setResendTimer] = useState(0);
+
+  // Pre-llenar email desde URL si viene como parámetro (ej: desde email de bienvenida admin)
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [searchParams]);
 
   // Timer para reenvío
   useEffect(() => {
@@ -385,5 +395,24 @@ export default function OlvidoContrasenaPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function OlvidoContrasenaPage() {
+  return (
+    <Suspense fallback={
+      <main className="container">
+        <div className="max-w-md mx-auto mt-12">
+          <div className="card text-center py-8">
+            <div className="animate-pulse">
+              <div className="h-8 bg-slate-200 rounded w-48 mx-auto mb-4" />
+              <div className="h-4 bg-slate-200 rounded w-32 mx-auto" />
+            </div>
+          </div>
+        </div>
+      </main>
+    }>
+      <OlvidoContrasenaContent />
+    </Suspense>
   );
 }

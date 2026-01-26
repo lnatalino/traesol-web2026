@@ -7,7 +7,7 @@ import { getAdminSession } from "@/lib/adminSession";
 import { supabaseService } from "@/lib/supabaseService";
 import { generateOtp } from "@/lib/otpService";
 import { Resend } from "resend";
-import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
+import { WelcomeAdminEmail } from "@/emails/WelcomeAdminEmail";
 import * as React from "react";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -264,22 +264,26 @@ export async function POST(req: Request) {
       role,
     } as never);
 
-    // Enviar OTP para que el admin establezca su contraseña
+    // Enviar email de bienvenida con código para establecer contraseña
     const otpResult = await generateOtp(normalizedEmail, "reset_password", userId);
 
     if (otpResult.success && otpResult.code) {
       try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.traesol.cl";
+        const resetUrl = `${baseUrl}/mi-cuenta/olvido-contrasena?email=${encodeURIComponent(normalizedEmail)}`;
+        
         await resend.emails.send({
           from: FROM_EMAIL,
           to: normalizedEmail,
           subject: "Bienvenido al Panel Admin - Fundación Traesol",
-          react: React.createElement(VerificationCodeEmail, {
+          react: React.createElement(WelcomeAdminEmail, {
+            firstName,
             code: otpResult.code,
+            resetUrl,
             expiryMinutes: 15,
-            purpose: "reset_password",
           }),
         });
-        console.log(`[admin/users POST] OTP enviado a ${normalizedEmail}`);
+        console.log(`[admin/users POST] Email bienvenida enviado a ${normalizedEmail}`);
       } catch (emailErr) {
         console.error("[admin/users POST] Error enviando email:", emailErr);
       }

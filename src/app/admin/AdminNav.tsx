@@ -67,7 +67,7 @@ const tabs: Tab[] = [
     label: "Usuarios",
     href: "/admin/usuarios",
     isActive: (path: string) => path.startsWith("/admin/usuarios"),
-    // Visible para admin y superadmin (no solo superadmin)
+    superadminOnly: true, // Solo visible para superadmin
   },
 ];
 
