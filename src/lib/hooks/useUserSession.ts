@@ -1,6 +1,6 @@
 // src/lib/hooks/useUserSession.ts
 // Hook para manejar sesión de usuario en componentes client
-// SINCRONIZADO con middleware SSR - usa getUser() para validar con servidor
+// OPTIMIZADO: Carga paralela de perfil y rol para mayor velocidad
 
 "use client";
 
@@ -20,8 +20,8 @@ interface UseUserSessionReturn {
   refresh: () => Promise<void>;
 }
 
-// Timeout máximo para evitar loading infinito (8 segundos)
-const SESSION_TIMEOUT = 8000;
+// Timeout máximo para evitar loading infinito (5 segundos)
+const SESSION_TIMEOUT = 5000;
 
 // Cache para evitar fetch repetitivo de rol
 let roleCache: { role: UserRole; timestamp: number } | null = null;
@@ -45,61 +45,46 @@ export function useUserSession(): UseUserSessionReturn {
     roleCache = null;
   }, []);
 
-  const fetchProfileAndRole = useCallback(async (userId: string, userEmail?: string | null) => {
+  const fetchProfileAndRole = useCallback(async (userId: string) => {
     const supabase = createSupabaseBrowser();
     
     try {
-      // Obtener perfil de la DB (sin bloquear)
+      // OPTIMIZACIÓN: Ejecutar perfil y rol EN PARALELO
       const profilePromise = supabase
         .from("user_profiles")
-        .select("*")
+        .select("id, rut, first_name, last_name, birthdate, phone, verified, created_at, updated_at")
         .eq("id", userId)
         .single()
         .then(({ data }) => data as UserProfile | null);
       
-      // Obtener rol del servidor (considera SUPERADMIN_EMAILS)
-      // Usar cache si está disponible y válido
-      let userRole: UserRole = "volunteer";
+      // Obtener rol: usar cache si está disponible y válido
+      let rolePromise: Promise<UserRole>;
       
       if (roleCache && Date.now() - roleCache.timestamp < ROLE_CACHE_TTL) {
-        userRole = roleCache.role;
+        rolePromise = Promise.resolve(roleCache.role);
       } else {
-        try {
-          const res = await fetch("/api/auth/check-role", {
-            cache: "no-store",
-            credentials: "include", // Importante para enviar cookies
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.role) {
-              userRole = data.role as UserRole;
-              roleCache = { role: userRole, timestamp: Date.now() };
-            }
-          }
-        } catch {
-          // Fallback: obtener rol de la tabla user_roles
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userId)
-            .single();
-          
-          if (roleData?.role) {
-            userRole = roleData.role as UserRole;
-          }
-        }
+        rolePromise = fetch("/api/auth/check-role", {
+          cache: "no-store",
+          credentials: "include",
+        })
+          .then(res => res.ok ? res.json() : { role: "volunteer" })
+          .then(data => {
+            const userRole = (data.role as UserRole) || "volunteer";
+            roleCache = { role: userRole, timestamp: Date.now() };
+            return userRole;
+          })
+          .catch(() => "volunteer" as UserRole);
       }
       
-      // Esperar perfil
-      const profileData = await profilePromise;
+      // Esperar ambos en paralelo
+      const [profileData, userRole] = await Promise.all([profilePromise, rolePromise]);
+      
       if (profileData) {
         setProfile(profileData);
       }
-      
       setRole(userRole);
     } catch (err) {
       console.error("[useUserSession] fetchProfileAndRole error:", err);
-      // En caso de error, mantener valores por defecto
       setRole("volunteer");
     }
   }, []);
@@ -126,20 +111,18 @@ export function useUserSession(): UseUserSessionReturn {
     try {
       const supabase = createSupabaseBrowser();
       
-      // CRÍTICO: Usar getUser() que valida el token con el servidor
-      // getSession() solo lee de localStorage y puede estar desincronizado
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      // OPTIMIZACIÓN: Obtener session directamente (más rápido que getUser)
+      // El middleware ya validó la sesión, aquí solo necesitamos los datos
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
       
-      if (error || !currentUser) {
+      if (!currentSession?.user) {
         // No hay sesión válida - limpiar todo
         clearState();
       } else {
         // Sesión válida - actualizar estado
-        // Obtener session para tener access_token si se necesita
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
-        setUser(currentUser);
-        await fetchProfileAndRole(currentUser.id, currentUser.email);
+        setUser(currentSession.user);
+        await fetchProfileAndRole(currentSession.user.id);
       }
     } catch (err) {
       console.error("[useUserSession] refresh error:", err);
@@ -194,7 +177,7 @@ export function useUserSession(): UseUserSessionReturn {
           if (event === "SIGNED_IN") {
             roleCache = null;
           }
-          await fetchProfileAndRole(newSession.user.id, newSession.user.email);
+          await fetchProfileAndRole(newSession.user.id);
         }
         
         setLoading(false);

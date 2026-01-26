@@ -79,35 +79,55 @@ export async function signInWithEmailPassword(
 
 /**
  * Cerrar sesión - limpia tanto Supabase Auth como cookies legacy
- * ROBUSTO: Espera que todo se limpie antes de retornar
+ * ROBUSTO: Con timeout para evitar colgarse, máximo 3 segundos
  */
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   const supabase = createSupabaseBrowser();
+  const LOGOUT_TIMEOUT = 3000; // 3 segundos máximo
+
+  // Helper para timeout
+  const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error("Timeout")), ms)
+      ),
+    ]);
+  };
 
   try {
-    // 1. Primero limpiar cookies del servidor (ESPERAR respuesta)
-    await fetch("/api/auth/simple-logout", { 
-      method: "POST",
-      headers: { "Accept": "application/json" },
-      credentials: "include", // Importante para enviar cookies
-    });
-    
-    // 2. Luego hacer signOut de Supabase con scope GLOBAL
-    // scope: "global" invalida todas las sesiones en todos los dispositivos
-    const { error } = await supabase.auth.signOut({ scope: "global" });
-    
-    if (error) {
-      console.error("[userAuth] signOut error:", error);
-      // Continuar de todos modos
-    }
-    
-    // 3. Limpiar storage local por si acaso
+    // 1. Limpiar storage local PRIMERO (instantáneo)
     if (typeof window !== "undefined") {
-      // Limpiar cualquier dato de sesión en localStorage
       const keysToRemove = Object.keys(localStorage).filter(
         key => key.startsWith("sb-") || key.includes("supabase")
       );
       keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+
+    // 2. Limpiar cookies del servidor (con timeout)
+    try {
+      await withTimeout(
+        fetch("/api/auth/simple-logout", { 
+          method: "POST",
+          headers: { "Accept": "application/json" },
+          credentials: "include",
+        }),
+        LOGOUT_TIMEOUT
+      );
+    } catch {
+      // Ignorar timeout o errores de red
+      console.warn("[userAuth] simple-logout timeout/error, continuando...");
+    }
+    
+    // 3. SignOut de Supabase (con timeout, scope: local para ser más rápido)
+    try {
+      await withTimeout(
+        supabase.auth.signOut({ scope: "local" }),
+        LOGOUT_TIMEOUT
+      );
+    } catch {
+      // Ignorar timeout
+      console.warn("[userAuth] signOut timeout, continuando...");
     }
     
     return { success: true };

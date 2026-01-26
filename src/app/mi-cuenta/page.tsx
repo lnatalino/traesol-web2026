@@ -95,17 +95,26 @@ export default function MiCuentaPage() {
   }, [sessionLoading, user, profile?.verified]);
 
   async function handleLogout() {
+    if (loggingOut) return; // Prevenir doble click
     setLoggingOut(true);
+    
+    // Timeout de seguridad: máximo 4 segundos
+    const safetyTimeout = setTimeout(() => {
+      window.location.href = "/";
+    }, 4000);
+    
     try {
       await signOut();
+      clearTimeout(safetyTimeout);
       window.location.href = "/";
     } catch (err) {
       console.error("[mi-cuenta] Logout error:", err);
+      clearTimeout(safetyTimeout);
       window.location.href = "/";
     }
   }
 
-  // Loading state
+  // Loading state - NUNCA retornar null, siempre mostrar algo
   if (sessionLoading) {
     return (
       <main className="container">
@@ -122,8 +131,27 @@ export default function MiCuentaPage() {
     );
   }
 
+  // Si no hay usuario después de cargar, mostrar mensaje (no null)
+  // El middleware debería haber redirigido, pero por si acaso
   if (!user) {
-    return null;
+    return (
+      <main className="container">
+        <div className="max-w-md mx-auto mt-16 px-4">
+          <div className="card text-center py-12">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Sesión no encontrada</h2>
+            <p className="text-slate-600 mb-4">Inicia sesión para acceder a tu cuenta.</p>
+            <a href="/mi-cuenta/login" className="btn-primary">
+              Iniciar sesión
+            </a>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   const displayName = profile?.first_name && profile?.last_name

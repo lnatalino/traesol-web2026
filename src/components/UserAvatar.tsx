@@ -33,22 +33,28 @@ export default function UserAvatar() {
     setLoggingOut(true);
     setOpen(false); // Cerrar dropdown inmediatamente
     
+    // Timeout de seguridad: si en 4s no termina, forzar redirect
+    const safetyTimeout = setTimeout(() => {
+      console.warn("[UserAvatar] Logout timeout - forzando redirect");
+      window.location.href = "/";
+    }, 4000);
+    
     try {
-      // 1. Hacer signOut que limpia servidor + Supabase + localStorage
-      await signOut();
-      
-      // 2. Limpiar cookie de rol manualmente (backup)
+      // 1. Limpiar cookies de rol manualmente (instantáneo)
       document.cookie = "traesol-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie = "traesol-email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       
-      // 3. CRÍTICO: Usar window.location para forzar recarga completa
-      // Esto garantiza que:
-      // - El navbar se re-renderiza desde cero
-      // - Todas las cookies del servidor se respetan
-      // - No hay estado stale en memoria
+      // 2. Hacer signOut (tiene su propio timeout interno de 3s)
+      await signOut();
+      
+      // 3. Limpiar timeout de seguridad y navegar
+      clearTimeout(safetyTimeout);
+      
+      // 4. Forzar recarga completa para limpiar todo estado
       window.location.href = "/";
     } catch (err) {
       console.error("[UserAvatar] Logout error:", err);
+      clearTimeout(safetyTimeout);
       // Forzar recarga de todos modos
       window.location.href = "/";
     }
