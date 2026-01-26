@@ -192,7 +192,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 }
 
 // =========================================================================
-// DELETE - Eliminar/Deshabilitar usuario
+// DELETE - Eliminar usuario completamente
 // =========================================================================
 
 export async function DELETE(req: Request, { params }: RouteParams) {
@@ -206,6 +206,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
+
+  // Verificar parámetro de eliminación permanente
+  const url = new URL(req.url);
+  const permanent = url.searchParams.get("permanent") === "true";
 
   try {
     // Obtener rol del usuario a eliminar
@@ -249,21 +253,46 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       );
     }
 
-    // Soft-delete: deshabilitar usuario
-    await supabaseService
-      .from("user_profiles")
-      .update({ enabled: false } as never)
-      .eq("id", id);
+    if (permanent) {
+      // ELIMINACIÓN PERMANENTE: Eliminar de auth.users (cascade eliminará profile y roles)
+      console.log(`[admin/users DELETE] Eliminando usuario permanentemente: ${id}`);
+      
+      const { error: deleteAuthError } = await supabaseService.auth.admin.deleteUser(id);
+      
+      if (deleteAuthError) {
+        console.error("[admin/users DELETE] Error eliminando de auth:", deleteAuthError);
+        return NextResponse.json(
+          { success: false, error: "Error al eliminar usuario de auth" },
+          { status: 500 }
+        );
+      }
 
-    // También deshabilitar en Auth (ban user)
-    await supabaseService.auth.admin.updateUserById(id, {
-      ban_duration: "876000h", // ~100 años
-    });
+      // Eliminar datos relacionados que no tengan CASCADE
+      await supabaseService.from("user_profiles").delete().eq("id", id);
+      await supabaseService.from("user_roles").delete().eq("user_id", id);
+      await supabaseService.from("email_otps").delete().eq("user_id", id);
 
-    return NextResponse.json({
-      success: true,
-      message: "Usuario deshabilitado",
-    });
+      return NextResponse.json({
+        success: true,
+        message: "Usuario eliminado permanentemente",
+      });
+    } else {
+      // SOFT-DELETE: Deshabilitar usuario
+      await supabaseService
+        .from("user_profiles")
+        .update({ enabled: false } as never)
+        .eq("id", id);
+
+      // También deshabilitar en Auth (ban user)
+      await supabaseService.auth.admin.updateUserById(id, {
+        ban_duration: "876000h", // ~100 años
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Usuario deshabilitado",
+      });
+    }
   } catch (err) {
     console.error("[admin/users/[id] DELETE] Error:", err);
     return NextResponse.json(

@@ -106,8 +106,9 @@ function LoginContent() {
       redirectTo = "/admin";
     }
 
-    router.push(redirectTo);
-    router.refresh();
+    // CRÍTICO: Usar window.location para navegación forzada
+    // Esto evita que el estado de loading quede pegado
+    window.location.href = redirectTo;
   }
 
   return (

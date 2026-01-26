@@ -91,6 +91,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
 
   // Modal eliminar
   const [deleteUser, setDeleteUser] = useState<UnifiedUser | null>(null);
+  const [deletePermanent, setDeletePermanent] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Modal reenviar OTP
@@ -217,7 +218,11 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     setError("");
 
     try {
-      const res = await fetch(`/api/admin/users/${deleteUser.id}`, {
+      const url = deletePermanent 
+        ? `/api/admin/users/${deleteUser.id}?permanent=true`
+        : `/api/admin/users/${deleteUser.id}`;
+      
+      const res = await fetch(url, {
         method: "DELETE",
       });
 
@@ -225,7 +230,8 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
 
       if (data.success) {
         setDeleteUser(null);
-        setSuccess("Usuario deshabilitado");
+        setDeletePermanent(false);
+        setSuccess(deletePermanent ? "Usuario eliminado permanentemente" : "Usuario deshabilitado");
         fetchUsers();
         setTimeout(() => setSuccess(""), 3000);
       } else {
@@ -686,18 +692,40 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-red-600">
               <Trash2 size={20} />
-              Deshabilitar usuario
+              {deletePermanent ? "Eliminar permanentemente" : "Deshabilitar usuario"}
             </h2>
             <p className="text-slate-600 mb-4">
-              ¿Estás seguro de que deseas deshabilitar al usuario <strong>{deleteUser.email}</strong>?
+              ¿Estás seguro de que deseas {deletePermanent ? "eliminar permanentemente" : "deshabilitar"} al usuario <strong>{deleteUser.email}</strong>?
             </p>
             <p className="text-sm text-slate-500 mb-4">
-              El usuario no podrá iniciar sesión pero sus datos se conservarán.
+              {deletePermanent 
+                ? "⚠️ Esta acción es IRREVERSIBLE. El usuario y todos sus datos serán eliminados."
+                : "El usuario no podrá iniciar sesión pero sus datos se conservarán."
+              }
             </p>
+            
+            {/* Checkbox para eliminación permanente - solo para superadmin */}
+            {isSuperAdmin && (
+              <label className="flex items-center gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deletePermanent}
+                  onChange={(e) => setDeletePermanent(e.target.checked)}
+                  className="w-4 h-4 text-red-600 border-red-300 rounded focus:ring-red-500"
+                />
+                <span className="text-sm text-red-700">
+                  Eliminar permanentemente (no se puede deshacer)
+                </span>
+              </label>
+            )}
+            
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setDeleteUser(null)}
+                onClick={() => {
+                  setDeleteUser(null);
+                  setDeletePermanent(false);
+                }}
                 className="btn-secondary flex-1"
               >
                 Cancelar
@@ -709,7 +737,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2"
               >
                 {deleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                Deshabilitar
+                {deletePermanent ? "Eliminar" : "Deshabilitar"}
               </button>
             </div>
           </div>

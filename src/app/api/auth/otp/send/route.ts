@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { generateOtp, type OtpPurpose } from "@/lib/otpService";
+import { generateOtp, checkOtpRateLimit, type OtpPurpose } from "@/lib/otpService";
 import { VerificationCodeEmail } from "@/emails/VerificationCodeEmail";
 import * as React from "react";
 
@@ -13,10 +13,11 @@ const FROM_EMAIL = process.env.RESEND_FROM || "Fundación Traesol <noreply@funda
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, purpose = "verify_email", userId } = body as {
+    const { email, purpose = "verify_email", userId, skipRateLimit = false } = body as {
       email: string;
       purpose?: OtpPurpose;
       userId?: string;
+      skipRateLimit?: boolean;
     };
 
     if (!email) {
@@ -34,8 +35,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generar OTP
-    const otpResult = await generateOtp(email, purpose, userId);
+    // Verificar rate limit primero (antes de generar OTP)
+    if (!skipRateLimit) {
+      const rateLimitError = await checkOtpRateLimit(email, purpose);
+      if (rateLimitError) {
+        return NextResponse.json(
+          { success: false, error: rateLimitError, rateLimited: true },
+          { status: 429 }
+        );
+      }
+    }
+
+    // Generar OTP (con skipRateLimit=true porque ya verificamos arriba)
+    const otpResult = await generateOtp(email, purpose, userId, true);
 
     if (!otpResult.success || !otpResult.code) {
       return NextResponse.json(

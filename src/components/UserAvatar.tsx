@@ -30,13 +30,15 @@ export default function UserAvatar() {
   async function handleLogout() {
     setOpen(false); // Cerrar dropdown inmediatamente
     
-    // Navegar PRIMERO para que la UI no quede bloqueada
-    router.replace("/");
+    // Hacer signOut PRIMERO para limpiar cookies
+    await signOut();
     
-    // Luego hacer signOut en background
-    signOut().finally(() => {
-      router.refresh();
-    });
+    // Limpiar cookie de rol manualmente
+    document.cookie = "traesol-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    
+    // CRÍTICO: Usar window.location para forzar recarga completa
+    // Esto garantiza que el navbar se actualice correctamente
+    window.location.href = "/";
   }
 
   if (loading) {
