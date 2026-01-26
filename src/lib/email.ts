@@ -962,14 +962,23 @@ export type PostulacionAdminEmailPayload = {
     userId: string;
     email?: string | null;
   } | null;
+  /** Si es postulación de usuario con cuenta (vs voluntario anónimo) */
+  isUserAccount?: boolean;
 };
 
 function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
-  const { inscripcionId, voluntario, operativo, postuladoPor } = payload;
+  const { inscripcionId, voluntario, operativo, postuladoPor, isUserAccount } = payload;
   const siteUrl = SITE_URL || "https://fundaciontraesol.cl";
   
-  const { acceptUrl, rejectUrl } = generateApprovalUrls(inscripcionId, siteUrl);
-  const adminUrl = `${siteUrl}/admin/inscripciones`;
+  // Para usuarios con cuenta, los botones de acción requieren diferentes endpoints
+  // Por ahora, mostramos solo link al admin panel para estos casos
+  const showActionButtons = !isUserAccount;
+  const { acceptUrl, rejectUrl } = showActionButtons 
+    ? generateApprovalUrls(inscripcionId, siteUrl)
+    : { acceptUrl: "", rejectUrl: "" };
+  const adminUrl = isUserAccount
+    ? `${siteUrl}/admin/operativos/${operativo.id}/inscripciones`
+    : `${siteUrl}/admin/inscripciones`;
   
   const nombreCompleto = [voluntario.nombres, voluntario.apellidos].filter(Boolean).join(" ") || "Sin nombre";
   const identificacion = voluntario.rut || voluntario.id_nacional || "No especificada";
@@ -996,27 +1005,16 @@ function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
         ⚠️ <strong>Postulado por otra persona</strong>${postuladoPor.email ? ` (${escapeHtml(postuladoPor.email)})` : ""}
        </p>`
     : "";
+  
+  // Indicador si es usuario con cuenta
+  const userAccountHtml = isUserAccount 
+    ? `<p style="margin:8px 0 0;padding:8px 12px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+        👤 <strong>Usuario con cuenta registrada</strong>
+       </p>`
+    : "";
 
-  return shell({
-    title: `Nueva postulación: ${escapeHtml(nombreCompleto)}`,
-    body: `
-      <p style="margin:0 0 16px;font-size:16px;">
-        <strong>${escapeHtml(nombreCompleto)}</strong> ha postulado al operativo 
-        <strong>${escapeHtml(operativo.titulo || "")}</strong>.
-      </p>
-      ${postuladoPorHtml}
-      
-      <h3 style="margin:16px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
-        Datos del voluntario
-      </h3>
-      ${datosVoluntario}
-      
-      <h3 style="margin:24px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
-        Operativo
-      </h3>
-      ${datosOperativo}
-      
-      <div style="margin:32px 0;text-align:center;">
+  // Botones de acción (solo para postulaciones anónimas con tokens)
+  const actionButtonsHtml = showActionButtons ? `
         <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
           Puedes aprobar o rechazar esta postulación directamente:
         </p>
@@ -1038,6 +1036,39 @@ function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
             Ver en el panel de administración →
           </a>
         </p>
+  ` : `
+        <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
+          Gestiona esta postulación desde el panel de administración:
+        </p>
+        
+        <a href="${escapeHtml(adminUrl)}" 
+           style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;">
+          Ver postulaciones del operativo →
+        </a>
+  `;
+
+  return shell({
+    title: `Nueva postulación: ${escapeHtml(nombreCompleto)}`,
+    body: `
+      <p style="margin:0 0 16px;font-size:16px;">
+        <strong>${escapeHtml(nombreCompleto)}</strong> ha postulado al operativo 
+        <strong>${escapeHtml(operativo.titulo || "")}</strong>.
+      </p>
+      ${postuladoPorHtml}
+      ${userAccountHtml}
+      
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
+        Datos del voluntario
+      </h3>
+      ${datosVoluntario}
+      
+      <h3 style="margin:24px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
+        Operativo
+      </h3>
+      ${datosOperativo}
+      
+      <div style="margin:32px 0;text-align:center;">
+        ${actionButtonsHtml}
       </div>
       
       <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;text-align:center;">

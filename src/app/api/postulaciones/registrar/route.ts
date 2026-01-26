@@ -100,6 +100,198 @@ function statusResponse({
   );
 }
 
+// =========================================================================
+// Postulación desde cuenta de usuario (usa operativo_participantes)
+// =========================================================================
+async function handleUserAccountPostulation(
+  body: Record<string, unknown>,
+  userId: string,
+  nombres: string,
+  email: string
+) {
+  const operativoId = nullable(body?.operativo_id);
+  const operativoSlug = nullable(body?.operativo_slug);
+
+  // Para usuarios con cuenta, solo permitimos postulación específica a operativo
+  const targetField = operativoId ? "id" : "slug";
+  const targetValue = operativoId || operativoSlug;
+
+  if (!targetValue) {
+    return NextResponse.json(
+      { ok: false, error: "Selecciona un operativo válido para postularte." },
+      { status: 400 }
+    );
+  }
+
+  // Buscar operativo
+  const { data: operativo, error: opError } = await supabaseService
+    .from("operativos")
+    .select("id,titulo,slug,fecha_inicio,fecha_fin,lugar,whatsapp_grupo_url")
+    .eq(targetField, targetValue)
+    .maybeSingle<OperativoInfo>();
+
+  if (opError) throw opError;
+  if (!operativo) {
+    return NextResponse.json(
+      { ok: false, error: "El operativo seleccionado no existe." },
+      { status: 400 }
+    );
+  }
+
+  // Verificar si ya existe participación
+  type ParticipantRow = {
+    id: string;
+    status: string | null;
+    kind: string;
+  };
+
+  const { data: existing, error: findError } = await supabaseService
+    .from("operativo_participantes")
+    .select("id,status,kind")
+    .eq("operativo_id", operativo.id)
+    .eq("user_id", userId)
+    .maybeSingle<ParticipantRow>();
+
+  if (findError && findError.code !== "PGRST116") throw findError;
+
+  if (existing) {
+    const status = existing.status?.toLowerCase() ?? "pending";
+    
+    if (status === "pending") {
+      return statusResponse({
+        ok: false,
+        code: "ALREADY_PENDING",
+        message: "Ya enviaste tu postulación para este operativo. Está en proceso de revisión.",
+        extra: { kind: existing.kind },
+      });
+    }
+
+    if (status === "accepted") {
+      const extraText = operativo.whatsapp_grupo_url
+        ? " Revisa el correo de confirmación donde te compartimos el link al grupo de WhatsApp."
+        : " Revisa el correo de confirmación que te enviamos con los siguientes pasos.";
+      return statusResponse({
+        ok: false,
+        code: "ALREADY_ACCEPTED",
+        message: `Ya estás inscrito en este operativo.${extraText}`,
+        extra: { kind: existing.kind },
+      });
+    }
+
+    if (status === "rejected" || status === "cancelled") {
+      return statusResponse({
+        ok: false,
+        code: "ALREADY_REVIEWED",
+        message:
+          "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@fundaciontraesol.cl.",
+        extra: { kind: existing.kind },
+      });
+    }
+  }
+
+  // Crear participación como voluntario (kind: 'voluntario')
+  const insertPayload = {
+    operativo_id: operativo.id,
+    user_id: userId,
+    kind: "voluntario",
+    status: "pending",
+    notas: null,
+  };
+
+  let participanteId: string | null = null;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: insc, error: inscError } = await (supabaseService as any)
+      .from("operativo_participantes")
+      .insert(insertPayload)
+      .select("id")
+      .single();
+
+    if (inscError) throw inscError;
+    participanteId = (insc as { id: string } | null)?.id ?? null;
+  } catch (inscErr: unknown) {
+    const message = String((inscErr as { message?: string })?.message || "");
+    const code = (inscErr as { code?: string })?.code;
+    if (code === "23505" || message.includes("duplicate key value")) {
+      return statusResponse({
+        ok: false,
+        code: "ALREADY_PENDING",
+        message:
+          "Ya registramos una postulación para este operativo. Si necesitas actualizarla, escríbenos para ayudarte.",
+        extra: { reason: "duplicate" },
+      });
+    }
+    throw inscErr;
+  }
+
+  // Obtener datos adicionales del perfil para el email al admin
+  const apellidos = nullable(body?.apellidos);
+  const rut = nullable(body?.rut);
+  const telefono = nullable(body?.telefono);
+  const tallaPolera = nullable(body?.talla_polera);
+  const restricciones = nullable(body?.alimentarias_alergias);
+
+  // Email al voluntario confirmando postulación
+  try {
+    await sendPostulacionRecibidaEmail({
+      to: email,
+      nombre: [nombres, apellidos].filter(Boolean).join(" ") || nombres,
+      operativoTitulo: operativo.titulo || "Operativo Traesol",
+      operativoFecha: operativo.fecha_inicio,
+      operativoLugar: operativo.lugar,
+      operativoSlug: operativo.slug,
+    });
+  } catch (mailError) {
+    console.error("sendPostulacionRecibidaEmail error (user account)", mailError);
+  }
+
+  // Email al admin con datos del postulante
+  // Nota: sendPostulacionAdminEmail espera inscripcionId, pero usamos participanteId
+  // Esto requiere ajustar la lógica de aprobación si se usa HMAC tokens
+  if (participanteId) {
+    try {
+      await sendPostulacionAdminEmail({
+        inscripcionId: participanteId, // Usamos participanteId temporalmente
+        voluntario: {
+          nombres,
+          apellidos,
+          email,
+          telefono,
+          rut,
+          id_nacional: nullable(body?.id_nacional),
+          profesion: nullable(body?.profesion),
+          talla_polera: tallaPolera,
+          restricciones_alimentarias: restricciones,
+        },
+        operativo: {
+          id: operativo.id,
+          titulo: operativo.titulo,
+          slug: operativo.slug,
+          fecha_inicio: operativo.fecha_inicio,
+          lugar: operativo.lugar,
+        },
+        postuladoPor: null, // Usuario postula por sí mismo
+        isUserAccount: true, // Flag para indicar que es cuenta de usuario
+      });
+    } catch (mailError) {
+      console.error("sendPostulacionAdminEmail error (user account)", mailError);
+    }
+  }
+
+  return statusResponse({
+    ok: true,
+    code: "OK",
+    message: "Tu postulación fue recibida. Te enviaremos un correo cuando sea evaluada.",
+    extra: {
+      participanteId,
+      userId,
+      tipo_postulacion: "especifica",
+      fromUserAccount: true,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -113,12 +305,21 @@ export async function POST(req: Request) {
     // Flags para postulación de otra persona
     const postulandoOtraPersona = Boolean(body?.postulando_otra_persona);
     const postuladoPorUserId = nullable(body?.postulado_por_user_id);
+    
+    // Flag para postulación desde cuenta de usuario (vs anónimo)
+    const fromUserAccount = Boolean(body?.from_user_account);
+    const userId = nullable(body?.user_id);
 
     if (!nombres || !email) {
       return NextResponse.json(
         { ok: false, error: "Faltan campos obligatorios (nombres, email)." },
         { status: 400 }
       );
+    }
+    
+    // Si viene de cuenta de usuario, manejar con operativo_participantes
+    if (fromUserAccount && userId) {
+      return handleUserAccountPostulation(body, userId, nombres, email);
     }
 
     if (!extranjero && !rut) {
