@@ -101,7 +101,8 @@ function statusResponse({
 }
 
 // =========================================================================
-// Postulación desde cuenta de usuario (usa operativo_participantes)
+// Postulación desde cuenta de usuario (usa voluntarios + inscripciones)
+// NOTA: Usamos la misma tabla que postulaciones anónimas para que Admin funcione
 // =========================================================================
 async function handleUserAccountPostulation(
   body: Record<string, unknown>,
@@ -111,6 +112,16 @@ async function handleUserAccountPostulation(
 ) {
   const operativoId = nullable(body?.operativo_id);
   const operativoSlug = nullable(body?.operativo_slug);
+  const apellidos = nullable(body?.apellidos);
+  const rut = nullable(body?.rut);
+  const telefono = nullable(body?.telefono);
+  const tallaPolera = nullable(body?.talla_polera);
+  const tallaPantalon = nullable(body?.talla_pantalon);
+  const restricciones = nullable(body?.alimentarias_alergias);
+  const profesion = nullable(body?.profesion);
+  const fechaNacimiento = nullable(body?.fecha_nacimiento);
+  const direccion = nullable(body?.direccion);
+  const instagram = nullable(body?.instagram);
 
   // Para usuarios con cuenta, solo permitimos postulación específica a operativo
   const targetField = operativoId ? "id" : "slug";
@@ -138,35 +149,119 @@ async function handleUserAccountPostulation(
     );
   }
 
-  // Verificar si ya existe participación
-  type ParticipantRow = {
-    id: string;
-    status: string | null;
-    kind: string;
+  // 1. Buscar o crear voluntario por email (igual que flujo anónimo)
+  let voluntario: VoluntarioMinimal | null = null;
+  let wasNewVoluntario = false;
+
+  const { data: existente, error: findVolError } = await supabaseService
+    .from("voluntarios")
+    .select("id,nombres,apellidos,email")
+    .eq("email", email)
+    .maybeSingle<VoluntarioMinimal>();
+  
+  if (findVolError && findVolError.code !== "PGRST116") throw findVolError;
+  voluntario = existente ?? null;
+
+  // Si no existe por email, buscar por RUT
+  if (!voluntario && rut) {
+    const { data: existenteRut, error: findRutError } = await supabaseService
+      .from("voluntarios")
+      .select("id,nombres,apellidos,email")
+      .eq("rut", rut)
+      .maybeSingle<VoluntarioMinimal>();
+    
+    if (findRutError && findRutError.code !== "PGRST116") throw findRutError;
+    voluntario = existenteRut ?? null;
+  }
+
+  // Datos para voluntario (sin user_id porque la tabla actual no lo tiene)
+  const voluntarioRecord = {
+    nombres,
+    apellidos,
+    email,
+    telefono,
+    rut,
+    fecha_nacimiento: fechaNacimiento,
+    direccion,
+    instagram,
+    profesion: profesion || "No especificada",
+    talla_polera: tallaPolera,
+    talla_pantalon: tallaPantalon,
+    alimentarias_alergias: restricciones,
+    nombre_credencial: [nombres, apellidos].filter(Boolean).join(" ").trim() || nombres,
   };
 
-  const { data: existing, error: findError } = await supabaseService
-    .from("operativo_participantes")
-    .select("id,status,kind")
+  if (voluntario) {
+    // Actualizar datos existentes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateError } = await (supabaseService as any)
+      .from("voluntarios")
+      .update(voluntarioRecord)
+      .eq("id", voluntario.id)
+      .select("id,nombres,apellidos,email")
+      .single();
+
+    if (updateError) throw updateError;
+    voluntario = updated as VoluntarioMinimal;
+  } else {
+    // Crear nuevo voluntario
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inserted, error: insertError } = await (supabaseService as any)
+      .from("voluntarios")
+      .insert(voluntarioRecord)
+      .select("id,nombres,apellidos,email")
+      .single();
+
+    if (insertError) throw insertError;
+    voluntario = inserted as VoluntarioMinimal;
+    wasNewVoluntario = true;
+  }
+
+  if (!voluntario?.id) {
+    throw new Error("No se pudo crear/obtener el voluntario.");
+  }
+
+  // 2. Verificar si ya existe inscripción para este operativo
+  type ExistingInscripcion = {
+    id: string;
+    estado: string | null;
+    tipo: string | null;
+    origen: string | null;
+  };
+
+  const { data: existingInsc, error: findInscError } = await supabaseService
+    .from("inscripciones")
+    .select("id,estado,tipo,origen")
+    .eq("voluntario_id", voluntario.id)
     .eq("operativo_id", operativo.id)
-    .eq("user_id", userId)
-    .maybeSingle<ParticipantRow>();
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<ExistingInscripcion>();
 
-  if (findError && findError.code !== "PGRST116") throw findError;
+  if (findInscError && findInscError.code !== "PGRST116") throw findInscError;
 
-  if (existing) {
-    const status = existing.status?.toLowerCase() ?? "pending";
-    
-    if (status === "pending") {
+  if (existingInsc) {
+    const estado = normalizeInscripcionEstado(existingInsc.estado);
+    const origin = inferInscripcionOrigen(existingInsc.tipo, existingInsc.origen);
+
+    if (isPendingEstado(estado)) {
+      if (isInvitacionTipo(existingInsc.origen ?? existingInsc.tipo)) {
+        return statusResponse({
+          ok: false,
+          code: "INVITED_ALREADY",
+          message: "Ya fuiste invitado a este operativo. Revisa tu correo y acepta la invitación.",
+          extra: { origin },
+        });
+      }
       return statusResponse({
         ok: false,
         code: "ALREADY_PENDING",
         message: "Ya enviaste tu postulación para este operativo. Está en proceso de revisión.",
-        extra: { kind: existing.kind },
+        extra: { origin },
       });
     }
 
-    if (status === "accepted") {
+    if (isConfirmedEstado(estado)) {
       const extraText = operativo.whatsapp_grupo_url
         ? " Revisa el correo de confirmación donde te compartimos el link al grupo de WhatsApp."
         : " Revisa el correo de confirmación que te enviamos con los siguientes pasos.";
@@ -174,42 +269,41 @@ async function handleUserAccountPostulation(
         ok: false,
         code: "ALREADY_ACCEPTED",
         message: `Ya estás inscrito en este operativo.${extraText}`,
-        extra: { kind: existing.kind },
+        extra: { origin },
       });
     }
 
-    if (status === "rejected" || status === "cancelled") {
+    if (isRejectedEstado(estado)) {
       return statusResponse({
         ok: false,
         code: "ALREADY_REVIEWED",
-        message:
-          "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@fundaciontraesol.cl.",
-        extra: { kind: existing.kind },
+        message: "Tu postulación para este operativo ya fue revisada. Si tienes dudas, escríbenos a contacto@fundaciontraesol.cl.",
+        extra: { origin },
       });
     }
   }
 
-  // Crear participación como voluntario (kind: 'voluntario')
-  const insertPayload = {
+  // 3. Crear inscripción (igual que flujo anónimo)
+  const inscPayload: InscripcionInsert = {
+    voluntario_id: voluntario.id,
     operativo_id: operativo.id,
-    user_id: userId,
-    kind: "voluntario",
-    status: "pending",
-    notas: null,
+    tipo: INSCRIPCION_TIPO_SCOPE.ESPECIFICA,
+    origen: INSCRIPCION_ORIGEN.POSTULACION,
+    estado: INSCRIPCION_ESTADO.PENDIENTE,
   };
 
-  let participanteId: string | null = null;
+  let inscripcionId: string | null = null;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: insc, error: inscError } = await (supabaseService as any)
-      .from("operativo_participantes")
-      .insert(insertPayload)
+      .from("inscripciones")
+      .insert(inscPayload)
       .select("id")
       .single();
 
     if (inscError) throw inscError;
-    participanteId = (insc as { id: string } | null)?.id ?? null;
+    inscripcionId = (insc as { id: string } | null)?.id ?? null;
   } catch (inscErr: unknown) {
     const message = String((inscErr as { message?: string })?.message || "");
     const code = (inscErr as { code?: string })?.code;
@@ -217,21 +311,14 @@ async function handleUserAccountPostulation(
       return statusResponse({
         ok: false,
         code: "ALREADY_PENDING",
-        message:
-          "Ya registramos una postulación para este operativo. Si necesitas actualizarla, escríbenos para ayudarte.",
+        message: "Ya registramos una postulación para este operativo. Si necesitas actualizarla, escríbenos para ayudarte.",
         extra: { reason: "duplicate" },
       });
     }
     throw inscErr;
   }
 
-  // Obtener datos adicionales del perfil para el email al admin
-  const apellidos = nullable(body?.apellidos);
-  const rut = nullable(body?.rut);
-  const telefono = nullable(body?.telefono);
-  const tallaPolera = nullable(body?.talla_polera);
-  const restricciones = nullable(body?.alimentarias_alergias);
-
+  // 4. Enviar emails
   // Email al voluntario confirmando postulación
   try {
     await sendPostulacionRecibidaEmail({
@@ -246,21 +333,19 @@ async function handleUserAccountPostulation(
     console.error("sendPostulacionRecibidaEmail error (user account)", mailError);
   }
 
-  // Email al admin con datos del postulante
-  // Nota: sendPostulacionAdminEmail espera inscripcionId, pero usamos participanteId
-  // Esto requiere ajustar la lógica de aprobación si se usa HMAC tokens
-  if (participanteId) {
+  // Email al admin con botones de acción
+  if (inscripcionId) {
     try {
       await sendPostulacionAdminEmail({
-        inscripcionId: participanteId, // Usamos participanteId temporalmente
+        inscripcionId,
         voluntario: {
           nombres,
           apellidos,
           email,
           telefono,
           rut,
-          id_nacional: nullable(body?.id_nacional),
-          profesion: nullable(body?.profesion),
+          id_nacional: null,
+          profesion,
           talla_polera: tallaPolera,
           restricciones_alimentarias: restricciones,
         },
@@ -271,11 +356,23 @@ async function handleUserAccountPostulation(
           fecha_inicio: operativo.fecha_inicio,
           lugar: operativo.lugar,
         },
-        postuladoPor: null, // Usuario postula por sí mismo
-        isUserAccount: true, // Flag para indicar que es cuenta de usuario
+        postuladoPor: null,
+        // Ya no necesitamos isUserAccount porque usamos inscripciones normales
       });
     } catch (mailError) {
       console.error("sendPostulacionAdminEmail error (user account)", mailError);
+    }
+  }
+
+  // Email de bienvenida si es nuevo voluntario
+  if (wasNewVoluntario) {
+    try {
+      await sendRegistroVoluntarioEmail({
+        to: email,
+        nombres,
+      });
+    } catch (mailError) {
+      console.error("sendRegistroVoluntarioEmail error", mailError);
     }
   }
 
@@ -284,8 +381,9 @@ async function handleUserAccountPostulation(
     code: "OK",
     message: "Tu postulación fue recibida. Te enviaremos un correo cuando sea evaluada.",
     extra: {
-      participanteId,
-      userId,
+      voluntarioId: voluntario.id,
+      inscripcionId,
+      wasNewVoluntario,
       tipo_postulacion: "especifica",
       fromUserAccount: true,
     },
