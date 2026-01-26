@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase";
 import type { User, Session } from "@supabase/supabase-js";
 import type { UserProfile } from "@/lib/userAuth";
@@ -19,73 +19,115 @@ interface UseUserSessionReturn {
   refresh: () => Promise<void>;
 }
 
+// Timeout máximo para evitar loading infinito (5 segundos)
+const SESSION_TIMEOUT = 5000;
+
 export function useUserSession(): UseUserSessionReturn {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<UserRole>("volunteer");
   const [loading, setLoading] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initializedRef = useRef(false);
 
   const fetchProfileAndRole = useCallback(async (userId: string, userEmail?: string | null) => {
     const supabase = createSupabaseBrowser();
     
-    // Obtener perfil de la DB
-    const { data: profileData } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    
-    if (profileData) {
-      setProfile(profileData as UserProfile);
-    }
-    
-    // Obtener rol efectivo del servidor (considera SUPERADMIN_EMAILS)
-    let userRole: UserRole = "volunteer";
-    
     try {
-      const res = await fetch("/api/auth/check-role");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.role) {
-          userRole = data.role as UserRole;
-        }
-      }
-    } catch {
-      // Fallback: obtener rol de la tabla user_roles
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
+      // Obtener perfil de la DB
+      const { data: profileData } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
         .single();
       
-      if (roleData?.role) {
-        userRole = roleData.role as UserRole;
+      if (profileData) {
+        setProfile(profileData as UserProfile);
       }
+      
+      // Obtener rol efectivo del servidor (considera SUPERADMIN_EMAILS)
+      let userRole: UserRole = "volunteer";
+      
+      try {
+        const res = await fetch("/api/auth/check-role", {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.role) {
+            userRole = data.role as UserRole;
+          }
+        }
+      } catch {
+        // Fallback: obtener rol de la tabla user_roles
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .single();
+        
+        if (roleData?.role) {
+          userRole = roleData.role as UserRole;
+        }
+      }
+      
+      setRole(userRole);
+    } catch (err) {
+      console.error("[useUserSession] fetchProfileAndRole error:", err);
+      // En caso de error, mantener valores por defecto
+      setRole("volunteer");
     }
-    
-    setRole(userRole);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const supabase = createSupabaseBrowser();
     
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession);
-    setUser(currentSession?.user ?? null);
-    
-    if (currentSession?.user) {
-      await fetchProfileAndRole(currentSession.user.id, currentSession.user.email);
-    } else {
-      setProfile(null);
-      setRole("volunteer");
+    // Limpiar timeout anterior si existe
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
     
-    setLoading(false);
+    // Establecer timeout de seguridad para evitar loading infinito
+    timeoutRef.current = setTimeout(() => {
+      console.warn("[useUserSession] Timeout alcanzado, finalizando loading");
+      setLoading(false);
+    }, SESSION_TIMEOUT);
+    
+    try {
+      const supabase = createSupabaseBrowser();
+      
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (currentSession?.user) {
+        await fetchProfileAndRole(currentSession.user.id, currentSession.user.email);
+      } else {
+        setProfile(null);
+        setRole("volunteer");
+      }
+    } catch (err) {
+      console.error("[useUserSession] refresh error:", err);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRole("volunteer");
+    } finally {
+      // Limpiar timeout y finalizar loading
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setLoading(false);
+    }
   }, [fetchProfileAndRole]);
 
   useEffect(() => {
+    // Evitar doble inicialización en StrictMode
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
     const supabase = createSupabaseBrowser();
 
     // Obtener sesión inicial
@@ -119,6 +161,9 @@ export function useUserSession(): UseUserSessionReturn {
 
     return () => {
       subscription.unsubscribe();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [refresh, fetchProfileAndRole]);
 

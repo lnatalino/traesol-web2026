@@ -13,16 +13,13 @@ interface NavbarCTAProps {
 export default function NavbarCTA({ className = "", onClick }: NavbarCTAProps) {
   const { user, role, loading } = useUserSession();
 
-  // Mientras carga, mostrar el botón default para evitar flash
+  // Mientras carga, NO mostrar nada para evitar flash de "Hazte voluntario"
+  // que luego cambia a "Postular a operativo"
   if (loading) {
     return (
-      <Link
-        href="/postular"
-        className={`btn-primary text-sm ${className}`}
-        onClick={onClick}
-      >
-        Hazte voluntario
-      </Link>
+      <div className={`btn-primary text-sm opacity-0 ${className}`} aria-hidden>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </div>
     );
   }
 
