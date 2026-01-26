@@ -1,6 +1,6 @@
 // src/lib/hooks/useUserSession.ts
 // Hook para manejar sesión de usuario en componentes client
-// OPTIMIZADO: Carga paralela de perfil y rol para mayor velocidad
+// CORREGIDO: Usa getUser() para validación real del servidor
 
 "use client";
 
@@ -20,12 +20,21 @@ interface UseUserSessionReturn {
   refresh: () => Promise<void>;
 }
 
-// Timeout máximo para evitar loading infinito (5 segundos)
-const SESSION_TIMEOUT = 5000;
+// Timeout máximo para evitar loading infinito
+const SESSION_TIMEOUT = 4000;
 
-// Cache para evitar fetch repetitivo de rol
-let roleCache: { role: UserRole; timestamp: number } | null = null;
+// Cache de rol POR userId (no global, para soportar múltiples usuarios)
+const roleCacheMap = new Map<string, { role: UserRole; timestamp: number }>();
 const ROLE_CACHE_TTL = 60000; // 1 minuto
+
+// Cliente Supabase singleton para consistencia
+let supabaseInstance: ReturnType<typeof createSupabaseBrowser> | null = null;
+function getSupabase() {
+  if (!supabaseInstance) {
+    supabaseInstance = createSupabaseBrowser();
+  }
+  return supabaseInstance;
+}
 
 export function useUserSession(): UseUserSessionReturn {
   const [user, setUser] = useState<User | null>(null);
@@ -33,23 +42,27 @@ export function useUserSession(): UseUserSessionReturn {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<UserRole>("volunteer");
   const [loading, setLoading] = useState(true);
+  
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initializedRef = useRef(false);
+  const mountedRef = useRef(true);
   const fetchingRef = useRef(false);
 
+  // Limpiar estado de forma segura
   const clearState = useCallback(() => {
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    setRole("volunteer");
-    roleCache = null;
+    if (mountedRef.current) {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRole("volunteer");
+    }
   }, []);
 
+  // Fetch de perfil y rol en paralelo
   const fetchProfileAndRole = useCallback(async (userId: string) => {
-    const supabase = createSupabaseBrowser();
+    const supabase = getSupabase();
     
     try {
-      // OPTIMIZACIÓN: Ejecutar perfil y rol EN PARALELO
+      // PARALELO: Profile + Role
       const profilePromise = supabase
         .from("user_profiles")
         .select("id, rut, first_name, last_name, birthdate, phone, verified, created_at, updated_at")
@@ -59,9 +72,10 @@ export function useUserSession(): UseUserSessionReturn {
       
       // Obtener rol: usar cache si está disponible y válido
       let rolePromise: Promise<UserRole>;
+      const cached = roleCacheMap.get(userId);
       
-      if (roleCache && Date.now() - roleCache.timestamp < ROLE_CACHE_TTL) {
-        rolePromise = Promise.resolve(roleCache.role);
+      if (cached && Date.now() - cached.timestamp < ROLE_CACHE_TTL) {
+        rolePromise = Promise.resolve(cached.role);
       } else {
         rolePromise = fetch("/api/auth/check-role", {
           cache: "no-store",
@@ -70,80 +84,78 @@ export function useUserSession(): UseUserSessionReturn {
           .then(res => res.ok ? res.json() : { role: "volunteer" })
           .then(data => {
             const userRole = (data.role as UserRole) || "volunteer";
-            roleCache = { role: userRole, timestamp: Date.now() };
+            roleCacheMap.set(userId, { role: userRole, timestamp: Date.now() });
             return userRole;
           })
           .catch(() => "volunteer" as UserRole);
       }
       
-      // Esperar ambos en paralelo
       const [profileData, userRole] = await Promise.all([profilePromise, rolePromise]);
       
-      if (profileData) {
-        setProfile(profileData);
+      if (mountedRef.current) {
+        if (profileData) setProfile(profileData);
+        setRole(userRole);
       }
-      setRole(userRole);
     } catch (err) {
       console.error("[useUserSession] fetchProfileAndRole error:", err);
-      setRole("volunteer");
+      if (mountedRef.current) setRole("volunteer");
     }
   }, []);
 
+  // Refresh: SIEMPRE usa getUser() para validar con el servidor
   const refresh = useCallback(async () => {
     // Evitar múltiples refreshes simultáneos
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     
-    setLoading(true);
+    if (mountedRef.current) setLoading(true);
     
-    // Limpiar timeout anterior si existe
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    // Establecer timeout de seguridad para evitar loading infinito
+    // Timeout de seguridad
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
-      console.warn("[useUserSession] Timeout alcanzado, finalizando loading");
-      setLoading(false);
+      console.warn("[useUserSession] Timeout alcanzado");
+      if (mountedRef.current) setLoading(false);
       fetchingRef.current = false;
     }, SESSION_TIMEOUT);
     
     try {
-      const supabase = createSupabaseBrowser();
+      const supabase = getSupabase();
       
-      // OPTIMIZACIÓN: Obtener session directamente (más rápido que getUser)
-      // El middleware ya validó la sesión, aquí solo necesitamos los datos
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      // CRÍTICO: Usar getUser() que VALIDA contra el servidor Supabase
+      // getSession() solo lee del localStorage y puede estar desactualizado
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
       
-      if (!currentSession?.user) {
-        // No hay sesión válida - limpiar todo
+      if (userError || !authUser) {
+        // No hay sesión válida en el servidor
         clearState();
       } else {
-        // Sesión válida - actualizar estado
-        setSession(currentSession);
-        setUser(currentSession.user);
-        await fetchProfileAndRole(currentSession.user.id);
+        // Usuario válido - también obtener la sesión para tokens
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        
+        if (mountedRef.current) {
+          setUser(authUser);
+          setSession(authSession);
+          await fetchProfileAndRole(authUser.id);
+        }
       }
     } catch (err) {
       console.error("[useUserSession] refresh error:", err);
       clearState();
     } finally {
-      // Limpiar timeout y finalizar loading
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
       fetchingRef.current = false;
     }
   }, [fetchProfileAndRole, clearState]);
 
   useEffect(() => {
-    // Evitar doble inicialización en StrictMode
-    if (initializedRef.current) return;
-    initializedRef.current = true;
+    // Marcar como montado
+    mountedRef.current = true;
     
-    const supabase = createSupabaseBrowser();
+    const supabase = getSupabase();
 
     // Obtener sesión inicial
     refresh();
@@ -153,42 +165,42 @@ export function useUserSession(): UseUserSessionReturn {
       async (event, newSession) => {
         console.log("[useUserSession] Auth event:", event);
         
-        // CRÍTICO: En SIGNED_OUT, limpiar TODO inmediatamente
+        // SIGNED_OUT: limpiar TODO inmediatamente
         if (event === "SIGNED_OUT") {
           clearState();
-          roleCache = null;
-          setLoading(false);
+          roleCacheMap.clear();
+          if (mountedRef.current) setLoading(false);
           return;
         }
         
-        // Si no hay sesión, limpiar
-        if (!newSession) {
+        // Si no hay sesión en el evento, limpiar
+        if (!newSession?.user) {
           clearState();
-          setLoading(false);
+          if (mountedRef.current) setLoading(false);
           return;
         }
         
-        // TOKEN_REFRESHED o SIGNED_IN: actualizar estado
-        setSession(newSession);
-        setUser(newSession.user);
-        
-        if (newSession.user) {
+        // SIGNED_IN, TOKEN_REFRESHED, etc: actualizar estado
+        if (mountedRef.current) {
+          setSession(newSession);
+          setUser(newSession.user);
+          
           // Invalidar cache de rol en login fresco
           if (event === "SIGNED_IN") {
-            roleCache = null;
+            roleCacheMap.delete(newSession.user.id);
           }
+          
           await fetchProfileAndRole(newSession.user.id);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
+    // Cleanup al desmontar
     return () => {
+      mountedRef.current = false;
       subscription.unsubscribe();
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [refresh, fetchProfileAndRole, clearState]);
 

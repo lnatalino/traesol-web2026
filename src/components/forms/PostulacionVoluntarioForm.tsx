@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabaseServer";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 type Props = { operativoSlug?: string };
 

@@ -19,7 +19,7 @@ import {
   type EmpresaProductoPackItemDetalle,
 } from "@/lib/empresas";
 import { toSlug } from "@/lib/slug";
-import { createSupabaseBrowser } from "@/lib/supabaseServer";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 type EmpresaProductoFormProps = {
   mode: "create" | "edit";

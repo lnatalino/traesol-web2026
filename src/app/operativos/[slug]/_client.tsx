@@ -4,7 +4,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createSupabaseBrowser } from "@/lib/supabaseServer";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 type OperativoRow = {
   id: string;

@@ -51,6 +51,5 @@ export function createSupabaseServer() {
   });
 }
 
-export function createSupabaseBrowser() {
-  return createBrowserClient(url, anon);
-}
+// NOTA: createSupabaseBrowser está en src/lib/supabase.ts
+// NO duplicar aquí - importar desde @/lib/supabase
