@@ -9,19 +9,21 @@ export default async function UsuariosPage() {
   const session = await getAdminSession();
 
   if (!session.allowed) {
-    redirect("/login?next=/admin/usuarios");
+    redirect("/mi-cuenta/login?next=/admin/usuarios");
   }
 
-  // Usar isSuperAdmin que considera SUPERADMIN_EMAILS y el rol efectivo
-  if (!session.isSuperAdmin) {
-    redirect("/admin?error=no_autorizado");
-  }
+  // Admin puede ver voluntarios, superadmin puede ver todos
+  // La lógica de filtrado está en el cliente y en los endpoints
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
-        <p className="text-slate-600">Administra los usuarios del panel administrativo.</p>
+        <p className="text-slate-600">
+          {session.isSuperAdmin 
+            ? "Administra voluntarios y administradores del sistema." 
+            : "Administra los voluntarios registrados."}
+        </p>
       </div>
       <UsuariosClient isSuperAdmin={session.isSuperAdmin} />
     </div>

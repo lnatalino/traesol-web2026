@@ -1,13 +1,12 @@
 // src/app/admin/usuarios/UsuariosClient.tsx
+// Gestión unificada de usuarios: voluntarios + administradores
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   UserPlus,
   Users,
   Loader2,
-  Eye,
-  EyeOff,
   RotateCcw,
   Trash2,
   Check,
@@ -16,32 +15,43 @@ import {
   Edit,
   AlertCircle,
   Mail,
-  Copy,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  User,
 } from "lucide-react";
 
-type AdminUser = {
+type UnifiedUser = {
   id: string;
   email: string;
-  first_name: string | null;
-  last_name: string | null;
-  role: string;
+  first_name: string;
+  last_name: string;
+  rut: string | null;
+  phone: string | null;
+  birthdate: string | null;
+  role: "volunteer" | "admin" | "superadmin";
+  verified: boolean;
   enabled: boolean;
-  force_password_change: boolean;
   created_at: string;
 };
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: "Superadmin",
   admin: "Administrador",
-  editor: "Editor",
-  viewer: "Visor",
+  volunteer: "Voluntario",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   superadmin: "bg-purple-100 text-purple-800",
   admin: "bg-blue-100 text-blue-800",
-  editor: "bg-green-100 text-green-800",
-  viewer: "bg-slate-100 text-slate-800",
+  volunteer: "bg-slate-100 text-slate-700",
+};
+
+const ROLE_ICONS: Record<string, typeof Shield> = {
+  superadmin: ShieldCheck,
+  admin: Shield,
+  volunteer: User,
 };
 
 interface UsuariosClientProps {
@@ -49,37 +59,68 @@ interface UsuariosClientProps {
 }
 
 export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientProps) {
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [users, setUsers] = useState<UnifiedUser[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Filtros
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   // Modal crear usuario
   const [showCreate, setShowCreate] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState("editor");
+  const [newRut, setNewRut] = useState("");
+  const [newRole, setNewRole] = useState<"admin" | "superadmin">("admin");
   const [creating, setCreating] = useState(false);
 
-  // Modal reset password
-  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
-  const [resetPassword, setResetPassword] = useState("");
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [resetting, setResetting] = useState(false);
+  // Modal editar usuario
+  const [editUser, setEditUser] = useState<UnifiedUser | null>(null);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editRut, setEditRut] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Modal eliminar
-  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UnifiedUser | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  async function fetchUsers() {
+  // Modal reenviar OTP
+  const [resendUser, setResendUser] = useState<UnifiedUser | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // Debounce búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/usuarios");
+      const params = new URLSearchParams();
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (searchDebounced) params.set("search", searchDebounced);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String((page - 1) * PAGE_SIZE));
+
+      const res = await fetch(`/api/admin/users?${params}`);
       const data = await res.json();
-      if (data.ok) {
+      if (data.success) {
         setUsers(data.users);
+        setTotal(data.total);
       } else {
         setError(data.error || "Error al cargar usuarios");
       }
@@ -88,11 +129,11 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     } finally {
       setLoading(false);
     }
-  }
+  }, [roleFilter, searchDebounced, page]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -101,29 +142,30 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     setSuccess("");
 
     try {
-      const res = await fetch("/api/admin/usuarios", {
+      const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newEmail,
           firstName: newFirstName,
           lastName: newLastName,
+          rut: newRut || undefined,
           role: newRole,
         }),
       });
 
       const data = await res.json();
 
-      if (data.ok) {
+      if (data.success) {
         setShowCreate(false);
         setNewEmail("");
         setNewFirstName("");
         setNewLastName("");
-        setNewRole("editor");
-        setSuccess(`Usuario creado. Se envió un email de bienvenida a ${newEmail}`);
+        setNewRut("");
+        setNewRole("admin");
+        setSuccess(`Administrador creado. Se envió un código a ${newEmail} para establecer contraseña.`);
         fetchUsers();
-        // Limpiar mensaje de éxito después de 5 segundos
-        setTimeout(() => setSuccess(""), 5000);
+        setTimeout(() => setSuccess(""), 8000);
       } else {
         setError(data.error || "Error al crear usuario");
       }
@@ -134,52 +176,38 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     }
   }
 
-  async function handleToggleEnabled(user: AdminUser) {
-    try {
-      const res = await fetch(`/api/admin/usuarios/${user.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !user.enabled }),
-      });
-
-      const data = await res.json();
-
-      if (data.ok) {
-        fetchUsers();
-      } else {
-        setError(data.error || "Error al actualizar usuario");
-      }
-    } catch {
-      setError("Error de conexión");
-    }
-  }
-
-  async function handleResetPassword(e: React.FormEvent) {
+  async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!resetUser) return;
-    setResetting(true);
+    if (!editUser) return;
+    setSaving(true);
     setError("");
 
     try {
-      const res = await fetch(`/api/admin/usuarios/${resetUser.id}`, {
+      const res = await fetch(`/api/admin/users/${editUser.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword: resetPassword }),
+        body: JSON.stringify({
+          firstName: editFirstName,
+          lastName: editLastName,
+          rut: editRut || null,
+          phone: editPhone || null,
+        }),
       });
 
       const data = await res.json();
 
-      if (data.ok) {
-        setResetUser(null);
-        setResetPassword("");
+      if (data.success) {
+        setEditUser(null);
+        setSuccess("Usuario actualizado");
         fetchUsers();
+        setTimeout(() => setSuccess(""), 3000);
       } else {
-        setError(data.error || "Error al resetear contraseña");
+        setError(data.error || "Error al actualizar");
       }
     } catch {
       setError("Error de conexión");
     } finally {
-      setResetting(false);
+      setSaving(false);
     }
   }
 
@@ -189,17 +217,19 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     setError("");
 
     try {
-      const res = await fetch(`/api/admin/usuarios/${deleteUser.id}`, {
+      const res = await fetch(`/api/admin/users/${deleteUser.id}`, {
         method: "DELETE",
       });
 
       const data = await res.json();
 
-      if (data.ok) {
+      if (data.success) {
         setDeleteUser(null);
+        setSuccess("Usuario deshabilitado");
         fetchUsers();
+        setTimeout(() => setSuccess(""), 3000);
       } else {
-        setError(data.error || "Error al eliminar usuario");
+        setError(data.error || "Error al eliminar");
       }
     } catch {
       setError("Error de conexión");
@@ -208,22 +238,41 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
     }
   }
 
-  function generatePassword() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    let pass = "";
-    for (let i = 0; i < 10; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  async function handleResendOtp() {
+    if (!resendUser) return;
+    setResending(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/admin/users/${resendUser.id}/resend-otp`, {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setResendUser(null);
+        setSuccess(data.message || "Código enviado");
+        setTimeout(() => setSuccess(""), 5000);
+      } else {
+        setError(data.error || "Error al enviar código");
+      }
+    } catch {
+      setError("Error de conexión");
+    } finally {
+      setResending(false);
     }
-    return pass;
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
-      </div>
-    );
+  function openEdit(user: UnifiedUser) {
+    setEditUser(user);
+    setEditFirstName(user.first_name || "");
+    setEditLastName(user.last_name || "");
+    setEditRut(user.rut || "");
+    setEditPhone(user.phone || "");
   }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -231,7 +280,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
           <AlertCircle size={16} />
           {error}
-          <button onClick={() => setError("")} className="ml-auto">
+          <button onClick={() => setError("")} className="ml-auto hover:bg-red-100 p-1 rounded">
             <X size={16} />
           </button>
         </div>
@@ -241,128 +290,226 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center gap-2">
           <Check size={16} />
           {success}
-          <button onClick={() => setSuccess("")} className="ml-auto">
+          <button onClick={() => setSuccess("")} className="ml-auto hover:bg-green-100 p-1 rounded">
             <X size={16} />
           </button>
         </div>
       )}
 
-      {/* Header con botón crear */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-slate-600">
-          <Users size={20} />
-          <span>{users.length} usuario{users.length !== 1 && "s"}</span>
+      {/* Filtros y búsqueda */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Tabs de filtro por rol */}
+          <div className="flex bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => { setRoleFilter("all"); setPage(1); }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                roleFilter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Todos
+            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setRoleFilter("admin"); setPage(1); }}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  roleFilter === "admin" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Admins
+              </button>
+            )}
+            <button
+              onClick={() => { setRoleFilter("volunteer"); setPage(1); }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                roleFilter === "volunteer" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Voluntarios
+            </button>
+          </div>
+
+          {/* Búsqueda */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por email, nombre, RUT..."
+              className="inp pl-9 pr-4 py-2 w-64"
+            />
+          </div>
         </div>
-        {isSuperAdmin && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            <UserPlus size={18} />
-            Crear usuario
-          </button>
-        )}
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-600">
+            <Users className="inline w-4 h-4 mr-1" />
+            {total} usuario{total !== 1 && "s"}
+          </span>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <UserPlus size={18} />
+              Crear Admin
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabla de usuarios */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Usuario</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Rol</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Estado</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Creado</th>
-              <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {users.map((user) => {
-              const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
-              return (
-              <tr key={user.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <div>
-                    {fullName && (
-                      <span className="font-medium block">{fullName}</span>
-                    )}
-                    <span className={`text-sm ${fullName ? "text-slate-500" : "font-medium"}`}>
-                      {user.email}
-                    </span>
-                    {user.force_password_change && (
-                      <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                        Pendiente
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs px-2 py-1 rounded font-medium ${ROLE_COLORS[user.role] || ROLE_COLORS.viewer}`}>
-                    {ROLE_LABELS[user.role] || user.role}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleToggleEnabled(user)}
-                    className={`flex items-center gap-1 text-sm ${
-                      user.enabled ? "text-green-600" : "text-red-600"
-                    }`}
-                    title={user.enabled ? "Deshabilitar" : "Habilitar"}
-                  >
-                    {user.enabled ? (
-                      <>
-                        <Check size={14} /> Activo
-                      </>
-                    ) : (
-                      <>
-                        <X size={14} /> Inactivo
-                      </>
-                    )}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {new Date(user.created_at).toLocaleDateString("es-CL")}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setResetUser(user)}
-                      className="p-2 text-slate-600 hover:text-brand hover:bg-slate-100 rounded-lg transition-colors"
-                      title="Resetear contraseña"
-                    >
-                      <RotateCcw size={16} />
-                    </button>
-                    {user.role !== "superadmin" && (
-                      <button
-                        onClick={() => setDeleteUser(user)}
-                        className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {users.length === 0 && (
-          <div className="text-center py-12 text-slate-500">
-            No hay usuarios registrados.
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-brand" />
           </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Usuario</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">RUT</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Tipo</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Estado</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Creado</th>
+                    <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {users.map((user) => {
+                    const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+                    const RoleIcon = ROLE_ICONS[user.role] || User;
+                    const canEdit = isSuperAdmin || user.role === "volunteer";
+                    const canDelete = (isSuperAdmin && user.role !== "superadmin") || (!isSuperAdmin && user.role === "volunteer");
+                    
+                    return (
+                      <tr key={user.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium ${
+                              user.role === "superadmin" ? "bg-purple-100 text-purple-700" :
+                              user.role === "admin" ? "bg-blue-100 text-blue-700" :
+                              "bg-slate-100 text-slate-700"
+                            }`}>
+                              {fullName ? fullName[0].toUpperCase() : user.email[0].toUpperCase()}
+                            </div>
+                            <div>
+                              {fullName && (
+                                <span className="font-medium block">{fullName}</span>
+                              )}
+                              <span className={`text-sm ${fullName ? "text-slate-500" : "font-medium"}`}>
+                                {user.email}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {user.rut || "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded font-medium ${ROLE_COLORS[user.role]}`}>
+                            <RoleIcon size={12} />
+                            {ROLE_LABELS[user.role]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className={`text-xs font-medium ${user.enabled ? "text-green-600" : "text-red-600"}`}>
+                              {user.enabled ? "Activo" : "Deshabilitado"}
+                            </span>
+                            {user.role === "volunteer" && (
+                              <span className={`text-xs ${user.verified ? "text-slate-500" : "text-amber-600"}`}>
+                                {user.verified ? "Verificado" : "Sin verificar"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {new Date(user.created_at).toLocaleDateString("es-CL")}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {canEdit && (
+                              <button
+                                onClick={() => openEdit(user)}
+                                className="p-2 text-slate-600 hover:text-brand hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            {isSuperAdmin && (user.role === "admin" || user.role === "superadmin") && (
+                              <button
+                                onClick={() => setResendUser(user)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Enviar código para contraseña"
+                              >
+                                <Mail size={16} />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => setDeleteUser(user)}
+                                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Deshabilitar"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {users.length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                No se encontraron usuarios{search ? ` que coincidan con "${search}"` : ""}.
+              </div>
+            )}
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <span className="text-sm text-slate-600">
+                  Página {page} de {totalPages}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-2 rounded-lg border hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-2 rounded-lg border hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Modal Crear Usuario */}
+      {/* Modal Crear Admin */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <UserPlus size={20} />
-              Crear nuevo usuario
+              <Shield size={20} className="text-blue-600" />
+              Crear nuevo Administrador
             </h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -390,35 +537,45 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Email (será el usuario) *</label>
+                <label className="text-sm font-medium">Email *</label>
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   required
                   className="inp w-full"
-                  placeholder="usuario@traesol.cl"
+                  placeholder="admin@traesol.cl"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">RUT (opcional)</label>
+                <input
+                  type="text"
+                  value={newRut}
+                  onChange={(e) => setNewRut(e.target.value)}
+                  className="inp w-full"
+                  placeholder="12.345.678-9"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Rol</label>
                 <select
                   value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
+                  onChange={(e) => setNewRole(e.target.value as "admin" | "superadmin")}
                   className="inp w-full"
                 >
                   <option value="admin">Administrador</option>
-                  <option value="editor">Editor</option>
-                  <option value="viewer">Visor</option>
+                  <option value="superadmin">Superadmin</option>
                 </select>
               </div>
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
                 <div className="flex items-start gap-2 text-blue-700">
                   <Mail size={16} className="mt-0.5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium">Se enviará un correo de bienvenida</p>
+                    <p className="font-medium">Se enviará un código por email</p>
                     <p className="text-blue-600 mt-1">
-                      El usuario recibirá una contraseña temporal y deberá cambiarla al iniciar sesión por primera vez.
+                      El administrador recibirá un código de 6 dígitos para establecer su contraseña 
+                      usando el flujo de &quot;Olvidé mi contraseña&quot;.
                     </p>
                   </div>
                 </div>
@@ -431,6 +588,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                     setNewFirstName("");
                     setNewLastName("");
                     setNewEmail("");
+                    setNewRut("");
                   }}
                   className="btn-secondary flex-1"
                 >
@@ -442,7 +600,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                   className="btn-primary flex-1 inline-flex items-center justify-center gap-2"
                 >
                   {creating ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
-                  Crear usuario
+                  Crear admin
                 </button>
               </div>
             </form>
@@ -450,65 +608,70 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
         </div>
       )}
 
-      {/* Modal Reset Password */}
-      {resetUser && (
+      {/* Modal Editar Usuario */}
+      {editUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <RotateCcw size={20} />
-              Resetear contraseña
+              <Edit size={20} />
+              Editar usuario
             </h2>
-            <p className="text-slate-600 mb-4">
-              Establecer nueva contraseña temporal para <strong>{resetUser.email}</strong>
-            </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Nueva contraseña temporal</label>
-                <div className="relative">
+            <p className="text-sm text-slate-600 mb-4">{editUser.email}</p>
+            <form onSubmit={handleEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Nombre</label>
                   <input
-                    type={showResetPassword ? "text" : "password"}
-                    value={resetPassword}
-                    onChange={(e) => setResetPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="inp w-full pr-20"
-                    placeholder="Mínimo 6 caracteres"
+                    type="text"
+                    value={editFirstName}
+                    onChange={(e) => setEditFirstName(e.target.value)}
+                    className="inp w-full"
                   />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setResetPassword(generatePassword())}
-                      className="text-xs text-brand hover:underline"
-                    >
-                      Generar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowResetPassword(!showResetPassword)}
-                      className="p-1 text-slate-400 hover:text-slate-600"
-                    >
-                      {showResetPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Apellido</label>
+                  <input
+                    type="text"
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                    className="inp w-full"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">RUT</label>
+                <input
+                  type="text"
+                  value={editRut}
+                  onChange={(e) => setEditRut(e.target.value)}
+                  className="inp w-full"
+                  placeholder="12.345.678-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Teléfono</label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="inp w-full"
+                  placeholder="+56 9 1234 5678"
+                />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setResetUser(null);
-                    setResetPassword("");
-                  }}
+                  onClick={() => setEditUser(null)}
                   className="btn-secondary flex-1"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={resetting}
+                  disabled={saving}
                   className="btn-primary flex-1 inline-flex items-center justify-center gap-2"
                 >
-                  {resetting ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
                   Guardar
                 </button>
               </div>
@@ -523,11 +686,13 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-red-600">
               <Trash2 size={20} />
-              Eliminar usuario
+              Deshabilitar usuario
             </h2>
             <p className="text-slate-600 mb-4">
-              ¿Estás seguro de que deseas eliminar al usuario <strong>{deleteUser.email}</strong>?
-              Esta acción no se puede deshacer.
+              ¿Estás seguro de que deseas deshabilitar al usuario <strong>{deleteUser.email}</strong>?
+            </p>
+            <p className="text-sm text-slate-500 mb-4">
+              El usuario no podrá iniciar sesión pero sus datos se conservarán.
             </p>
             <div className="flex gap-3">
               <button
@@ -544,7 +709,40 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2"
               >
                 {deleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                Eliminar
+                Deshabilitar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Reenviar OTP */}
+      {resendUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Mail size={20} className="text-blue-600" />
+              Enviar código de contraseña
+            </h2>
+            <p className="text-slate-600 mb-4">
+              Se enviará un código de 6 dígitos a <strong>{resendUser.email}</strong> para que pueda establecer o restablecer su contraseña.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setResendUser(null)}
+                className="btn-secondary flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resending}
+                className="btn-primary flex-1 inline-flex items-center justify-center gap-2"
+              >
+                {resending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                Enviar código
               </button>
             </div>
           </div>
