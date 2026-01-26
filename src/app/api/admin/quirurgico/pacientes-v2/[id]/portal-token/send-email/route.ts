@@ -127,7 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
 
     // Usar FROM verificado (env var o fallback)
-    const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Traesol <hola@mail.traesol.cl>";
+    const emailFrom = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
     
     const { data: emailData, error: sendError } = await resend.emails.send({
       from: emailFrom,

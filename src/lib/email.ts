@@ -60,7 +60,7 @@ export async function sendMail({
   const sender =
     from ??
     process.env.EMAIL_FROM ?? // tu .env tiene EMAIL_FROM
-    "Traesol <hola@mail.traesol.cl>";
+    "Fundación Traesol <notificaciones@mail.traesol.cl>";
 
   const htmlWithPreheader = preheader ? injectPreheader(html, preheader) : html;
 

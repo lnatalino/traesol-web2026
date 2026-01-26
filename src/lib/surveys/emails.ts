@@ -5,7 +5,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Traesol <hola@mail.traesol.cl>";
+const FROM_EMAIL = process.env.EMAIL_FROM || process.env.RESEND_FROM || "Fundación Traesol <notificaciones@mail.traesol.cl>";
 const REPLY_TO = "contacto@fundaciontraesol.cl";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl";
 
