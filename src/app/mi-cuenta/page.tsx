@@ -41,22 +41,20 @@ export default function MiCuentaPage() {
   const [inscripciones, setInscripciones] = useState<InscripcionData[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Verificar autenticación
+  // Redirecciones según rol (middleware ya valida autenticación)
   useEffect(() => {
-    if (!sessionLoading && !user) {
-      router.push("/mi-cuenta/login");
-      return;
-    }
+    // Esperar a que la sesión se cargue
+    if (sessionLoading) return;
     
     // Admin/superadmin va al panel admin
-    if (!sessionLoading && user && (role === "admin" || role === "superadmin")) {
-      router.push("/admin");
+    if (user && (role === "admin" || role === "superadmin")) {
+      router.replace("/admin");
       return;
     }
     
     // Voluntario no verificado va a verificación
-    if (!sessionLoading && user && profile && !profile.verified) {
-      router.push(`/mi-cuenta/verificar?email=${encodeURIComponent(user.email || "")}`);
+    if (user && profile && !profile.verified) {
+      router.replace(`/mi-cuenta/verificar?email=${encodeURIComponent(user.email || "")}`);
     }
   }, [sessionLoading, user, profile, role, router]);
 
@@ -68,7 +66,9 @@ export default function MiCuentaPage() {
       setLoadingData(true);
       
       try {
-        const res = await fetch(`/api/mi-cuenta/datos`);
+        const res = await fetch(`/api/mi-cuenta/datos`, {
+          credentials: "include", // Importante para enviar cookies
+        });
         if (res.ok) {
           const data = await res.json();
           setVoluntarioData(data.voluntario || null);
@@ -86,6 +86,7 @@ export default function MiCuentaPage() {
       }
     }
     
+    // Cargar datos solo si hay usuario verificado
     if (!sessionLoading && user && profile?.verified) {
       loadVoluntarioData();
     } else if (!sessionLoading) {

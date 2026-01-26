@@ -1,5 +1,6 @@
 // src/lib/hooks/useUserSession.ts
 // Hook para manejar sesión de usuario en componentes client
+// SINCRONIZADO con middleware SSR - usa getUser() para validar con servidor
 
 "use client";
 
@@ -19,8 +20,12 @@ interface UseUserSessionReturn {
   refresh: () => Promise<void>;
 }
 
-// Timeout máximo para evitar loading infinito (5 segundos)
-const SESSION_TIMEOUT = 5000;
+// Timeout máximo para evitar loading infinito (8 segundos)
+const SESSION_TIMEOUT = 8000;
+
+// Cache para evitar fetch repetitivo de rol
+let roleCache: { role: UserRole; timestamp: number } | null = null;
+const ROLE_CACHE_TTL = 60000; // 1 minuto
 
 export function useUserSession(): UseUserSessionReturn {
   const [user, setUser] = useState<User | null>(null);
@@ -30,46 +35,65 @@ export function useUserSession(): UseUserSessionReturn {
   const [loading, setLoading] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initializedRef = useRef(false);
+  const fetchingRef = useRef(false);
+
+  const clearState = useCallback(() => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setRole("volunteer");
+    roleCache = null;
+  }, []);
 
   const fetchProfileAndRole = useCallback(async (userId: string, userEmail?: string | null) => {
     const supabase = createSupabaseBrowser();
     
     try {
-      // Obtener perfil de la DB
-      const { data: profileData } = await supabase
+      // Obtener perfil de la DB (sin bloquear)
+      const profilePromise = supabase
         .from("user_profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .single()
+        .then(({ data }) => data as UserProfile | null);
       
-      if (profileData) {
-        setProfile(profileData as UserProfile);
-      }
-      
-      // Obtener rol efectivo del servidor (considera SUPERADMIN_EMAILS)
+      // Obtener rol del servidor (considera SUPERADMIN_EMAILS)
+      // Usar cache si está disponible y válido
       let userRole: UserRole = "volunteer";
       
-      try {
-        const res = await fetch("/api/auth/check-role", {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.role) {
-            userRole = data.role as UserRole;
+      if (roleCache && Date.now() - roleCache.timestamp < ROLE_CACHE_TTL) {
+        userRole = roleCache.role;
+      } else {
+        try {
+          const res = await fetch("/api/auth/check-role", {
+            cache: "no-store",
+            credentials: "include", // Importante para enviar cookies
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.role) {
+              userRole = data.role as UserRole;
+              roleCache = { role: userRole, timestamp: Date.now() };
+            }
+          }
+        } catch {
+          // Fallback: obtener rol de la tabla user_roles
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .single();
+          
+          if (roleData?.role) {
+            userRole = roleData.role as UserRole;
           }
         }
-      } catch {
-        // Fallback: obtener rol de la tabla user_roles
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .single();
-        
-        if (roleData?.role) {
-          userRole = roleData.role as UserRole;
-        }
+      }
+      
+      // Esperar perfil
+      const profileData = await profilePromise;
+      if (profileData) {
+        setProfile(profileData);
       }
       
       setRole(userRole);
@@ -81,6 +105,10 @@ export function useUserSession(): UseUserSessionReturn {
   }, []);
 
   const refresh = useCallback(async () => {
+    // Evitar múltiples refreshes simultáneos
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    
     setLoading(true);
     
     // Limpiar timeout anterior si existe
@@ -92,22 +120,21 @@ export function useUserSession(): UseUserSessionReturn {
     timeoutRef.current = setTimeout(() => {
       console.warn("[useUserSession] Timeout alcanzado, finalizando loading");
       setLoading(false);
+      fetchingRef.current = false;
     }, SESSION_TIMEOUT);
     
     try {
       const supabase = createSupabaseBrowser();
       
-      // IMPORTANTE: Usar getUser() que valida el token con el server
+      // CRÍTICO: Usar getUser() que valida el token con el servidor
       // getSession() solo lee de localStorage y puede estar desincronizado
       const { data: { user: currentUser }, error } = await supabase.auth.getUser();
       
       if (error || !currentUser) {
-        // No hay sesión válida
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setRole("volunteer");
+        // No hay sesión válida - limpiar todo
+        clearState();
       } else {
+        // Sesión válida - actualizar estado
         // Obtener session para tener access_token si se necesita
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
@@ -116,10 +143,7 @@ export function useUserSession(): UseUserSessionReturn {
       }
     } catch (err) {
       console.error("[useUserSession] refresh error:", err);
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setRole("volunteer");
+      clearState();
     } finally {
       // Limpiar timeout y finalizar loading
       if (timeoutRef.current) {
@@ -127,8 +151,9 @@ export function useUserSession(): UseUserSessionReturn {
         timeoutRef.current = null;
       }
       setLoading(false);
+      fetchingRef.current = false;
     }
-  }, [fetchProfileAndRole]);
+  }, [fetchProfileAndRole, clearState]);
 
   useEffect(() => {
     // Evitar doble inicialización en StrictMode
@@ -146,19 +171,29 @@ export function useUserSession(): UseUserSessionReturn {
         console.log("[useUserSession] Auth event:", event);
         
         // CRÍTICO: En SIGNED_OUT, limpiar TODO inmediatamente
-        if (event === "SIGNED_OUT" || !newSession) {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setRole("volunteer");
+        if (event === "SIGNED_OUT") {
+          clearState();
+          roleCache = null;
           setLoading(false);
           return;
         }
         
+        // Si no hay sesión, limpiar
+        if (!newSession) {
+          clearState();
+          setLoading(false);
+          return;
+        }
+        
+        // TOKEN_REFRESHED o SIGNED_IN: actualizar estado
         setSession(newSession);
         setUser(newSession.user);
         
         if (newSession.user) {
+          // Invalidar cache de rol en login fresco
+          if (event === "SIGNED_IN") {
+            roleCache = null;
+          }
           await fetchProfileAndRole(newSession.user.id, newSession.user.email);
         }
         
@@ -172,7 +207,7 @@ export function useUserSession(): UseUserSessionReturn {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [refresh, fetchProfileAndRole]);
+  }, [refresh, fetchProfileAndRole, clearState]);
 
   return { user, session, profile, role, loading, refresh };
 }

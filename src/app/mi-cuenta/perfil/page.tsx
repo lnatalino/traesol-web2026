@@ -25,11 +25,7 @@ function PerfilContent() {
   const [success, setSuccess] = useState("");
   const [rutLocked, setRutLocked] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/mi-cuenta/login");
-    }
-  }, [loading, user, router]);
+  // Middleware ya valida autenticación - no redirigir aquí
 
   useEffect(() => {
     if (profile) {
