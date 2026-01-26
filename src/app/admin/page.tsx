@@ -10,78 +10,132 @@ import {
   Boxes,
   BriefcaseBusiness,
   Calendar,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   HeartPulse,
   Mail,
   Megaphone,
   Send,
+  Settings,
   Stethoscope,
   UserCheck,
+  UserCog,
   Users,
 } from "lucide-react";
 
-type ShortcutCard = {
+type ModuleCard = {
   title: string;
   description: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
+  superadminOnly?: boolean;
 };
 
-const SECTIONS: ShortcutCard[] = [
+type ModuleSection = {
+  title: string;
+  description: string;
+  modules: ModuleCard[];
+};
+
+// Módulos organizados por secciones
+const SECTIONS: ModuleSection[] = [
   {
-    title: "Operativos médicos",
-    description: "Crea, publica y cierra operativos en terreno con sus estados y equipos.",
-    href: "/admin/operativos",
-    icon: Stethoscope,
+    title: "Operativos y voluntariado",
+    description: "Gestión de actividades en terreno y personas participantes",
+    modules: [
+      {
+        title: "Operativos médicos",
+        description: "Crea, publica y cierra operativos con sus estados y equipos.",
+        href: "/admin/operativos",
+        icon: Stethoscope,
+      },
+      {
+        title: "Voluntarios",
+        description: "Perfiles, filtros y participación de voluntariado activo.",
+        href: "/admin/voluntarios",
+        icon: Users,
+      },
+      {
+        title: "Inscripciones",
+        description: "Aprueba postulaciones y monitorea cupos pendientes.",
+        href: "/admin/inscripciones",
+        icon: ClipboardList,
+      },
+      {
+        title: "Invitaciones",
+        description: "Convocatorias dirigidas a grupos clave por operativo.",
+        href: "/admin/invitaciones",
+        icon: Send,
+      },
+    ],
   },
   {
-    title: "Gestión de voluntarios",
-    description: "Revisa perfiles, filtros y participación de voluntariado activo.",
-    href: "/admin/voluntarios",
-    icon: Users,
+    title: "Comunicación y contenido",
+    description: "Mensajes, noticias y presencia pública de la fundación",
+    modules: [
+      {
+        title: "Mensajería",
+        description: "Comunica novedades a toda la base o por operativo.",
+        href: "/admin/mensajeria",
+        icon: Mail,
+      },
+      {
+        title: "Novedades",
+        description: "Publica historias para el sitio web y carrusel.",
+        href: "/admin/novedades",
+        icon: Megaphone,
+      },
+      {
+        title: "Encuestas",
+        description: "Recopila feedback post operativo de voluntarios.",
+        href: "/admin/encuestas",
+        icon: ClipboardCheck,
+      },
+    ],
   },
   {
-    title: "Inscripciones y cupos",
-    description: "Aprueba postulaciones y monitorea cupos pendientes en cada operativo.",
-    href: "/admin/inscripciones",
-    icon: ClipboardList,
+    title: "Recursos e inventario",
+    description: "Materiales, proveedores y alianzas estratégicas",
+    modules: [
+      {
+        title: "Alianzas empresas",
+        description: "Productos, packs y métricas para partners corporativos.",
+        href: "/admin/empresas/productos",
+        icon: BriefcaseBusiness,
+      },
+      {
+        title: "Inventario clínico",
+        description: "Categorías, ítems y stock entregado en cada operativo.",
+        href: "/admin/inventario",
+        icon: Boxes,
+      },
+    ],
   },
   {
-    title: "Invitaciones segmentadas",
-    description: "Envía convocatorias dirigidas a grupos clave por operativo.",
-    href: "/admin/invitaciones",
-    icon: Send,
+    title: "Quirúrgico",
+    description: "Gestión especializada de operativos quirúrgicos",
+    modules: [
+      {
+        title: "Pacientes quirúrgicos",
+        description: "Pacientes, logística y comunicaciones pre/post operatorias.",
+        href: "/admin/quirurgico/pacientes",
+        icon: HeartPulse,
+      },
+    ],
   },
   {
-    title: "Mensajería interna",
-    description: "Comunica novedades a toda la base o por operativo de forma centralizada.",
-    href: "/admin/mensajeria",
-    icon: Mail,
-  },
-  {
-    title: "Novedades públicas",
-    description: "Publica historias y decide qué se muestra en el listado y carrusel.",
-    href: "/admin/novedades",
-    icon: Megaphone,
-  },
-  {
-    title: "Alianzas con empresas",
-    description: "Actualiza productos, packs y métricas para partners corporativos.",
-    href: "/admin/empresas/productos",
-    icon: BriefcaseBusiness,
-  },
-  {
-    title: "Inventario clínico",
-    description: "Gestiona categorías, ítems y stock entregado en cada operativo.",
-    href: "/admin/inventario",
-    icon: Boxes,
-  },
-  {
-    title: "Quirúrgico · Pacientes",
-    description: "Administra pacientes, logística y comunicaciones pre y post operatorias.",
-    href: "/admin/quirurgico/pacientes",
-    icon: HeartPulse,
+    title: "Administración",
+    description: "Configuración del sistema y gestión de accesos",
+    modules: [
+      {
+        title: "Usuarios del sistema",
+        description: "Administra voluntarios, admins y permisos de acceso.",
+        href: "/admin/usuarios",
+        icon: UserCog,
+        superadminOnly: true,
+      },
+    ],
   },
 ];
 
@@ -194,36 +248,62 @@ export default async function AdminHome() {
         </article>
       </section>
 
-      {/* Module Cards */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-slate-500">Módulos</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {SECTIONS.map(({ icon: Icon, ...section }) => (
-            <article
-              key={section.href}
-              className="group flex flex-col justify-between rounded-2xl border border-slate-100 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/5"
-            >
-              <div className="space-y-4">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-base font-semibold text-slate-900">{section.title}</h3>
-                  <p className="text-sm leading-relaxed text-slate-600">{section.description}</p>
+      {/* Module Cards - Organized by Sections */}
+      <section className="space-y-8">
+        {SECTIONS.map((section) => {
+          // Filtrar módulos según permisos
+          const visibleModules = section.modules.filter(
+            (mod) => !mod.superadminOnly || session.isSuperAdmin
+          );
+          
+          // No mostrar sección vacía
+          if (visibleModules.length === 0) return null;
+          
+          return (
+            <div key={section.title} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">{section.title}</h2>
+                  <p className="text-sm text-slate-500">{section.description}</p>
                 </div>
               </div>
-              <div className="mt-5 flex justify-end">
-                <Link
-                  href={section.href}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 transition group-hover:gap-2.5"
-                >
-                  Ingresar
-                  <span aria-hidden="true">→</span>
-                </Link>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleModules.map(({ icon: Icon, superadminOnly, ...mod }) => (
+                  <article
+                    key={mod.href}
+                    className="group flex flex-col justify-between rounded-2xl border border-slate-100 bg-white/95 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/5"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        {superadminOnly && (
+                          <span className="text-[10px] font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                            Superadmin
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-slate-900">{mod.title}</h3>
+                        <p className="text-xs leading-relaxed text-slate-600">{mod.description}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Link
+                        href={mod.href}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition group-hover:gap-2"
+                      >
+                        Abrir
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    </div>
+                  </article>
+                ))}
               </div>
-            </article>
-          ))}
-        </div>
+            </div>
+          );
+        })}
       </section>
     </div>
   );
