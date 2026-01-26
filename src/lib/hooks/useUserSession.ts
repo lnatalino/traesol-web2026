@@ -94,14 +94,23 @@ export function useUserSession(): UseUserSessionReturn {
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
+        console.log("[useUserSession] Auth event:", event);
         
-        if (newSession?.user) {
-          await fetchProfileAndRole(newSession.user.id, newSession.user.email);
-        } else {
+        // CRÍTICO: En SIGNED_OUT, limpiar TODO inmediatamente
+        if (event === "SIGNED_OUT" || !newSession) {
+          setSession(null);
+          setUser(null);
           setProfile(null);
           setRole("volunteer");
+          setLoading(false);
+          return;
+        }
+        
+        setSession(newSession);
+        setUser(newSession.user);
+        
+        if (newSession.user) {
+          await fetchProfileAndRole(newSession.user.id, newSession.user.email);
         }
         
         setLoading(false);

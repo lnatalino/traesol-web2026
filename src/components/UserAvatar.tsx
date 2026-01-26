@@ -30,15 +30,25 @@ export default function UserAvatar() {
   async function handleLogout() {
     setOpen(false); // Cerrar dropdown inmediatamente
     
-    // Hacer signOut PRIMERO para limpiar cookies
-    await signOut();
-    
-    // Limpiar cookie de rol manualmente
-    document.cookie = "traesol-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    
-    // CRÍTICO: Usar window.location para forzar recarga completa
-    // Esto garantiza que el navbar se actualice correctamente
-    window.location.href = "/";
+    try {
+      // 1. Hacer signOut que limpia servidor + Supabase + localStorage
+      await signOut();
+      
+      // 2. Limpiar cookie de rol manualmente (backup)
+      document.cookie = "traesol-role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "traesol-email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      // 3. CRÍTICO: Usar window.location para forzar recarga completa
+      // Esto garantiza que:
+      // - El navbar se re-renderiza desde cero
+      // - Todas las cookies del servidor se respetan
+      // - No hay estado stale en memoria
+      window.location.href = "/";
+    } catch (err) {
+      console.error("[UserAvatar] Logout error:", err);
+      // Forzar recarga de todos modos
+      window.location.href = "/";
+    }
   }
 
   if (loading) {

@@ -79,29 +79,41 @@ export async function signInWithEmailPassword(
 
 /**
  * Cerrar sesión - limpia tanto Supabase Auth como cookies legacy
- * Optimizado para ser RÁPIDO: no espera respuestas innecesarias
+ * ROBUSTO: Espera que todo se limpie antes de retornar
  */
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   const supabase = createSupabaseBrowser();
 
-  // Ejecutar ambos signOut en paralelo, sin esperar al legacy
-  const signOutPromise = supabase.auth.signOut({ scope: "local" });
-  
-  // Limpiar cookies legacy en background (no esperamos, pero enviamos headers JSON)
-  fetch("/api/auth/simple-logout", { 
-    method: "POST",
-    headers: { "Accept": "application/json" },
-  }).catch(() => {});
-  
   try {
-    const { error } = await signOutPromise;
+    // 1. Primero limpiar cookies del servidor (ESPERAR respuesta)
+    await fetch("/api/auth/simple-logout", { 
+      method: "POST",
+      headers: { "Accept": "application/json" },
+      credentials: "include", // Importante para enviar cookies
+    });
+    
+    // 2. Luego hacer signOut de Supabase con scope GLOBAL
+    // scope: "global" invalida todas las sesiones en todos los dispositivos
+    const { error } = await supabase.auth.signOut({ scope: "global" });
+    
     if (error) {
       console.error("[userAuth] signOut error:", error);
+      // Continuar de todos modos
     }
+    
+    // 3. Limpiar storage local por si acaso
+    if (typeof window !== "undefined") {
+      // Limpiar cualquier dato de sesión en localStorage
+      const keysToRemove = Object.keys(localStorage).filter(
+        key => key.startsWith("sb-") || key.includes("supabase")
+      );
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+    
     return { success: true };
   } catch (err) {
     console.error("[userAuth] signOut error:", err);
-    return { success: true }; // Retornar success aunque falle para permitir navegación
+    return { success: true }; // Retornar success para permitir navegación
   }
 }
 
