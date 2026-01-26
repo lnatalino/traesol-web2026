@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { getServerSession } from "@/lib/serverSession";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,18 +41,23 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Obtener sesión del servidor - FUENTE DE VERDAD para UI inicial
+  const initialSession = await getServerSession();
+  
   return (
     <html lang="es" className="light" style={{ colorScheme: "light" }}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900`}
       >
-        <Navbar />
-        {/* Importante: evitar “doble <main>” para no romper estilos del formulario */}
-        <div className="min-h-[80vh]">{children}</div>
-        <Footer />
+        <SessionProvider initialSession={initialSession}>
+          <Navbar />
+          {/* Importante: evitar "doble <main>" para no romper estilos del formulario */}
+          <div className="min-h-[80vh]">{children}</div>
+          <Footer />
+        </SessionProvider>
       </body>
     </html>
   );

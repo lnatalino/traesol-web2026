@@ -3,15 +3,25 @@
 
 import { useEffect, useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUserSession } from "@/lib/hooks/useUserSession";
+import { useSession } from "@/components/providers/SessionProvider";
 import { updateUserProfile, formatRut, isValidRutFormat } from "@/lib/userAuth";
 import BackButton from "@/components/BackButton";
+import { createSupabaseBrowser } from "@/lib/supabase";
 
 function PerfilContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const { user, profile, loading, refresh } = useUserSession();
+  const { user, profile, loading, refresh } = useSession();
+  
+  // Necesitamos los datos completos del perfil (el contexto solo tiene firstName/lastName)
+  const [fullProfile, setFullProfile] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    birthdate: string | null;
+    rut: string | null;
+  } | null>(null);
   
   const [form, setForm] = useState({
     first_name: "",
@@ -24,22 +34,39 @@ function PerfilContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [rutLocked, setRutLocked] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Middleware ya valida autenticación - no redirigir aquí
-
+  // Cargar perfil completo desde DB
   useEffect(() => {
-    if (profile) {
-      setForm({
-        first_name: profile.first_name || "",
-        last_name: profile.last_name || "",
-        phone: profile.phone || "",
-        birthdate: profile.birthdate || "",
-        rut: profile.rut ? formatRut(profile.rut) : "",
-      });
-      // Si ya tiene RUT guardado, bloquearlo
-      setRutLocked(!!profile.rut);
+    async function loadFullProfile() {
+      if (!user?.id) return;
+      
+      setLoadingProfile(true);
+      const supabase = createSupabaseBrowser();
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("first_name, last_name, phone, birthdate, rut")
+        .eq("id", user.id)
+        .single();
+      
+      if (data) {
+        setFullProfile(data);
+        setForm({
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          phone: data.phone || "",
+          birthdate: data.birthdate || "",
+          rut: data.rut ? formatRut(data.rut) : "",
+        });
+        setRutLocked(!!data.rut);
+      }
+      setLoadingProfile(false);
     }
-  }, [profile]);
+    
+    if (user) {
+      loadFullProfile();
+    }
+  }, [user]);
 
   function setField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -100,7 +127,8 @@ function PerfilContent() {
     }
   }
 
-  if (loading) {
+  // Loading solo si no tenemos datos SSR
+  if (loadingProfile && !fullProfile) {
     return (
       <main className="container">
         <div className="max-w-lg mx-auto mt-12">
@@ -115,9 +143,11 @@ function PerfilContent() {
     );
   }
 
-  // Si no hay usuario después de cargar, mostrar mensaje (no null)
-  // El middleware debería haber redirigido, pero por si acaso
+  // Si no hay usuario, redirigir a login
   if (!user) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/mi-cuenta/login?next=/mi-cuenta/perfil";
+    }
     return (
       <main className="container">
         <div className="max-w-md mx-auto mt-16 px-4">
@@ -127,11 +157,8 @@ function PerfilContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">Sesión no encontrada</h2>
-            <p className="text-slate-600 mb-4">Inicia sesión para acceder a tu perfil.</p>
-            <a href="/mi-cuenta/login" className="btn-primary">
-              Iniciar sesión
-            </a>
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Redirigiendo...</h2>
+            <p className="text-slate-600 mb-4">Te llevamos al inicio de sesión.</p>
           </div>
         </div>
       </main>

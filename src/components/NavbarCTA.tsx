@@ -1,9 +1,10 @@
 // src/components/NavbarCTA.tsx
 // CTA condicional en navbar según estado de sesión y rol
+// Usa SessionProvider para datos SSR iniciales (sin flash)
 "use client";
 
 import Link from "next/link";
-import { useUserSession } from "@/lib/hooks/useUserSession";
+import { useSession } from "@/components/providers/SessionProvider";
 
 interface NavbarCTAProps {
   className?: string;
@@ -11,11 +12,10 @@ interface NavbarCTAProps {
 }
 
 export default function NavbarCTA({ className = "", onClick }: NavbarCTAProps) {
-  const { user, role, loading } = useUserSession();
+  const { user, role, loading } = useSession();
 
-  // Mientras carga, NO mostrar nada para evitar flash de "Hazte voluntario"
-  // que luego cambia a "Postular a operativo"
-  if (loading) {
+  // Mientras carga (solo si no hay datos SSR), mostrar placeholder
+  if (loading && !user) {
     return (
       <div className={`btn-primary text-sm opacity-0 ${className}`} aria-hidden>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;

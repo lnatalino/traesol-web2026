@@ -1,19 +1,18 @@
 // src/components/UserAvatar.tsx
 // Componente de avatar con dropdown para usuarios autenticados
+// Usa SessionProvider para datos SSR iniciales (sin flash)
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useUserSession } from "@/lib/hooks/useUserSession";
+import { useSession } from "@/components/providers/SessionProvider";
 import { signOut } from "@/lib/userAuth";
 
 export default function UserAvatar() {
-  const { user, profile, role, loading } = useUserSession();
+  const { user, profile, role, loading, isAdmin } = useSession();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  const isAdmin = role === "admin" || role === "superadmin";
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -75,8 +74,8 @@ export default function UserAvatar() {
     );
   }
 
-  if (loading) {
-    // Skeleton mientras carga
+  if (loading && !user) {
+    // Skeleton solo si no hay datos SSR
     return (
       <div className="w-9 h-9 rounded-full bg-slate-200 animate-pulse" />
     );
@@ -91,13 +90,13 @@ export default function UserAvatar() {
     );
   }
 
-  // Calcular iniciales
-  const initials = profile?.first_name && profile?.last_name
-    ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+  // Calcular iniciales (usar profile del contexto que tiene firstName/lastName)
+  const initials = profile?.firstName && profile?.lastName
+    ? `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase()
     : user.email?.[0]?.toUpperCase() || "U";
 
-  const displayName = profile?.first_name && profile?.last_name
-    ? `${profile.first_name} ${profile.last_name}`
+  const displayName = profile?.firstName && profile?.lastName
+    ? `${profile.firstName} ${profile.lastName}`
     : user.email?.split("@")[0] || "Usuario";
 
   return (

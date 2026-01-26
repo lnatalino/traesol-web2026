@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useUserSession } from "@/lib/hooks/useUserSession";
+import { useSession } from "@/components/providers/SessionProvider";
 import { signOut } from "@/lib/userAuth";
 
 interface VoluntarioData {
@@ -34,7 +34,7 @@ interface InscripcionData {
 
 export default function MiCuentaPage() {
   const router = useRouter();
-  const { user, profile, role, loading: sessionLoading } = useUserSession();
+  const { user, profile, role, loading: sessionLoading, isAdmin } = useSession();
   
   const [loggingOut, setLoggingOut] = useState(false);
   const [voluntarioData, setVoluntarioData] = useState<VoluntarioData | null>(null);
@@ -43,11 +43,11 @@ export default function MiCuentaPage() {
 
   // Redirecciones según rol (middleware ya valida autenticación)
   useEffect(() => {
-    // Esperar a que la sesión se cargue
-    if (sessionLoading) return;
+    // Si tenemos datos SSR (user existe), no esperar loading
+    if (!user && sessionLoading) return;
     
     // Admin/superadmin va al panel admin
-    if (user && (role === "admin" || role === "superadmin")) {
+    if (user && isAdmin) {
       router.replace("/admin");
       return;
     }
@@ -56,7 +56,7 @@ export default function MiCuentaPage() {
     if (user && profile && !profile.verified) {
       router.replace(`/mi-cuenta/verificar?email=${encodeURIComponent(user.email || "")}`);
     }
-  }, [sessionLoading, user, profile, role, router]);
+  }, [sessionLoading, user, profile, isAdmin, router]);
 
   // Cargar datos del voluntario e inscripciones
   useEffect(() => {
@@ -86,8 +86,11 @@ export default function MiCuentaPage() {
       }
     }
     
-    // Cargar datos solo si hay usuario verificado
-    if (!sessionLoading && user && profile?.verified) {
+    // Cargar datos solo si hay usuario verificado (usar datos SSR si existen)
+    const hasSession = !!user;
+    const isVerified = profile?.verified ?? false;
+    
+    if (hasSession && isVerified) {
       loadVoluntarioData();
     } else if (!sessionLoading) {
       setLoadingData(false);
@@ -114,8 +117,8 @@ export default function MiCuentaPage() {
     }
   }
 
-  // Loading state - NUNCA retornar null, siempre mostrar algo
-  if (sessionLoading) {
+  // Loading state - Solo mostrar si no tenemos datos SSR
+  if (!user && sessionLoading) {
     return (
       <main className="container">
         <div className="max-w-4xl mx-auto mt-8 px-4">
@@ -131,9 +134,13 @@ export default function MiCuentaPage() {
     );
   }
 
-  // Si no hay usuario después de cargar, mostrar mensaje (no null)
+  // Si no hay usuario después de cargar, redirigir a login
   // El middleware debería haber redirigido, pero por si acaso
   if (!user) {
+    // Redirigir en lugar de mostrar mensaje estático
+    if (typeof window !== "undefined") {
+      window.location.href = "/mi-cuenta/login?next=/mi-cuenta";
+    }
     return (
       <main className="container">
         <div className="max-w-md mx-auto mt-16 px-4">
@@ -143,23 +150,20 @@ export default function MiCuentaPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">Sesión no encontrada</h2>
-            <p className="text-slate-600 mb-4">Inicia sesión para acceder a tu cuenta.</p>
-            <a href="/mi-cuenta/login" className="btn-primary">
-              Iniciar sesión
-            </a>
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Redirigiendo...</h2>
+            <p className="text-slate-600 mb-4">Te llevamos al inicio de sesión.</p>
           </div>
         </div>
       </main>
     );
   }
 
-  const displayName = profile?.first_name && profile?.last_name
-    ? `${profile.first_name} ${profile.last_name}`
+  const displayName = profile?.firstName && profile?.lastName
+    ? `${profile.firstName} ${profile.lastName}`
     : user.email?.split("@")[0] || "Usuario";
 
-  const initials = profile?.first_name && profile?.last_name
-    ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+  const initials = profile?.firstName && profile?.lastName
+    ? `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase()
     : user.email?.[0]?.toUpperCase() || "U";
 
   // Separar inscripciones por estado
@@ -291,7 +295,7 @@ export default function MiCuentaPage() {
               <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-500">RUT</span>
                 <span className="font-medium text-slate-900">
-                  {voluntarioData?.rut || profile?.rut || "No registrado"}
+                  {voluntarioData?.rut || "No registrado"}
                 </span>
               </div>
               {voluntarioData?.profesion && (
