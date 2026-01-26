@@ -110,10 +110,10 @@ export default function PostularButtons({
             Postular con mi cuenta
           </button>
           <Link
-            href={`/postular?operativo=${encodeURIComponent(operativoSlug)}`}
+            href={`/postular?operativo=${encodeURIComponent(operativoSlug)}&otra_persona=1`}
             className="inline-flex items-center rounded-2xl border border-blue-200 px-5 py-2 text-sm font-semibold text-blue-700 hover:bg-white"
           >
-            Formulario completo
+            Postular a otra persona
           </Link>
         </div>
         <p className="mt-3 text-xs text-blue-700/70">* La postulación requiere aprobación manual.</p>

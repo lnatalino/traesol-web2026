@@ -4,6 +4,8 @@ import {
   sendPostulacionOperativoEmails,
   sendRegistroVoluntarioEmail,
   sendActualizacionVoluntarioEmail,
+  sendPostulacionAdminEmail,
+  sendPostulacionRecibidaEmail,
 } from "@/lib/email";
 import {
   inferInscripcionOrigen,
@@ -107,6 +109,10 @@ export async function POST(req: Request) {
     const extranjero = Boolean(body?.extranjero);
     const rut = extranjero ? null : normalizeRut(asString(body?.rut));
     const idNacional = extranjero ? asString(body?.id_nacional) : null;
+    
+    // Flags para postulación de otra persona
+    const postulandoOtraPersona = Boolean(body?.postulando_otra_persona);
+    const postuladoPorUserId = nullable(body?.postulado_por_user_id);
 
     if (!nombres || !email) {
       return NextResponse.json(
@@ -347,6 +353,56 @@ export async function POST(req: Request) {
       }
 
       const operativoLink = buildOperativoLink(operativo);
+      
+      // Email al voluntario confirmando postulación
+      try {
+        await sendPostulacionRecibidaEmail({
+          to: voluntario.email || "",
+          nombre: [voluntario.nombres, voluntario.apellidos].filter(Boolean).join(" ") || nombres,
+          operativoTitulo: operativo.titulo || "Operativo Traesol",
+          operativoFecha: operativo.fecha_inicio,
+          operativoLugar: operativo.lugar,
+          operativoSlug: operativo.slug,
+        });
+      } catch (mailError) {
+        console.error("sendPostulacionRecibidaEmail error", mailError);
+      }
+
+      // Email al admin con botones de acción (solo si tenemos inscripcionId)
+      if (inscripcionId) {
+        try {
+          await sendPostulacionAdminEmail({
+            inscripcionId,
+            voluntario: {
+              nombres: voluntario.nombres || nombres,
+              apellidos: voluntario.apellidos || nullable(body?.apellidos),
+              email: voluntario.email,
+              telefono: nullable(body?.telefono),
+              rut: rut,
+              id_nacional: idNacional,
+              profesion: nullable(body?.profesion),
+              talla_polera: nullable(body?.talla_polera),
+              restricciones_alimentarias: nullable(body?.alimentarias_alergias),
+            },
+            operativo: {
+              id: operativo.id,
+              titulo: operativo.titulo,
+              slug: operativo.slug,
+              fecha_inicio: operativo.fecha_inicio,
+              lugar: operativo.lugar,
+            },
+            // Incluir info si fue postulado por otra persona
+            postuladoPor: postulandoOtraPersona && postuladoPorUserId ? {
+              userId: postuladoPorUserId,
+              // Podríamos buscar el email del usuario, pero por ahora solo el ID
+            } : null,
+          });
+        } catch (mailError) {
+          console.error("sendPostulacionAdminEmail error", mailError);
+        }
+      }
+
+      // Email legacy (por compatibilidad)
       try {
         await sendPostulacionOperativoEmails({
           voluntario: {

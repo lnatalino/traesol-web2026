@@ -1,5 +1,6 @@
 // src/lib/email.ts
 import { Resend } from "resend";
+import { generateApprovalUrls } from "./approvalTokens";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -928,4 +929,210 @@ export function tplInternoContacto({
     body: table,
     prefooter: "Notificación automática · Traesol",
   });
+}
+
+/* =======================================================================
+   TEMPLATES · POSTULACIÓN A OPERATIVO CON BOTONES ADMIN
+   ======================================================================= */
+
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || "contacto@fundaciontraesol.cl";
+
+export type PostulacionAdminEmailPayload = {
+  inscripcionId: string;
+  voluntario: {
+    nombres: string | null;
+    apellidos: string | null;
+    email: string | null;
+    telefono: string | null;
+    rut: string | null;
+    id_nacional: string | null;
+    profesion: string | null;
+    talla_polera: string | null;
+    restricciones_alimentarias: string | null;
+  };
+  operativo: {
+    id: string;
+    titulo: string | null;
+    slug: string | null;
+    fecha_inicio: string | null;
+    lugar: string | null;
+  };
+  /** Si fue postulado por otro usuario (ej: amigo, familiar) */
+  postuladoPor?: {
+    userId: string;
+    email?: string | null;
+  } | null;
+};
+
+function tplAdminNuevaPostulacion(payload: PostulacionAdminEmailPayload) {
+  const { inscripcionId, voluntario, operativo, postuladoPor } = payload;
+  const siteUrl = SITE_URL || "https://fundaciontraesol.cl";
+  
+  const { acceptUrl, rejectUrl } = generateApprovalUrls(inscripcionId, siteUrl);
+  const adminUrl = `${siteUrl}/admin/inscripciones`;
+  
+  const nombreCompleto = [voluntario.nombres, voluntario.apellidos].filter(Boolean).join(" ") || "Sin nombre";
+  const identificacion = voluntario.rut || voluntario.id_nacional || "No especificada";
+  
+  const datosVoluntario = kvTable({
+    "Nombre": nombreCompleto,
+    "Email": voluntario.email || "—",
+    "Teléfono": voluntario.telefono || "—",
+    "RUT / ID": identificacion,
+    "Profesión": voluntario.profesion || "—",
+    "Talla polera": voluntario.talla_polera || "—",
+    "Restricciones alimentarias": voluntario.restricciones_alimentarias || "—",
+  });
+
+  const datosOperativo = kvTable({
+    "Operativo": operativo.titulo || "Sin título",
+    "Fecha": formatDateLabel(operativo.fecha_inicio) || "—",
+    "Lugar": operativo.lugar || "—",
+  });
+  
+  // Indicador si fue postulado por otra persona
+  const postuladoPorHtml = postuladoPor?.userId 
+    ? `<p style="margin:8px 0 0;padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:13px;color:#92400e;">
+        ⚠️ <strong>Postulado por otra persona</strong>${postuladoPor.email ? ` (${escapeHtml(postuladoPor.email)})` : ""}
+       </p>`
+    : "";
+
+  return shell({
+    title: `Nueva postulación: ${escapeHtml(nombreCompleto)}`,
+    body: `
+      <p style="margin:0 0 16px;font-size:16px;">
+        <strong>${escapeHtml(nombreCompleto)}</strong> ha postulado al operativo 
+        <strong>${escapeHtml(operativo.titulo || "")}</strong>.
+      </p>
+      ${postuladoPorHtml}
+      
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
+        Datos del voluntario
+      </h3>
+      ${datosVoluntario}
+      
+      <h3 style="margin:24px 0 8px;font-size:14px;color:#111827;text-transform:uppercase;letter-spacing:0.05em;">
+        Operativo
+      </h3>
+      ${datosOperativo}
+      
+      <div style="margin:32px 0;text-align:center;">
+        <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
+          Puedes aprobar o rechazar esta postulación directamente:
+        </p>
+        
+        <div style="display:inline-block;">
+          <a href="${escapeHtml(acceptUrl)}" 
+             style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;margin:0 8px 8px 0;">
+            ✓ Aceptar
+          </a>
+          <a href="${escapeHtml(rejectUrl)}" 
+             style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;margin:0 0 8px 8px;">
+            ✗ Rechazar
+          </a>
+        </div>
+        
+        <p style="margin:16px 0 0;">
+          <a href="${escapeHtml(adminUrl)}" 
+             style="color:${BRAND_COLOR};text-decoration:none;font-size:14px;">
+            Ver en el panel de administración →
+          </a>
+        </p>
+      </div>
+      
+      <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;text-align:center;">
+        Los enlaces de acción expiran en 72 horas por seguridad.
+      </p>
+    `,
+    prefooter: "Notificación automática · Traesol Admin",
+  });
+}
+
+/**
+ * Envía email al admin cuando hay una nueva postulación
+ * Incluye botones de Aceptar/Rechazar con tokens seguros
+ */
+export async function sendPostulacionAdminEmail(payload: PostulacionAdminEmailPayload): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const html = tplAdminNuevaPostulacion(payload);
+    const nombreCompleto = [payload.voluntario.nombres, payload.voluntario.apellidos].filter(Boolean).join(" ") || "Voluntario";
+    const operativoTitulo = payload.operativo.titulo || "operativo";
+    
+    await sendMail({
+      to: ADMIN_EMAIL,
+      subject: `[Postulación] ${nombreCompleto} → ${operativoTitulo}`,
+      html,
+      preheader: `Nueva postulación de ${nombreCompleto} al operativo ${operativoTitulo}`,
+    });
+    
+    return { ok: true };
+  } catch (err) {
+    console.error("[sendPostulacionAdminEmail] Error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error desconocido" };
+  }
+}
+
+/**
+ * Envía email al voluntario confirmando que recibimos su postulación
+ */
+export async function sendPostulacionRecibidaEmail(params: {
+  to: string;
+  nombre: string;
+  operativoTitulo: string;
+  operativoFecha: string | null;
+  operativoLugar: string | null;
+  operativoSlug: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { to, nombre, operativoTitulo, operativoFecha, operativoLugar, operativoSlug } = params;
+    const siteUrl = SITE_URL || "https://fundaciontraesol.cl";
+    const operativoUrl = operativoSlug ? `${siteUrl}/operativos/${operativoSlug}` : `${siteUrl}/operativos`;
+    
+    const resumen = kvTable({
+      "Operativo": operativoTitulo,
+      "Fecha": formatDateLabel(operativoFecha) || "Por confirmar",
+      "Lugar": operativoLugar || "Por confirmar",
+      "Estado": "Pendiente de revisión",
+    });
+
+    const html = shell({
+      title: `Recibimos tu postulación`,
+      body: `
+        <p style="margin:0 0 12px">Hola <strong>${escapeHtml(nombre)}</strong>,</p>
+        <p style="margin:0 0 12px">
+          ¡Gracias por postular al operativo <strong>${escapeHtml(operativoTitulo)}</strong>!
+          Hemos recibido tu postulación y nuestro equipo la revisará a la brevedad.
+        </p>
+        <p style="margin:0 0 12px">Te avisaremos por email cuando tengamos una respuesta.</p>
+        
+        <h3 style="margin:24px 0 8px;font-size:14px;color:#111827;">Resumen de tu postulación</h3>
+        ${resumen}
+        
+        <div style="margin:24px 0;text-align:center;">
+          <a href="${escapeHtml(operativoUrl)}" 
+             style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;">
+            Ver detalles del operativo
+          </a>
+        </div>
+        
+        <p style="margin:16px 0 0;color:#64748b;font-size:13px;">
+          Si tienes alguna pregunta, escríbenos a 
+          <a href="mailto:${SUPPORT_EMAIL}" style="color:${BRAND_COLOR};text-decoration:none;">${SUPPORT_EMAIL}</a>.
+        </p>
+      `,
+      prefooter: "Este mensaje fue enviado automáticamente por Traesol.",
+    });
+
+    await sendMail({
+      to,
+      subject: `Recibimos tu postulación a ${operativoTitulo}`,
+      html,
+      preheader: `Gracias por postular. Te avisaremos cuando revisemos tu postulación.`,
+    });
+    
+    return { ok: true };
+  } catch (err) {
+    console.error("[sendPostulacionRecibidaEmail] Error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Error desconocido" };
+  }
 }

@@ -171,7 +171,18 @@ function PerfilContent() {
 
       <div className="max-w-lg mx-auto mt-8">
         <div className="card">
-          <h1 className="title mb-2">Mi perfil</h1>
+          <div className="flex items-start justify-between mb-2">
+            <h1 className="title">Mi perfil</h1>
+            <a
+              href="/mi-cuenta/perfil/editar"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Editar completo
+            </a>
+          </div>
           <p className="subtitle mb-6">Actualiza tu información personal</p>
 
           {error && <div className="alert error mb-4">{error}</div>}
@@ -268,6 +279,19 @@ function PerfilContent() {
               {saving ? "Guardando..." : "Guardar cambios"}
             </button>
           </form>
+          
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-sm text-slate-600 mb-3">
+              ¿Quieres postular a operativos? Completa tu perfil con todos los 
+              datos requeridos (talla, restricciones alimentarias, profesión, etc.)
+            </p>
+            <a
+              href="/mi-cuenta/perfil/editar"
+              className="btn-secondary w-full justify-center"
+            >
+              Completar perfil para operativos →
+            </a>
+          </div>
         </div>
       </div>
     </main>

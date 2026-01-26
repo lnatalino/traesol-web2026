@@ -4,6 +4,8 @@
 import { useEffect, useReducer, useCallback, memo, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import { useSession } from "@/components/providers/SessionProvider";
+import UsuarioLogueadoPostular from "@/components/public/UsuarioLogueadoPostular";
 import { formatOperativoOptionLabel, type PublicOperativo } from "@/lib/operativosShared";
 
 /* ===== Helpers RUT ===== */
@@ -158,6 +160,12 @@ export default function PostularPage() {
 
 function PostularContent() {
   const sp = useSearchParams();
+  const { user, loading: sessionLoading } = useSession();
+  
+  // Estado para controlar si mostrar formulario aunque esté logueado
+  // (cuando elige "postular a otra persona")
+  const [mostrarFormularioOtraPersona, setMostrarFormularioOtraPersona] = useState(false);
+  
   const [ops, setOps] = useState<Operativo[]>([]);
   const [sending, setSending] = useState(false);
   const [msgOk, setMsgOk] = useState("");
@@ -184,6 +192,12 @@ function PostularContent() {
         type: "merge",
         payload: { tipo_postulacion: "especifica", operativo_slug: slug },
       });
+    }
+    
+    // Si viene con ?otra_persona=1, activar el modo "postular a otra persona"
+    const otraPersona = sp.get("otra_persona");
+    if (otraPersona === "1") {
+      setMostrarFormularioOtraPersona(true);
     }
   }, [sp]);
 
@@ -412,6 +426,10 @@ function PostularContent() {
         tipo_postulacion: tipo,
         operativo_id: selectedOperativo ? selectedOperativo.id : null,
         operativo_slug: selectedOperativo ? selectedOperativo.slug : null,
+        // Si un usuario logueado eligió "postular a otra persona", marcarlo
+        // Esto asegura que NO se toque su user_profiles
+        postulando_otra_persona: user && mostrarFormularioOtraPersona ? true : undefined,
+        postulado_por_user_id: user && mostrarFormularioOtraPersona ? user.id : undefined,
       } as const;
 
       const response = await fetch("/api/postulaciones/registrar", {
@@ -508,58 +526,113 @@ function PostularContent() {
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 lg:px-6">
         <BackButton fallback="/" />
 
+        {/* Header siempre visible */}
         <section className="rounded-[32px] bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-10 text-white shadow-2xl sm:px-10">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Hazte voluntario</p>
-              <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">Postulación de Voluntariado</h1>
-              <p className="text-base text-white/80 sm:text-lg">
-                Completa tus datos y, si llegaste desde un operativo específico, asociaremos automáticamente tu postulación. Tus antecedentes permanecen seguros y actualizados.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/20 bg-white/10 p-5 text-white/90 backdrop-blur">
-              <p className="text-sm font-semibold">¿Ya fuiste voluntario antes?</p>
-              <p className="text-sm text-white/80">Usa tu RUT para completar el formulario en segundos.</p>
-              <input
-                type="text"
-                className="inp mt-3 text-left"
-                placeholder="12.345.678-9"
-                value={rutLookup}
-                onChange={(event) => setRutLookup(event.target.value)}
-                onBlur={(event) => setRutLookup(formatRut(event.target.value))}
-                aria-label="RUT para autocompletar"
-              />
-              <button
-                type="button"
-                className="btn-outline ml-auto mt-3"
-                onClick={() => preFillByRut(rutLookup)}
-                disabled={!rutLookup.trim()}
-              >
-                Autocompletar por RUT
-              </button>
-            </div>
+          <div className="space-y-4 text-center lg:text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Hazte voluntario</p>
+            <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">Postulación de Voluntariado</h1>
+            <p className="text-base text-white/80 sm:text-lg max-w-2xl mx-auto lg:mx-0">
+              {user && !mostrarFormularioOtraPersona 
+                ? "Bienvenido/a de vuelta. Tu cuenta te permite postular rápidamente a operativos."
+                : "Completa tus datos y, si llegaste desde un operativo específico, asociaremos automáticamente tu postulación."
+              }
+            </p>
           </div>
         </section>
 
-        {(() => {
-          const successParam = sp.get("success") || "";
-          const errorParam = sp.get("error") || "";
-          const noticeParam = sp.get("notice") || sp.get("warning") || "";
-          const successMessage = msgOk || successParam;
-          const warningMessage = msgWarn || noticeParam;
-          const errorMessage = msgErr || errorParam;
-          return (
-            <>
-              {successMessage ? <div className="alert success">{successMessage}</div> : null}
-              {warningMessage ? <div className="alert warning">{warningMessage}</div> : null}
-              {errorMessage ? <div className="alert error">{errorMessage}</div> : null}
-            </>
-          );
-        })()}
-        {msgAuto && <div className="alert info">{msgAuto}</div>}
+        {/* Si está logueado y NO eligió "postular a otra persona", mostrar alternativa */}
+        {!sessionLoading && user && !mostrarFormularioOtraPersona ? (
+          <UsuarioLogueadoPostular onMostrarFormulario={() => setMostrarFormularioOtraPersona(true)} />
+        ) : (
+          <>
+            {/* Bloque de autocompletar RUT (solo para NO logueados o postular a otra persona) */}
+            {(!user || mostrarFormularioOtraPersona) && (
+              <div className="mx-auto max-w-4xl">
+                {/* Banner persuasivo para crear cuenta (solo visitantes) */}
+                {!user && (
+                  <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-blue-900">¿Primera vez? Crea tu cuenta</h3>
+                        <p className="text-sm text-blue-700 mt-1">
+                          Con una cuenta podrás postular a operativos con un clic, ver tu historial y recibir notificaciones.
+                        </p>
+                      </div>
+                      <a
+                        href="/mi-cuenta/registro"
+                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
+                      >
+                        Crear cuenta
+                      </a>
+                    </div>
+                  </div>
+                )}
 
-        <div className="mx-auto max-w-4xl rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-xl sm:p-10">
-          <form onSubmit={submit} className="space-y-6" autoComplete="off">
+                {/* Banner de "postular a otra persona" */}
+                {mostrarFormularioOtraPersona && (
+                  <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <h3 className="font-semibold text-amber-900">Postulando a otra persona</h3>
+                        <p className="text-sm text-amber-700 mt-1">
+                          Completa los datos de la persona que quieres inscribir. Esta postulación no modificará tu perfil.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Autocompletar por RUT */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-6">
+                  <p className="text-sm font-semibold text-slate-900">¿Ya fuiste voluntario antes?</p>
+                  <p className="text-sm text-slate-600">Usa tu RUT para completar el formulario en segundos.</p>
+                  <div className="flex flex-col sm:flex-row gap-3 mt-3">
+                    <input
+                      type="text"
+                      className="inp flex-1"
+                      placeholder="12.345.678-9"
+                      value={rutLookup}
+                      onChange={(event) => setRutLookup(event.target.value)}
+                      onBlur={(event) => setRutLookup(formatRut(event.target.value))}
+                      aria-label="RUT para autocompletar"
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => preFillByRut(rutLookup)}
+                      disabled={!rutLookup.trim()}
+                    >
+                      Autocompletar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Mensajes */}
+            {(() => {
+              const successParam = sp.get("success") || "";
+              const errorParam = sp.get("error") || "";
+              const noticeParam = sp.get("notice") || sp.get("warning") || "";
+              const successMessage = msgOk || successParam;
+              const warningMessage = msgWarn || noticeParam;
+              const errorMessage = msgErr || errorParam;
+              return (
+                <div className="mx-auto max-w-4xl space-y-3">
+                  {successMessage ? <div className="alert success">{successMessage}</div> : null}
+                  {warningMessage ? <div className="alert warning">{warningMessage}</div> : null}
+                  {errorMessage ? <div className="alert error">{errorMessage}</div> : null}
+                </div>
+              );
+            })()}
+            {msgAuto && <div className="mx-auto max-w-4xl alert info">{msgAuto}</div>}
+
+            {/* Formulario principal */}
+            <div className="mx-auto max-w-4xl rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-xl sm:p-10">
+              <form onSubmit={submit} className="space-y-6" autoComplete="off">
         {/* Datos personales */}
         <Section title="Datos personales">
           <div className="grid md:grid-cols-2 gap-4">
@@ -884,8 +957,10 @@ function PostularContent() {
             {sending ? "Enviando…" : "Enviar postulación"}
           </button>
         </div>
-          </form>
-        </div>
+              </form>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );
