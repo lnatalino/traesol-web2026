@@ -200,10 +200,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Solo permitir roles admin o superadmin
-    if (role !== "admin" && role !== "superadmin") {
+    // REGLA DE NEGOCIO: Solo permitir crear rol "admin"
+    // Superadmin solo puede ser creado por script/migración, NUNCA desde UI
+    if (role !== "admin") {
       return NextResponse.json(
-        { success: false, error: "Rol inválido. Solo admin o superadmin" },
+        { success: false, error: "Solo se pueden crear administradores desde el panel" },
         { status: 400 }
       );
     }

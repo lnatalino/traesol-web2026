@@ -78,7 +78,7 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
   const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRut, setNewRut] = useState("");
-  const [newRole, setNewRole] = useState<"admin" | "superadmin">("admin");
+  const [newRole, setNewRole] = useState<"admin">("admin");
   const [creating, setCreating] = useState(false);
 
   // Modal editar usuario
@@ -567,12 +567,16 @@ export default function UsuariosClient({ isSuperAdmin = false }: UsuariosClientP
                 <label className="text-sm font-medium">Rol</label>
                 <select
                   value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as "admin" | "superadmin")}
+                  onChange={(e) => setNewRole(e.target.value as "admin")}
                   className="inp w-full"
+                  disabled
                 >
                   <option value="admin">Administrador</option>
-                  <option value="superadmin">Superadmin</option>
+                  {/* Superadmin solo puede ser creado por script, no desde UI */}
                 </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Solo se pueden crear administradores desde el panel.
+                </p>
               </div>
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
                 <div className="flex items-start gap-2 text-blue-700">
