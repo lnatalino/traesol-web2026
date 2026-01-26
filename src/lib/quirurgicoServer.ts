@@ -3,10 +3,8 @@ import { buildQuirurgicoPortalUrl, extractRutLastDigits } from "./quirurgico";
 import { supabaseService } from "./supabaseService";
 
 const ENV_PORTAL_BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  null;
+  "https://fundaciontraesol.cl";
 
 type PortalTokenResult = {
   token: string;

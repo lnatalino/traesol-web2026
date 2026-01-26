@@ -45,7 +45,7 @@ export default async function OperativoDetailPage({ params }: PageParams) {
     listPostulacionesEquipo(id, { estado: "pendiente" }),
   ]);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl";
   const publicUrl = operativo.publicado ? `${baseUrl}/quirurgico/${operativo.slug}` : null;
 
   return (

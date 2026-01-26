@@ -55,7 +55,7 @@ const PATIENT_DETAIL_COLUMNS = [
 ].join(",");
 
 function getPortalBaseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || null;
+  return process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl";
 }
 
 export const dynamic = "force-dynamic";

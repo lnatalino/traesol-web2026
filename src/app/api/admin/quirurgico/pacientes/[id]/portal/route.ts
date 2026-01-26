@@ -8,7 +8,7 @@ type RouteContext = {
 };
 
 async function resolvePortalBaseUrl() {
-  const envBase = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  const envBase = process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl";
   if (envBase && envBase.trim()) {
     return envBase;
   }

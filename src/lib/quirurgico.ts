@@ -244,13 +244,8 @@ export const buildQuirurgicoPortalUrl = (token?: string | null, baseUrl?: string
 
   const origin =
     normalizeBaseUrl(baseUrl) ||
-    normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL) ||
     normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
-    normalizeBaseUrl(process.env.SITE_URL);
-
-  if (!origin) {
-    return null;
-  }
+    "https://fundaciontraesol.cl";
 
   return `${origin}${PORTAL_BASE_PATH}/${token}`;
 };
