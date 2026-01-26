@@ -4,7 +4,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===== Config por entorno / defaults seguros =====
-const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
 const LOGO_URL =
   process.env.NEXT_PUBLIC_LOGO_URL ||
   "https://alohwvivujbhlpqunad.supabase.co/storage/v1/object/public/public/logo-traesol.png";

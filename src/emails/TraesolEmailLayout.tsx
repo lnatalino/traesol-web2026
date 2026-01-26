@@ -1,7 +1,7 @@
 import * as React from "react";
 import { EmailFooter } from "./_components/EmailFooter";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
 const LOGO_URL =
   process.env.NEXT_PUBLIC_LOGO_URL ||
   "https://alohwvivujbhlpqunad.supabase.co/storage/v1/object/public/public/logo-traesol.png";

@@ -17,7 +17,7 @@ type AdminUser = {
   created_at: string;
 };
 
-const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://fundaciontraesol.cl").replace(/\/+$/, "");
 
 /**
  * Genera una contraseña temporal segura de 12 caracteres
