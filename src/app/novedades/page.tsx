@@ -6,6 +6,7 @@ import {
   NovedadCard as NovedadCardComponent,
   EmptyState 
 } from "@/components/public";
+import ScrollReveal from "@/components/ScrollReveal";
 
 export const metadata = { title: "Novedades · Traesol" };
 
@@ -22,7 +23,7 @@ export default async function NovedadesPage() {
       />
 
       {/* Grid de novedades */}
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 lg:px-6">
+      <div className="mx-auto max-w-6xl space-y-14 px-5 py-14 lg:px-6">
         {items.length === 0 ? (
           <EmptyState
             icon={Newspaper}
@@ -30,11 +31,13 @@ export default async function NovedadesPage() {
             message="Pronto publicaremos noticias y actualizaciones sobre nuestras actividades."
           />
         ) : (
+          <ScrollReveal stagger>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((n: PublicNovedadListItem) => (
               <NovedadItem key={n.id} item={n} />
             ))}
           </div>
+          </ScrollReveal>
         )}
       </div>
     </main>

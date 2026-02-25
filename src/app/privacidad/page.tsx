@@ -21,7 +21,7 @@ export default function PoliticaPrivacidadPage() {
       />
 
       {/* Contenido */}
-      <article className="max-w-4xl mx-auto px-4 py-12 md:py-16">
+      <article className="max-w-4xl mx-auto px-5 py-14 md:py-16">
         <div className="prose prose-slate prose-lg max-w-none">
           
           {/* 1. Identidad del responsable */}

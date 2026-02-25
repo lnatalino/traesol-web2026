@@ -48,7 +48,7 @@ export function OperativoCard({
   return (
     <Link
       href={href}
-      className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+      className="group block overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_24px_-4px_rgba(0,0,0,0.08)]"
     >
       {/* Image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
@@ -56,7 +56,7 @@ export function OperativoCard({
         <img 
           src={imageSrc} 
           alt={titulo} 
-          className="h-full w-full object-cover transition group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         
         {/* Badges overlay */}
@@ -78,22 +78,24 @@ export function OperativoCard({
       </div>
       
       {/* Content */}
-      <div className="p-5">
-        <h3 className="text-lg font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600">
+      <div className="p-4 sm:p-5">
+        <h3 className="text-base sm:text-lg font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600 leading-snug">
           {titulo}
         </h3>
         
         {lugar && (
           <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
-            <MapPin className="h-4 w-4 text-slate-400" />
-            {lugar}
+            <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="line-clamp-1">{lugar}</span>
           </div>
         )}
         
-        {/* CTA */}
-        <div className="mt-4 flex items-center justify-between">
-          <span className={`inline-flex items-center gap-1 text-sm font-semibold transition group-hover:gap-2 ${
-            isQuirurgico ? "text-violet-600" : "text-blue-600"
+        {/* CTA - full-width on mobile */}
+        <div className="mt-4">
+          <span className={`inline-flex sm:w-auto w-full items-center justify-center gap-1.5 text-sm font-semibold transition group-hover:gap-2 rounded-xl py-2.5 sm:py-0 sm:rounded-none sm:bg-transparent ${
+            isQuirurgico 
+              ? "text-violet-600 bg-violet-50 sm:bg-transparent" 
+              : "text-blue-600 bg-blue-50 sm:bg-transparent"
           }`}>
             {ctaText}
             <ArrowRight className="h-4 w-4" />

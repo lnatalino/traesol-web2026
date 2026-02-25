@@ -236,18 +236,6 @@ export default async function AdminHome() {
         </StatTileGrid>
       </section>
 
-      {/* Session Info */}
-      <section className="grid gap-4 text-sm sm:grid-cols-2">
-        <article className="rounded-2xl border border-slate-100 bg-white/95 p-5 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Rol asignado</p>
-          <p className="mt-2 text-lg font-semibold capitalize text-slate-900">{effectiveRole || "—"}</p>
-        </article>
-        <article className="rounded-2xl border border-slate-100 bg-white/95 p-5 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sesión activa</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900">{email || "—"}</p>
-        </article>
-      </section>
-
       {/* Module Cards - Organized by Sections */}
       <section className="space-y-8">
         {SECTIONS.map((section) => {
@@ -267,7 +255,7 @@ export default async function AdminHome() {
                   <p className="text-sm text-slate-500">{section.description}</p>
                 </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleModules.map(({ icon: Icon, superadminOnly, ...mod }) => (
                   <article
                     key={mod.href}

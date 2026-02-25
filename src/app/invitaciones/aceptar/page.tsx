@@ -14,6 +14,7 @@ type ApiResponse = {
   operativo_slug?: string;
   operativo_titulo?: string;
   requires_profile_completion?: boolean;
+  missing_fields?: string[];
   token?: string;
 };
 
@@ -28,6 +29,7 @@ function AceptarInvitacionContent() {
   const [operativoSlug, setOperativoSlug] = useState<string | null>(null);
   const [alreadyResponded, setAlreadyResponded] = useState(false);
   const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   useEffect(() => {
     if (!token) {
@@ -52,6 +54,7 @@ function AceptarInvitacionContent() {
           setMessage(data.message || "Debes completar tu perfil antes de aceptar la invitación.");
           setOperativoTitulo(data.operativo_titulo || null);
           setPendingToken(data.token || token);
+          setMissingFields(data.missing_fields || []);
           return;
         }
 
@@ -166,10 +169,19 @@ function AceptarInvitacionContent() {
               )}
 
               <div className="bg-amber-50 rounded-2xl p-4 mb-6 border border-amber-200">
-                <p className="text-sm text-amber-800">
-                  Para confirmar tu participación, necesitas completar los datos obligatorios de tu perfil: 
-                  nombre, teléfono, RUT, talla de polera y restricciones alimentarias.
+                <p className="text-sm text-amber-800 mb-2">
+                  Para confirmar tu participación, necesitas completar los datos obligatorios de tu perfil:
                 </p>
+                {missingFields.length > 0 && (
+                  <ul className="space-y-1 mt-2">
+                    {missingFields.map((field) => (
+                      <li key={field} className="flex items-center gap-2 text-sm text-amber-900">
+                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-amber-200 flex items-center justify-center text-[10px] text-amber-700">✕</span>
+                        {field}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               
               <a

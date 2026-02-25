@@ -4,11 +4,12 @@ import Carousel, { type Slide } from "@/components/Carousel";
 import CTAButtons from "@/components/CTAButtons";
 import Metrics from "@/components/Metrics";
 import Novedades from "@/components/Novedades";
+import ScrollReveal from "@/components/ScrollReveal";
 import { PublicSection, PrimaryButtonLink } from "@/components/public";
 import { getCarruselNovedades, getUltimasNovedades, type CarruselNovedad } from "@/lib/novedades";
 import { getUpcomingOperativos, type AgendaOperativo } from "@/lib/operativosAgenda";
 import { formatDateChile } from "@/components/public/DatePill";
-import { Calendar, MapPin, ArrowRight, Stethoscope, Building2 } from "lucide-react";
+import { Calendar, MapPin, ArrowRight, Stethoscope, Building2, Heart, Users } from "lucide-react";
 import { publicTheme, getCardClasses, getHeroClasses, getPrimaryButtonClasses, getGhostButtonClasses } from "@/lib/theme/publicTheme";
 
 type OperativoTableRow = {
@@ -103,19 +104,42 @@ export default async function HomePage() {
   return (
     <main className={publicTheme.colors.surface.page}>
       {/* ========================================
-          HERO: Solo headline, sin carrusel ni botones
+          HERO: Headline protagonista con gradiente profundo
           ======================================== */}
       <section className={heroClasses.section}>
+        {/* Decorative elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-blue-500/5 blur-3xl" />
+          <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-cyan-500/5 blur-3xl" />
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+        </div>
         <div className={heroClasses.container}>
           <p className={heroClasses.eyebrow}>
             Fundación Traesol
           </p>
           <h1 className={heroClasses.title}>
-            Salud colaborativa para cada territorio
+            Salud colaborativa para<br className="hidden sm:block" /> cada territorio
           </h1>
           <p className={heroClasses.subtitle}>
             Movilizamos equipos médicos, voluntariado y alianzas con empresas para llevar operativos, educación y atención a las comunidades que más lo necesitan.
           </p>
+          {/* Hero CTA buttons */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/postular"
+              className={getPrimaryButtonClasses()}
+            >
+              <Heart className="h-4 w-4" />
+              Hazte voluntario
+            </Link>
+            <Link
+              href="/operativos"
+              className={getGhostButtonClasses()}
+            >
+              Ver operativos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -126,33 +150,38 @@ export default async function HomePage() {
         
         {/* Carrusel de novedades - isla visual limpia */}
         {heroSlides.length > 0 && (
-          <section className="rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-            <Carousel slides={heroSlides} variant="hero" />
-          </section>
+          <ScrollReveal>
+            <section className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <Carousel slides={heroSlides} variant="hero" />
+            </section>
+          </ScrollReveal>
         )}
 
         {/* Quiénes somos - SIN conteos duplicados */}
-        <section className={getCardClasses()}>
-          <div className={publicTheme.spacing.cardInner}>
-            <p className={publicTheme.components.eyebrow.primary}>
-              Quiénes somos
-            </p>
-            <h2 className={`text-3xl font-semibold ${publicTheme.colors.text.primary}`}>
-              Acercamos salud de excelencia a quienes más lo necesitan
-            </h2>
-            <p className={`text-base ${publicTheme.colors.text.secondary} leading-relaxed`}>
-              Desde 2015, articulamos una red de especialistas y subespecialistas que donan su tiempo para apoyar al sistema público de salud, contribuyendo a disminuir listas de espera y acercando atención de excelencia a personas que viven lejos de centros de alta complejidad.
-            </p>
-            <Link
-              href="/sobre-nosotros"
-              className={publicTheme.components.link.primary}
-            >
+        <ScrollReveal>
+          <section className={getCardClasses()}>
+            <div className={publicTheme.spacing.cardInner}>
+              <p className={publicTheme.components.eyebrow.primary}>
+                Quiénes somos
+              </p>
+              <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight ${publicTheme.colors.text.primary}`}>
+                Acercamos salud de excelencia a quienes más lo necesitan
+              </h2>
+              <p className={`text-base ${publicTheme.colors.text.secondary} leading-relaxed max-w-3xl`}>
+                Desde 2015, articulamos una red de especialistas y subespecialistas que donan su tiempo para apoyar al sistema público de salud, contribuyendo a disminuir listas de espera y acercando atención de excelencia a personas que viven lejos de centros de alta complejidad.
+              </p>
+              <Link
+                href="/sobre-nosotros"
+                className={publicTheme.components.link.primary}
+              >
               Conoce más sobre nosotros <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </section>
+        </ScrollReveal>
 
         {/* Cómo colaborar */}
+        <ScrollReveal>
         <PublicSection
           eyebrow="Colabora"
           title="Únete y apoya"
@@ -160,8 +189,10 @@ export default async function HomePage() {
         >
           <CTAButtons />
         </PublicSection>
+        </ScrollReveal>
 
         {/* Métricas de impacto - ÚNICA FUENTE DE CONTEOS */}
+        <ScrollReveal>
         <PublicSection
           eyebrow="Impacto"
           title="Métricas en vivo"
@@ -169,8 +200,10 @@ export default async function HomePage() {
         >
           <Metrics m={metricsForComponent} />
         </PublicSection>
+        </ScrollReveal>
 
         {/* Novedades */}
+        <ScrollReveal>
         <PublicSection
           eyebrow="Historias recientes"
           title="Novedades"
@@ -178,7 +211,7 @@ export default async function HomePage() {
           rightAction={
             <Link
               href="/novedades"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
             >
               Ver todas <ArrowRight className="h-4 w-4" />
             </Link>
@@ -186,8 +219,10 @@ export default async function HomePage() {
         >
           <Novedades items={novedadesLista} />
         </PublicSection>
+        </ScrollReveal>
 
         {/* Próximos Operativos */}
+        <ScrollReveal>
         <PublicSection
           eyebrow="Agenda"
           title="Próximos operativos"
@@ -195,7 +230,7 @@ export default async function HomePage() {
           rightAction={
             <Link
               href="/operativos"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
             >
               Ver todos <ArrowRight className="h-4 w-4" />
             </Link>
@@ -207,18 +242,24 @@ export default async function HomePage() {
             <AgendaEmptyState />
           )}
         </PublicSection>
+        </ScrollReveal>
 
-        {/* CTA Empresas con tema oscuro consistente */}
-        <section className={`${getCardClasses()} ${publicTheme.colors.primaryDark.bg} text-white`}>
-          <div className="grid gap-8 lg:grid-cols-[1fr_auto] items-center">
+        {/* CTA Empresas con tema oscuro premium */}
+        <ScrollReveal>
+        <section className={`${getCardClasses()} ${publicTheme.colors.primaryDark.bg} text-white relative overflow-hidden`}>
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_auto] items-center">
             <div className={publicTheme.spacing.cardInner}>
               <p className={publicTheme.components.eyebrow.onDark}>
                 Empresas
               </p>
-              <h2 className="text-3xl font-semibold">
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
                 Conecta a tu equipo con el impacto social
               </h2>
-              <p className={`text-base ${publicTheme.colors.text.onDarkMuted} max-w-2xl`}>
+              <p className={`text-base ${publicTheme.colors.text.onDarkMuted} max-w-2xl leading-relaxed`}>
                 Diseñamos operativos de salud, voluntariado corporativo y experiencias formativas que transforman a las comunidades y fortalecen la cultura interna de tu empresa.
               </p>
             </div>
@@ -233,6 +274,7 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
       </div>
     </main>
   );
@@ -243,26 +285,26 @@ export default async function HomePage() {
    ───────────────────────────────────────────────────────────────────────────── */
 function AgendaGrid({ items }: { items: AgendaOperativo[] }) {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((op) => (
         <Link
           key={op.id}
           href={`/operativos/${op.slug}`}
-          className={`group overflow-hidden rounded-2xl ${publicTheme.colors.surface.border} border ${publicTheme.colors.surface.card} shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg`}
+          className={`group overflow-hidden rounded-2xl ${publicTheme.colors.surface.border} border ${publicTheme.colors.surface.card} shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_24px_-4px_rgba(0,0,0,0.08)]`}
         >
-          <div className="aspect-video w-full bg-slate-100">
+          <div className="aspect-video w-full bg-slate-100 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={op.imagen}
               alt={op.titulo}
-              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           </div>
-          <div className="p-5 space-y-3">
+          <div className="p-5 sm:p-6 space-y-3">
             <p className={publicTheme.components.eyebrow.primary}>
               Operativo
             </p>
-            <h3 className={`text-lg font-semibold ${publicTheme.colors.text.primary} ${publicTheme.colors.primary.textHover} transition`}>
+            <h3 className={`text-lg font-bold ${publicTheme.colors.text.primary} ${publicTheme.colors.primary.textHover} transition-colors duration-150`}>
               {op.titulo}
             </h3>
             <div className={`flex flex-wrap items-center gap-3 text-sm ${publicTheme.colors.text.secondary}`}>
@@ -277,6 +319,12 @@ function AgendaGrid({ items }: { items: AgendaOperativo[] }) {
                 </span>
               )}
             </div>
+            <div className="pt-1">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 transition-all group-hover:gap-2">
+                Ver detalles
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </div>
           </div>
         </Link>
       ))}
@@ -286,19 +334,19 @@ function AgendaGrid({ items }: { items: AgendaOperativo[] }) {
 
 function AgendaEmptyState() {
   return (
-    <div className={`rounded-2xl ${publicTheme.colors.surface.borderDashed} border bg-slate-50/50 p-8 text-center`}>
-      <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${publicTheme.colors.accent.bg}`}>
-        <Stethoscope className={`h-7 w-7 ${publicTheme.colors.accent.textStrong}`} />
+    <div className={`rounded-2xl ${publicTheme.colors.surface.borderDashed} border bg-slate-50/50 p-10 text-center`}>
+      <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${publicTheme.colors.accent.bg}`}>
+        <Stethoscope className={`h-8 w-8 ${publicTheme.colors.accent.textStrong}`} />
       </div>
-      <h3 className={`mt-4 text-lg font-semibold ${publicTheme.colors.text.primary}`}>
+      <h3 className={`mt-5 text-lg font-bold ${publicTheme.colors.text.primary}`}>
         Próximamente nuevos operativos
       </h3>
-      <p className={`mt-2 text-sm ${publicTheme.colors.text.muted}`}>
+      <p className={`mt-2 text-sm ${publicTheme.colors.text.muted} max-w-sm mx-auto`}>
         Estamos preparando nuevos operativos. Síguenos en redes sociales para enterarte primero.
       </p>
       <Link
         href="/postular"
-        className={`mt-4 ${getPrimaryButtonClasses()}`}
+        className={`mt-6 ${getPrimaryButtonClasses()}`}
       >
         Postúlate como voluntario
       </Link>

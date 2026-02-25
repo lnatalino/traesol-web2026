@@ -112,6 +112,50 @@ export async function POST(req: Request) {
       console.error("[register] Error creando rol:", roleError);
     }
 
+    // ── Consistencia: crear registro en tabla "voluntarios" ──
+    // Regla de negocio: todo usuario voluntario debe existir en "voluntarios"
+    // para aparecer en el listado de Admin > Voluntarios.
+    // Usamos email como clave de deduplicación (la tabla no tiene user_id).
+    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const { data: existingVol } = await supabaseService
+        .from("voluntarios")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+
+      if (existingVol) {
+        // Ya existe un registro de voluntario con ese email → actualizar nombres
+        const volId = (existingVol as { id: string }).id;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabaseService as any)
+          .from("voluntarios")
+          .update({
+            nombres: firstName,
+            apellidos: lastName,
+            rut: rut || null,
+            telefono: phone || null,
+            fecha_nacimiento: birthdate || null,
+          })
+          .eq("id", volId);
+      } else {
+        // Crear nuevo registro de voluntario
+        await supabaseService
+          .from("voluntarios")
+          .insert({
+            nombres: firstName,
+            apellidos: lastName,
+            email: normalizedEmail,
+            rut: rut || null,
+            telefono: phone || null,
+            fecha_nacimiento: birthdate || null,
+          } as never);
+      }
+    } catch (volErr) {
+      // No bloquear el registro si el upsert de voluntario falla
+      console.error("[register] Error creando registro voluntario:", volErr);
+    }
+
     // Generar y enviar código OTP
     const otpResult = await generateOtp(email.toLowerCase(), "verify_email", userId);
 

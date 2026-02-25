@@ -39,18 +39,23 @@ export function PublicHero({
   const maxWidthClass = align === "center" ? "max-w-4xl mx-auto" : "max-w-4xl";
 
   return (
-    <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white py-16 md:py-24">
-      <div className={`${maxWidthClass} px-4 ${alignClass}`}>
+    <section className="relative bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-900 text-white py-20 md:py-28 overflow-hidden">
+      {/* Decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-cyan-500/5 blur-3xl" />
+      </div>
+      <div className={`relative z-10 ${maxWidthClass} px-5 ${alignClass}`}>
         {eyebrow && (
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-400 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-400/90 mb-5">
             {eyebrow}
           </p>
         )}
-        <h1 className="text-3xl md:text-5xl font-bold mb-4">
+        <h1 className="text-4xl md:text-6xl font-bold mb-5 tracking-tight leading-[1.1]">
           {title}
         </h1>
         {subtitle && (
-          <p className={`text-lg text-slate-300 ${align === "center" ? "max-w-2xl mx-auto" : "max-w-2xl"}`}>
+          <p className={`text-lg md:text-xl text-slate-300/90 leading-relaxed ${align === "center" ? "max-w-2xl mx-auto" : "max-w-2xl"}`}>
             {subtitle}
           </p>
         )}
@@ -60,7 +65,7 @@ export function PublicHero({
           </p>
         )}
         {children && (
-          <div className="mt-8">
+          <div className="mt-10">
             {children}
           </div>
         )}

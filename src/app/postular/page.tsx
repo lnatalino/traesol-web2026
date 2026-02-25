@@ -128,8 +128,8 @@ const Section = memo(function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+    <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
+      <h2 className="text-lg font-bold tracking-tight text-slate-900">{title}</h2>
       {children}
     </section>
   );
@@ -527,10 +527,10 @@ function PostularContent() {
         <BackButton fallback="/" />
 
         {/* Header siempre visible */}
-        <section className="rounded-[32px] bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-10 text-white shadow-2xl sm:px-10">
-          <div className="space-y-4 text-center lg:text-left">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Hazte voluntario</p>
-            <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">Postulación de Voluntariado</h1>
+        <section className="rounded-2xl bg-gradient-to-br from-slate-950 via-blue-950/80 to-blue-900 px-6 py-12 text-white shadow-[0_12px_24px_-4px_rgba(0,0,0,0.15)] sm:px-10 relative overflow-hidden">
+          <div className="space-y-4 text-center lg:text-left relative z-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Hazte voluntario</p>
+            <h1 className="text-4xl font-bold tracking-tight leading-tight sm:text-5xl">Postulación de Voluntariado</h1>
             <p className="text-base text-white/80 sm:text-lg max-w-2xl mx-auto lg:mx-0">
               {user && !mostrarFormularioOtraPersona 
                 ? "Bienvenido/a de vuelta. Tu cuenta te permite postular rápidamente a operativos."
@@ -553,16 +553,22 @@ function PostularContent() {
                   <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-blue-900">¿Primera vez? Crea tu cuenta</h3>
+                        <h3 className="font-semibold text-blue-900">No necesitas cuenta, pero te la recomendamos</h3>
                         <p className="text-sm text-blue-700 mt-1">
-                          Con una cuenta podrás postular a operativos con un clic, ver tu historial y recibir notificaciones.
+                          Puedes postular sin crear una cuenta. Sin embargo, con una cuenta podrás:
                         </p>
+                        <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc list-inside">
+                          <li>Postular a futuros operativos con un clic</li>
+                          <li>Mantener tu historial de participación</li>
+                          <li>Editar tus datos en cualquier momento</li>
+                          <li>Recibir notificaciones y confirmaciones</li>
+                        </ul>
                       </div>
                       <a
                         href="/mi-cuenta/registro"
-                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
+                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap self-start"
                       >
-                        Crear cuenta
+                        Crear cuenta gratis
                       </a>
                     </div>
                   </div>
@@ -579,6 +585,7 @@ function PostularContent() {
                         <h3 className="font-semibold text-amber-900">Postulando a otra persona</h3>
                         <p className="text-sm text-amber-700 mt-1">
                           Completa los datos de la persona que quieres inscribir. Esta postulación no modificará tu perfil.
+                          Te recomendamos que esa persona cree su propia cuenta para gestionar sus datos y participaciones.
                         </p>
                       </div>
                     </div>
@@ -631,7 +638,7 @@ function PostularContent() {
             {msgAuto && <div className="mx-auto max-w-4xl alert info">{msgAuto}</div>}
 
             {/* Formulario principal */}
-            <div className="mx-auto max-w-4xl rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-xl sm:p-10">
+            <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_4px_12px_rgba(0,0,0,0.06)] sm:p-10">
               <form onSubmit={submit} className="space-y-6" autoComplete="off">
         {/* Datos personales */}
         <Section title="Datos personales">

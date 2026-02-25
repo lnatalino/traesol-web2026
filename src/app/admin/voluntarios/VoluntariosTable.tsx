@@ -16,6 +16,8 @@ type OptionLists = {
 type DisplayRow = VoluntarioAdminRow & {
   createdLabel: string;
   birthLabel: string;
+  /** Estado de cuenta: has_account, no_account, pending (usuario sin registro voluntarios) */
+  accountStatus: "has_account" | "no_account" | "pending";
 };
 
 type Props = {
@@ -266,7 +268,25 @@ export default function VoluntariosTable({ items, total, limit, filters, options
                   <tr key={row.id} className="align-top hover:bg-slate-50/50">
                     <td className="px-5 py-4">
                       <div className="font-medium text-slate-900">{nombre}</div>
-                      <div className="text-xs text-slate-500">
+                      {/* Badge de estado de cuenta */}
+                      <div className="mt-1">
+                        {row.accountStatus === "has_account" && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            Con cuenta
+                          </span>
+                        )}
+                        {row.accountStatus === "no_account" && (
+                          <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                            Sin cuenta
+                          </span>
+                        )}
+                        {row.accountStatus === "pending" && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Perfil pendiente
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
                         {row.nacionalidad ? `${row.nacionalidad} · ` : ""}
                         {row.genero || "Sin género"}
                       </div>
@@ -303,12 +323,18 @@ export default function VoluntariosTable({ items, total, limit, filters, options
                     <td className="px-5 py-4 text-xs text-slate-500">{row.createdLabel}</td>
                     <td className="px-5 py-4">
                       <div className="flex flex-col gap-2 text-xs">
-                        <Link
-                          href={`/admin/voluntarios/${row.id}`}
-                          className="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          Ver perfil
-                        </Link>
+                        {row.id.startsWith("user_") ? (
+                          <span className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
+                            Solo en Usuarios
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/admin/voluntarios/${row.id}`}
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Ver perfil
+                          </Link>
+                        )}
                         {row.email ? (
                           <a
                             href={`mailto:${row.email}`}

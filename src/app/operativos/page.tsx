@@ -6,6 +6,7 @@ import {
   EmptyState,
   PrimaryButtonLink 
 } from "@/components/public";
+import ScrollReveal from "@/components/ScrollReveal";
 import { createSupabaseServer } from "@/lib/supabaseServer";
 import { isOperativoParaPublico, getNowInChile, toChileDateString, type OperativoState } from "@/lib/operativosShared";
 
@@ -134,7 +135,7 @@ export default async function OperativosPage() {
       />
 
       {/* Grid de operativos */}
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 lg:px-6">
+      <div className="mx-auto max-w-6xl space-y-14 px-5 py-14 lg:px-6">
         {ops.length === 0 ? (
           <EmptyState
             icon={Stethoscope}
@@ -147,6 +148,7 @@ export default async function OperativosPage() {
             }
           />
         ) : (
+          <ScrollReveal stagger>
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {ops.map((op) => {
               const portada =
@@ -165,6 +167,7 @@ export default async function OperativosPage() {
               );
             })}
           </div>
+          </ScrollReveal>
         )}
       </div>
     </main>

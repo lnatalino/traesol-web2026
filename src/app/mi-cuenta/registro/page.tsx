@@ -112,9 +112,10 @@ export default function RegistroPage() {
     <main className="container">
       <BackButton fallback="/mi-cuenta/login" />
 
-      <div className="max-w-lg mx-auto mt-8">
-        <div className="card">
-          <h1 className="title mb-2">Crear cuenta</h1>
+      <div className="max-w-lg mx-auto mt-8 px-4">
+        <div className="card relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500" />
+          <h1 className="title mb-2 font-bold tracking-tight">Crear cuenta</h1>
           <p className="subtitle mb-6">
             Regístrate para acceder a tu perfil de voluntario
           </p>
@@ -245,7 +246,7 @@ export default function RegistroPage() {
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t text-center text-sm text-slate-600">
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center text-sm text-slate-600">
             ¿Ya tienes cuenta?{" "}
             <Link
               href="/mi-cuenta/login"

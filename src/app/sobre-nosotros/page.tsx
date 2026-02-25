@@ -6,6 +6,7 @@ import {
   PublicSection,
   PrimaryButtonLink 
 } from "@/components/public";
+import ScrollReveal from "@/components/ScrollReveal";
 
 export const metadata = { title: "Sobre Nosotros · Traesol" };
 
@@ -23,7 +24,8 @@ export default function SobreNosotrosPage() {
         <img
           src="/branding/logo-traesol.png"
           alt="Logo Fundación Traesol"
-          className="mx-auto w-[160px] sm:w-[200px] md:w-[240px] h-auto mb-6 drop-shadow-lg"
+          className="mx-auto w-[160px] sm:w-[200px] md:w-[240px] h-auto mb-6"
+          style={{ filter: "drop-shadow(0 0 18px rgba(255,255,255,0.25)) drop-shadow(0 4px 12px rgba(0,0,0,0.3))" }}
         />
         <div className="mt-4 grid gap-4 sm:grid-cols-2 max-w-3xl mx-auto">
           <div className="rounded-2xl border border-white/20 bg-white/10 p-5 text-left">
@@ -43,9 +45,10 @@ export default function SobreNosotrosPage() {
       </PublicHero>
 
       {/* Contenido */}
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 lg:px-6">
+      <div className="mx-auto max-w-6xl space-y-14 px-5 py-14 lg:px-6">
         {/* Quiénes somos */}
-        <PublicSection className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg sm:p-10">
+        <ScrollReveal>
+        <PublicSection className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-10">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Quiénes somos</p>
         <div className="mt-6 grid gap-8 lg:grid-cols-[1.15fr_minmax(0,0.85fr)]">
           <div className="space-y-4 text-base leading-relaxed text-slate-700">
@@ -59,9 +62,9 @@ export default function SobreNosotrosPage() {
               Nuestro propósito es reducir las brechas de acceso en comunidades vulnerables, llegando a más personas mediante el ejercicio profesional y voluntario que da vida a Traesol.
             </p>
           </div>
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 p-6 shadow-inner">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-cyan-50/60 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Desde 2015</p>
-            <h3 className="mt-3 text-2xl font-semibold text-slate-900">Vocación y Servicio</h3>
+            <h3 className="mt-3 text-2xl font-bold text-slate-900 tracking-tight">Vocación y Servicio</h3>
             <p className="mt-2 text-sm text-slate-600">
               Co-diseñamos intervenciones junto al sistema público para equilibrar operativos, docencia y educación comunitaria. Nuestro enfoque combina impacto clínico, fortalecimiento de equipos locales y promoción de salud en terreno.
             </p>
@@ -73,13 +76,15 @@ export default function SobreNosotrosPage() {
           </div>
         </div>
       </PublicSection>
+      </ScrollReveal>
 
       {/* Nuestros pilares */}
-      <PublicSection className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg sm:p-10">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <ScrollReveal>
+      <PublicSection className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Nuestros pilares</p>
-            <h2 className="text-3xl font-semibold text-slate-900">Nuestros pilares</h2>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Nuestros pilares</h2>
           </div>
           <p className="text-sm text-slate-500 max-w-xl">
             Sostenemos cada operativo combinando atención, formación y trabajo comunitario.
@@ -103,12 +108,14 @@ export default function SobreNosotrosPage() {
           />
         </div>
       </PublicSection>
+      </ScrollReveal>
 
       {/* CTA Súmate */}
-      <PublicSection className="rounded-3xl border border-dashed border-blue-200 bg-white/80 p-6 text-center shadow-lg sm:p-10">
+      <ScrollReveal>
+      <PublicSection className="rounded-2xl border border-dashed border-blue-200/80 bg-blue-50/30 p-6 text-center sm:p-10">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Súmate</p>
-        <h2 className="mt-2 text-3xl font-semibold text-slate-900">Súmate</h2>
-        <p className="mt-3 text-base text-slate-600">
+        <h2 className="mt-3 text-3xl font-bold text-slate-900 tracking-tight">Súmate</h2>
+        <p className="mt-3 text-base text-slate-600 max-w-lg mx-auto leading-relaxed">
           Sé voluntario y marca la diferencia. Tu tiempo y esfuerzo pueden cambiar vidas.
         </p>
         <div className="mt-6">
@@ -117,6 +124,7 @@ export default function SobreNosotrosPage() {
           </PrimaryButtonLink>
         </div>
       </PublicSection>
+      </ScrollReveal>
       </div>
     </main>
   );
@@ -133,12 +141,12 @@ function HighlightItem({ label }: { label: string }) {
 
 function Pilar({ titulo, texto, Icon }: { titulo: string; texto: string; Icon: LucideIcon }) {
   return (
-    <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-md">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+    <div className="group h-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-transform duration-200 group-hover:scale-110">
         <Icon className="h-5 w-5" />
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">{titulo}</h3>
-      <p className="mt-2 text-sm text-slate-600">{texto}</p>
+      <h3 className="mt-4 text-lg font-bold text-slate-900">{titulo}</h3>
+      <p className="mt-2 text-sm text-slate-500 leading-relaxed">{texto}</p>
     </div>
   );
 }

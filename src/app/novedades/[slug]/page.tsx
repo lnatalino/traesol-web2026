@@ -46,17 +46,17 @@ export default async function NovedadDetail({ params }: { params: Promise<{ slug
   const portada = n.imagen_portada_url || n.imagenes?.[0]?.url || "/placeholder.png";
 
   return (
-    <main className="container py-10 space-y-8">
+    <main className="container py-12 space-y-8">
       <BackButton fallback="/novedades" />
-      <header className="space-y-2">
-        <h1 className="title">{n.titulo}</h1>
-        {n.bajada ? <p className="subtitle">{n.bajada}</p> : null}
+      <header className="space-y-3">
+        <h1 className="title font-bold tracking-tight">{n.titulo}</h1>
+        {n.bajada ? <p className="subtitle leading-relaxed">{n.bajada}</p> : null}
         {publishedLabel ? (
           <p className="text-sm text-slate-500">Publicado el {publishedLabel}</p>
         ) : null}
       </header>
 
-      <div className="overflow-hidden rounded-2xl border bg-white">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <img
           src={portada}
           alt={n.titulo || "Novedad"}
@@ -72,12 +72,12 @@ export default async function NovedadDetail({ params }: { params: Promise<{ slug
 
       {n.imagenes?.length ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Galería</h2>
+          <h2 className="text-lg font-bold tracking-tight">Galería</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {n.imagenes.map((img, index) => (
               <figure
                 key={img.id}
-                className="overflow-hidden rounded-xl border bg-white"
+                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08)] transition-shadow duration-300"
               >
                 <img
                   src={img.url}

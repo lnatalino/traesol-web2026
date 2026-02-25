@@ -18,19 +18,19 @@ type Props = {
 
 const variantStyles = {
   gradient: {
-    container: "bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 text-white shadow-2xl",
+    container: "bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 text-white shadow-xl",
     eyebrow: "text-white/70",
     title: "text-white",
     description: "text-white/85",
   },
   white: {
-    container: "border border-slate-200 bg-white shadow-lg",
+    container: "border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
     eyebrow: "text-blue-600",
     title: "text-slate-900",
     description: "text-slate-600",
   },
   light: {
-    container: "border border-blue-100 bg-gradient-to-br from-blue-50/80 to-white shadow-lg",
+    container: "border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
     eyebrow: "text-blue-600",
     title: "text-slate-900",
     description: "text-slate-600",
@@ -52,7 +52,7 @@ export function PublicPageHeader({
   const styles = variantStyles[variant];
 
   return (
-    <header className={`rounded-[32px] px-6 py-10 sm:px-10 ${styles.container}`}>
+    <header className={`rounded-2xl px-6 py-10 sm:px-10 ${styles.container}`}>
       {eyebrow && (
         <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${styles.eyebrow}`}>
           {eyebrow}
@@ -61,11 +61,11 @@ export function PublicPageHeader({
       
       <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3">
-          <h1 className={`text-4xl font-semibold sm:text-5xl ${styles.title}`}>
+          <h1 className={`text-3xl font-bold sm:text-5xl tracking-tight ${styles.title}`}>
             {title}
           </h1>
           {description && (
-            <p className={`max-w-2xl text-base sm:text-lg ${styles.description}`}>
+            <p className={`max-w-2xl text-base sm:text-lg leading-relaxed ${styles.description}`}>
               {description}
             </p>
           )}

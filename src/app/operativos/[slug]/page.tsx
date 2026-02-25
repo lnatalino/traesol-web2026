@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Calendar, MapPin } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import PostularButtons from "@/components/PostularButtons";
 import { createSupabaseServer } from "@/lib/supabaseServer";
@@ -127,35 +128,43 @@ export default async function OperativoPage({
 
   return (
     <main className="bg-slate-50">
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-10 lg:px-6">
+      <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8 px-5 py-8 sm:py-12 lg:px-6">
         <BackButton fallback="/" />
 
-        <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow">
-          <div className="relative h-60 w-full bg-slate-200 md:h-80">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="relative h-48 w-full bg-slate-200 sm:h-60 md:h-80">
             <Image src={imageSrc} alt={op.titulo || "Operativo Traesol"} fill className="object-cover" unoptimized priority />
           </div>
-          <div className="space-y-5 p-6 sm:p-8">
+          <div className="space-y-4 sm:space-y-5 p-5 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600">Operativo Traesol</p>
-            <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">{op.titulo}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{op.titulo}</h1>
             <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{rangoFechas}</span>
-              {op.lugar && <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{op.lugar}</span>}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                {rangoFechas}
+              </span>
+              {op.lugar && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                  {op.lugar}
+                </span>
+              )}
               {op.direccion && (
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{op.direccion}</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">{op.direccion}</span>
               )}
             </div>
-            <div className="flex flex-wrap gap-3">
-              <span className="inline-flex items-center rounded-2xl bg-slate-900/5 px-4 py-1.5 text-xs font-semibold text-slate-800">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <span className="inline-flex items-center rounded-xl bg-slate-900/5 px-3.5 py-1.5 text-xs font-semibold text-slate-800">
                 Estado: {op.estado}
               </span>
               {typeof op.cupos_total === "number" && (
-                <span className="inline-flex items-center rounded-2xl bg-slate-900/5 px-4 py-1.5 text-xs font-semibold text-slate-800">
+                <span className="inline-flex items-center rounded-xl bg-slate-900/5 px-3.5 py-1.5 text-xs font-semibold text-slate-800">
                   Cupos: {op.cupos_total}
                 </span>
               )}
               {op.instagram_url && (
                 <a
-                  className="inline-flex items-center rounded-2xl bg-white px-4 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100 transition hover:bg-blue-50"
+                  className="inline-flex items-center rounded-xl bg-white px-3.5 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100 transition hover:bg-blue-50"
                   href={op.instagram_url}
                   target="_blank"
                   rel="noreferrer"
@@ -164,21 +173,21 @@ export default async function OperativoPage({
                 </a>
               )}
             </div>
-            {op.descripcion && <p className="text-base text-slate-600">{op.descripcion}</p>}
+            {op.descripcion && <p className="text-sm sm:text-base text-slate-600 leading-relaxed">{op.descripcion}</p>}
           </div>
         </div>
 
         {galeria.length ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <h2 className="text-xl font-semibold text-slate-900">Galería</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-8">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">Galería</h2>
+            <div className="mt-4 sm:mt-5 grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-2">
               {galeria.map((img, index) => (
-                <figure key={img.id} className="overflow-hidden rounded-2xl border bg-slate-50">
+                <figure key={img.id} className="overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/80 bg-slate-50 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08)] transition-shadow duration-300">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.url}
                     alt={`Imagen ${index + 1} del operativo ${op.titulo}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover aspect-[4/3]"
                   />
                 </figure>
               ))}
@@ -186,8 +195,8 @@ export default async function OperativoPage({
           </section>
         ) : null}
 
-        <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-6 shadow-sm sm:p-8">
-          <h2 className="text-xl font-semibold text-slate-900">¿Quieres participar?</h2>
+        <section className="rounded-2xl border border-blue-200/80 bg-blue-50/70 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-8">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">¿Quieres participar?</h2>
           <PostularButtons
             operativoId={op.id}
             operativoSlug={op.slug}

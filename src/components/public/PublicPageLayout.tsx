@@ -21,7 +21,7 @@ const bgStyles = {
 export function PublicPageLayout({ children, className = "", bg = "slate" }: Props) {
   return (
     <main className={bgStyles[bg]}>
-      <div className={`mx-auto max-w-6xl space-y-10 px-4 py-12 lg:px-6 ${className}`}>
+      <div className={`mx-auto max-w-6xl space-y-12 px-5 py-14 lg:px-6 ${className}`}>
         {children}
       </div>
     </main>

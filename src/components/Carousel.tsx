@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type Slide = {
   id: string;
@@ -82,8 +83,8 @@ export default function Carousel({
       <div
         className={`relative w-full overflow-hidden ${
           variant === "hero"
-            ? "aspect-[21/9] min-h-[200px] sm:min-h-[240px] lg:min-h-[300px]"
-            : "aspect-[16/9] rounded-[32px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur"
+            ? "aspect-[21/9] min-h-[220px] sm:min-h-[260px] lg:min-h-[320px]"
+            : "aspect-[16/9] rounded-2xl border border-slate-200/60 bg-slate-100 shadow-lg"
         }`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -97,7 +98,11 @@ export default function Carousel({
                   <img
                     src={s.imagen_url}
                     alt={s.titulo || "Slide"}
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${idx === activeIndex ? "opacity-100" : "opacity-0"}`}
+                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out ${
+                      idx === activeIndex 
+                        ? "opacity-100 scale-100" 
+                        : "opacity-0 scale-[1.02]"
+                    }`}
                     draggable={false}
                   />
                 );
@@ -106,8 +111,10 @@ export default function Carousel({
                   <div key={s.id} className={idx === activeIndex ? "relative h-full w-full" : "relative h-0 w-full"}>
                     {s.href ? <Link href={s.href}>{img}</Link> : img}
                     {s.titulo && idx === activeIndex && (
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent px-4 pb-4 pt-10 text-sm text-white sm:text-base">
-                        {s.titulo}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent px-6 pb-5 pt-14">
+                        <p className="text-white text-sm sm:text-base font-medium drop-shadow-sm max-w-xl">
+                          {s.titulo}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -115,39 +122,47 @@ export default function Carousel({
               })}
             </div>
 
-            {/* Controles */}
-            <button
-              aria-label="Anterior"
-              className="z-20 absolute left-4 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/80 text-slate-700 shadow hover:bg-white"
-              onClick={prev}
-              type="button"
-            >
-              ‹
-            </button>
-            <button
-              aria-label="Siguiente"
-              className="z-20 absolute right-4 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/80 text-slate-700 shadow hover:bg-white"
-              onClick={next}
-              type="button"
-            >
-              ›
-            </button>
-
-            {/* Dots */}
-            <div className="z-20 absolute inset-x-0 bottom-4 flex items-center justify-center gap-2">
-              {slideList.map((_, idx) => (
+            {/* Controles - más refinados */}
+            {totalSlides > 1 && (
+              <>
                 <button
-                  key={idx}
-                  aria-label={`Ir a slide ${idx + 1}`}
-                  onClick={() => setI(idx)}
-                  className={`h-2.5 w-2.5 rounded-full ${idx === activeIndex ? "bg-white" : "bg-white/45"} ring-1 ring-black/10 transition`}
+                  aria-label="Anterior"
+                  className="z-20 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:scale-105 active:scale-95"
+                  onClick={prev}
                   type="button"
-                />
-              ))}
-            </div>
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  aria-label="Siguiente"
+                  className="z-20 absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-700 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:scale-105 active:scale-95"
+                  onClick={next}
+                  type="button"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+
+                {/* Dots - más elegantes */}
+                <div className="z-20 absolute inset-x-0 bottom-4 flex items-center justify-center gap-2">
+                  {slideList.map((_, idx) => (
+                    <button
+                      key={idx}
+                      aria-label={`Ir a slide ${idx + 1}`}
+                      onClick={() => setI(idx)}
+                      className={`rounded-full transition-all duration-300 ${
+                        idx === activeIndex 
+                          ? "bg-white w-7 h-2.5" 
+                          : "bg-white/50 w-2.5 h-2.5 hover:bg-white/70"
+                      }`}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-[24px] bg-slate-100/80 px-6 text-center text-slate-600">
+          <div className="flex h-full w-full items-center justify-center bg-slate-50 px-6 text-center text-slate-500">
             <p className="text-base font-medium">
               Pronto compartiremos nuevas historias y campañas.
             </p>

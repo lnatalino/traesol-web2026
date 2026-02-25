@@ -10,8 +10,8 @@ type Props = {
 };
 
 export function PublicCard({ href, children, className = "", hover = true }: Props) {
-  const baseClasses = `overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${
-    hover ? "transition hover:-translate-y-0.5 hover:shadow-lg" : ""
+  const baseClasses = `overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${
+    hover ? "transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_24px_-4px_rgba(0,0,0,0.08)]" : ""
   } ${className}`;
 
   if (href) {

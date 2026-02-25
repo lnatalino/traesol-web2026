@@ -91,7 +91,7 @@ export default async function EmpresasPage() {
       </PublicHero>
 
       {/* Contenido */}
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12">
+      <div className="mx-auto max-w-6xl space-y-14 px-5 py-14">
         {errorMessage ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
         ) : null}

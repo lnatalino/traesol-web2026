@@ -133,7 +133,7 @@ export default function PostularButtons({
   return (
     <>
       <p className="mt-2 text-sm text-slate-600">
-        Postula para sumarte a este operativo o inicia sesión si ya tienes cuenta.
+        No necesitas cuenta para postular, pero si ya tienes una, podrás hacerlo más rápido y llevar tu historial.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <Link

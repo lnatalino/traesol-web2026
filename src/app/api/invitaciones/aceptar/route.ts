@@ -2,41 +2,14 @@ import { NextResponse } from "next/server";
 import { supabaseService } from "@/lib/supabaseService";
 import { INSCRIPCION_ESTADO, INSCRIPCION_ORIGEN } from "@/lib/inscripciones";
 import { sendInvitacionAceptadaEmail } from "@/lib/invitaciones/emails";
+import {
+  isProfileCompleteForOperativo,
+  PROFILE_FIELDS_FOR_VALIDATION,
+  type ProfileForValidation,
+} from "@/lib/businessRules";
 
-// Campos obligatorios para considerar un perfil "completo"
-const REQUIRED_PROFILE_FIELDS = [
-  "first_name",
-  "last_name", 
-  "phone",
-  "rut",
-  "talla_polera",
-  "restricciones_alimentarias",
-] as const;
-
-type UserProfileRow = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  rut: string | null;
-  talla_polera: string | null;
-  restricciones_alimentarias: string | null;
-};
-
-/**
- * Verifica si el perfil del usuario tiene todos los campos obligatorios
- */
-function isUserProfileComplete(profile: UserProfileRow | null): boolean {
-  if (!profile) return false;
-  
-  for (const field of REQUIRED_PROFILE_FIELDS) {
-    const value = profile[field];
-    if (!value || (typeof value === "string" && !value.trim())) {
-      return false;
-    }
-  }
-  return true;
-}
+// La validación de campos se centralizó en businessRules.ts
+// para mantener consistencia con PostularConCuentaModal y demás flujos.
 
 /**
  * POST /api/invitaciones/aceptar
@@ -192,11 +165,12 @@ export async function POST(req: Request) {
         // El voluntario tiene cuenta - verificar si perfil está completo
         const { data: userProfile } = await supabaseService
           .from("user_profiles")
-          .select("id, first_name, last_name, phone, rut, talla_polera, restricciones_alimentarias")
+          .select(PROFILE_FIELDS_FOR_VALIDATION)
           .eq("id", matchingUser.id)
-          .maybeSingle<UserProfileRow>();
+          .maybeSingle<ProfileForValidation>();
 
-        if (!isUserProfileComplete(userProfile)) {
+        const profileCheck = isProfileCompleteForOperativo(userProfile);
+        if (!profileCheck.isComplete) {
           // Perfil incompleto - retornar flag para que frontend redirija
           const { data: operativo } = await supabaseService
             .from("operativos")
@@ -207,6 +181,7 @@ export async function POST(req: Request) {
           return NextResponse.json({
             ok: false,
             requires_profile_completion: true,
+            missing_fields: profileCheck.missingFields,
             token: token, // Devolver token para re-intentar después
             user_id: matchingUser.id,
             operativo_id: operativo?.id || operativoId,

@@ -82,31 +82,56 @@ export default function Metrics({ m }: { m: MetricsInput }) {
     [m]
   );
 
-  // quitamos variables CSS personalizadas; usamos Tailwind neutro
-  const box = "rounded-2xl border bg-white p-8 shadow-sm flex flex-col items-center justify-center text-center";
-  const num = "text-5xl font-bold text-gray-900 tracking-tight tabular-nums";
-  const label = "mt-3 text-lg font-semibold text-gray-600";
-  const iconClass = "w-12 h-12 text-blue-700 mb-4"; // color fijo limpio
+  const metrics = [
+    {
+      icon: Building2,
+      value: totals.operativos,
+      label: "Operativos",
+      suffix: "+",
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+    },
+    {
+      icon: Users,
+      value: totals.voluntarios,
+      label: "Voluntarios",
+      suffix: "+",
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+    },
+    {
+      icon: HeartPulse,
+      value: totals.atenciones,
+      label: "Atenciones de salud",
+      suffix: "+",
+      color: "text-rose-600",
+      bgColor: "bg-rose-50",
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-      <div className={box}>
-        <Building2 className={iconClass} />
-        <CountUpNumber target={totals.operativos} className={num} />
-        <div className={label}>Operativos</div>
-      </div>
-
-      <div className={box}>
-        <Users className={iconClass} />
-        <CountUpNumber target={totals.voluntarios} className={num} />
-        <div className={label}>Voluntarios</div>
-      </div>
-
-      <div className={box}>
-        <HeartPulse className={iconClass} />
-        <CountUpNumber target={totals.atenciones} className={num} />
-        <div className={label}>Atenciones de salud</div>
-      </div>
+      {metrics.map((metric) => (
+        <div
+          key={metric.label}
+          className="group relative rounded-2xl border border-slate-200/80 bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)] flex flex-col items-center justify-center text-center"
+        >
+          {/* Decorative gradient dot */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full opacity-[0.04] blur-2xl bg-blue-600 group-hover:opacity-[0.08] transition-opacity" />
+          
+          <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${metric.bgColor} mb-5 transition-transform duration-200 group-hover:scale-110`}>
+            <metric.icon className={`w-7 h-7 ${metric.color}`} />
+          </div>
+          <CountUpNumber
+            target={metric.value}
+            suffix={metric.suffix}
+            className="text-5xl sm:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight tabular-nums"
+          />
+          <div className="mt-3 text-sm font-medium text-slate-500 tracking-wide uppercase">
+            {metric.label}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

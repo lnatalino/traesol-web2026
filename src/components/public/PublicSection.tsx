@@ -13,8 +13,8 @@ type Props = {
 };
 
 const variantStyles = {
-  default: "border-slate-200 bg-white/95",
-  highlight: "border-blue-100 bg-gradient-to-br from-blue-50/80 to-white",
+  default: "border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
+  highlight: "border-blue-100 bg-gradient-to-br from-blue-50/60 to-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
   dashed: "border-dashed border-blue-200 bg-white/80",
 };
 
@@ -31,7 +31,7 @@ export function PublicSection({
   
   return (
     <section
-      className={className || `rounded-3xl border p-6 shadow-lg sm:p-8 ${variantStyles[variant]}`}
+      className={className || `rounded-2xl border p-6 sm:p-8 lg:p-10 ${variantStyles[variant]}`}
     >
       {showHeader && (
         <PublicSectionHeader
@@ -41,7 +41,7 @@ export function PublicSection({
           rightAction={rightAction}
         />
       )}
-      {showHeader ? <div className="mt-6">{children}</div> : children}
+      {showHeader ? <div className="mt-8">{children}</div> : children}
     </section>
   );
 }

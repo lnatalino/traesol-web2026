@@ -10,6 +10,11 @@ import Link from "next/link";
 import { useSession } from "@/components/providers/SessionProvider";
 import { formatRut } from "@/lib/userAuth";
 import { createSupabaseBrowser } from "@/lib/supabase";
+import {
+  isProfileCompleteForOperativo,
+  PROFILE_FIELDS_FOR_VALIDATION,
+  type ProfileForValidation,
+} from "@/lib/businessRules";
 
 interface PostularConCuentaModalProps {
   isOpen: boolean;
@@ -19,52 +24,8 @@ interface PostularConCuentaModalProps {
   operativoTitulo: string;
 }
 
-// Campos obligatorios para postular (según encuesta voluntarios)
-const CAMPOS_OBLIGATORIOS = [
-  { key: "rut", label: "RUT" },
-  { key: "first_name", label: "Nombre" },
-  { key: "last_name", label: "Apellido" },
-  { key: "phone", label: "Teléfono" },
-  { key: "talla_polera", label: "Talla de polera" },
-  { key: "restricciones_alimentarias", label: "Restricciones alimentarias" },
-] as const;
-
-// Perfil completo del voluntario (incluye campos de logística)
-interface VoluntarioProfile {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  rut: string | null;
-  phone: string | null;
-  birthdate: string | null;
-  talla_polera: string | null;
-  talla_pantalon: string | null;
-  restricciones_alimentarias: string | null;
-  direccion: string | null;
-  comuna: string | null;
-  instagram: string | null;
-}
-
-function validateVolunteerProfile(profile: VoluntarioProfile | null): { isComplete: boolean; missingFields: string[] } {
-  if (!profile) {
-    return { isComplete: false, missingFields: ["Perfil no encontrado"] };
-  }
-
-  const missing: string[] = [];
-
-  for (const campo of CAMPOS_OBLIGATORIOS) {
-    const value = profile[campo.key as keyof VoluntarioProfile];
-    // Considerar vacío si es null, undefined, o string vacío
-    if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
-      missing.push(campo.label);
-    }
-  }
-
-  return {
-    isComplete: missing.length === 0,
-    missingFields: missing,
-  };
-}
+// Usa la validación centralizada de businessRules.ts
+// ProfileForValidation se importa de allí.
 
 export default function PostularConCuentaModal({
   isOpen,
@@ -77,7 +38,7 @@ export default function PostularConCuentaModal({
   const { user, loading: sessionLoading } = useSession();
   
   // Estado del perfil completo (cargado de DB)
-  const [fullProfile, setFullProfile] = useState<VoluntarioProfile | null>(null);
+  const [fullProfile, setFullProfile] = useState<ProfileForValidation | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   
   const [confirmado, setConfirmado] = useState(false);
@@ -94,7 +55,7 @@ export default function PostularConCuentaModal({
       const supabase = createSupabaseBrowser();
       const { data, error: dbError } = await supabase
         .from("user_profiles")
-        .select("id, first_name, last_name, rut, phone, birthdate, talla_polera, talla_pantalon, restricciones_alimentarias, direccion, comuna, instagram")
+        .select(PROFILE_FIELDS_FOR_VALIDATION)
         .eq("id", user.id)
         .single();
       
@@ -102,7 +63,7 @@ export default function PostularConCuentaModal({
         console.error("[PostularConCuenta] Error cargando perfil:", dbError);
       }
       
-      setFullProfile(data as VoluntarioProfile | null);
+      setFullProfile(data as ProfileForValidation | null);
     } catch (err) {
       console.error("[PostularConCuenta] Error:", err);
     } finally {
@@ -129,7 +90,7 @@ export default function PostularConCuentaModal({
 
   if (!isOpen) return null;
 
-  const profileStatus = validateVolunteerProfile(fullProfile);
+  const profileStatus = isProfileCompleteForOperativo(fullProfile);
   const currentUrl = typeof window !== "undefined" ? window.location.pathname : "";
 
   async function handleSubmit() {
@@ -140,7 +101,7 @@ export default function PostularConCuentaModal({
     }
 
     // Validación final antes de enviar
-    const validation = validateVolunteerProfile(fullProfile);
+    const validation = isProfileCompleteForOperativo(fullProfile);
     if (!validation.isComplete) {
       setError(`Faltan datos obligatorios: ${validation.missingFields.join(", ")}`);
       return;

@@ -115,9 +115,10 @@ function LoginContent() {
     <main className="container">
       <BackButton fallback="/" />
       
-      <div className="max-w-md mx-auto mt-8">
-        <div className="card">
-          <h1 className="title mb-2">Iniciar sesión</h1>
+      <div className="max-w-md mx-auto mt-8 px-4">
+        <div className="card relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500" />
+          <h1 className="title mb-2 font-bold tracking-tight">Iniciar sesión</h1>
           <p className="subtitle mb-6">Accede a tu cuenta de voluntario</p>
 
           {showVerifiedMsg && (
@@ -166,7 +167,7 @@ function LoginContent() {
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t text-center text-sm">
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center text-sm">
             <Link
               href="/mi-cuenta/olvido-contrasena"
               className="text-blue-600 hover:underline"

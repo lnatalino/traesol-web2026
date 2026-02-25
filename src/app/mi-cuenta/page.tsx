@@ -215,26 +215,27 @@ export default function MiCuentaPage() {
 
   return (
     <main className="container">
-      <div className="max-w-4xl mx-auto mt-8 px-4 pb-12">
+      <div className="max-w-4xl mx-auto mt-6 sm:mt-8 px-0 sm:px-5 pb-14">
         {/* Header con avatar */}
-        <div className="card mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-semibold shrink-0">
+        <div className="card mb-5 sm:mb-6 relative overflow-hidden mx-4 sm:mx-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-transparent" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center text-lg sm:text-xl font-bold shrink-0 shadow-[0_4px_12px_rgba(37,99,235,0.3)]">
                 {initials}
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">{displayName}</h1>
-                <p className="text-slate-500">{user.email}</p>
-                <span className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">{displayName}</h1>
+                <p className="text-slate-500 text-sm truncate">{user.email}</p>
+                <span className="inline-flex items-center gap-1.5 mt-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   Voluntario verificado
                 </span>
               </div>
             </div>
             <Link 
               href="/mi-cuenta/perfil" 
-              className="btn-secondary text-sm flex items-center gap-2"
+              className="btn-outline text-sm flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -246,30 +247,30 @@ export default function MiCuentaPage() {
         </div>
 
         {/* Acciones rápidas */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-8">
-          <Link href="/operativos" className="card hover:border-blue-300 hover:shadow-md transition-all group">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3 mb-6 sm:mb-8 px-4 sm:px-0">
+          <Link href="/operativos" className="card hover:border-blue-300 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08)] transition-all duration-300 group">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors duration-300">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900">Ver operativos</h3>
+                <h3 className="font-bold tracking-tight text-slate-900">Ver operativos</h3>
                 <p className="text-sm text-slate-500">Próximas oportunidades</p>
               </div>
             </div>
           </Link>
 
-          <Link href="/postular" className="card hover:border-green-300 hover:shadow-md transition-all group">
+          <Link href="/postular" className="card hover:border-green-300 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08)] transition-all duration-300 group">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors duration-300">
+                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900">Postular</h3>
+                <h3 className="font-bold tracking-tight text-slate-900">Postular</h3>
                 <p className="text-sm text-slate-500">A un nuevo operativo</p>
               </div>
             </div>
@@ -278,16 +279,16 @@ export default function MiCuentaPage() {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="card hover:border-red-300 hover:shadow-md transition-all group text-left"
+            className="card hover:border-red-300 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.08)] transition-all duration-300 group text-left"
           >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+              <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors duration-300">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-red-600">
+                <h3 className="font-bold tracking-tight text-red-600">
                   {loggingOut ? "Cerrando..." : "Cerrar sesión"}
                 </h3>
                 <p className="text-sm text-slate-500">Salir de mi cuenta</p>
@@ -296,14 +297,14 @@ export default function MiCuentaPage() {
           </button>
         </div>
 
-        {/* Grid de secciones */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Grid de secciones - stack on mobile */}
+        <div className="grid gap-5 sm:gap-6 lg:grid-cols-2 px-4 sm:px-0">
           {/* Mis datos */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-slate-400" />
-                <h2 className="text-lg font-semibold text-slate-900">Mis datos</h2>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Mis datos</h2>
               </div>
               {isProfileIncomplete && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
@@ -370,7 +371,7 @@ export default function MiCuentaPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
-                <h2 className="text-lg font-semibold text-slate-900">Por asistir</h2>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Por asistir</h2>
               </div>
               <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                 {porAsistir.length}
@@ -507,7 +508,7 @@ export default function MiCuentaPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-500" />
-                <h2 className="text-lg font-semibold text-slate-900">Mis postulaciones</h2>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Mis postulaciones</h2>
               </div>
               <span className="text-sm font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                 {pendientes.length} pendientes
@@ -550,7 +551,7 @@ export default function MiCuentaPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
-                <h2 className="text-lg font-semibold text-slate-900">Finalizados</h2>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Finalizados</h2>
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                 {finalizados.length}

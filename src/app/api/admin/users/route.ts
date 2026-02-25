@@ -264,6 +264,43 @@ export async function POST(req: Request) {
       role,
     } as never);
 
+    // ── Consistencia: crear registro en tabla "voluntarios" ──
+    // Regla de negocio: todo usuario (excepto superadmin) debe existir
+    // en la tabla "voluntarios" para aparecer en Admin > Voluntarios.
+    if (role !== "superadmin") {
+      try {
+        const { data: existingVol } = await supabaseService
+          .from("voluntarios")
+          .select("id")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+
+        if (existingVol) {
+          const volId = (existingVol as { id: string }).id;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabaseService as any)
+            .from("voluntarios")
+            .update({
+              nombres: firstName,
+              apellidos: lastName,
+              rut: rut || null,
+            })
+            .eq("id", volId);
+        } else {
+          await supabaseService
+            .from("voluntarios")
+            .insert({
+              nombres: firstName,
+              apellidos: lastName,
+              email: normalizedEmail,
+              rut: rut || null,
+            } as never);
+        }
+      } catch (volErr) {
+        console.error("[admin/users POST] Error creando registro voluntario:", volErr);
+      }
+    }
+
     // Enviar email de bienvenida con código para establecer contraseña
     const otpResult = await generateOtp(normalizedEmail, "reset_password", userId);
 
